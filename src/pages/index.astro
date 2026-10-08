@@ -1,0 +1,23 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import ChatHeader from '../components/ChatHeader.astro';
+import MessageList from '../components/MessageList.astro';
+import Composer from '../components/Composer.astro';
+import ConfirmDialog from '../components/ConfirmDialog.astro';
+---
+<Layout>
+	<div class="flex h-dvh overflow-hidden">
+		<Sidebar />
+		<div class="flex min-w-0 flex-1 flex-col">
+			<ChatHeader />
+			<MessageList />
+			<Composer />
+		</div>
+	</div>
+	<ConfirmDialog />
+</Layout>
+
+<script>
+  import '../lib/client/app.js';
+</script>

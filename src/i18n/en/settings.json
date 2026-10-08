@@ -1,0 +1,182 @@
+{
+  "docTitle": "Settings — Lucania",
+  "title": "Settings",
+  "back": "← Back",
+  "navLabel": "Settings sections",
+  "nav": {
+    "connections": "Connections",
+    "shutdown": "Remote shutdown",
+    "appearance": "Appearance",
+    "wireguard": "WireGuard guide",
+    "about": "About"
+  },
+  "connections": {
+    "title": "Connections",
+    "description": "The Ollama servers used to chat, on this computer or remote.",
+    "add": "Add a connection",
+    "emptyTitle": "No connections",
+    "emptyText": "Add Ollama on this computer or on a remote server to start chatting.",
+    "loading": "Loading…",
+    "kindLocal": "Local",
+    "kindRemote": "Remote",
+    "toggleLabel": "Enable connection {name}",
+    "menu": {
+      "test": "Test",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "status": {
+      "disabled": "Disabled",
+      "testing": "Testing…",
+      "failed": "Could not connect.",
+      "ok": "{ms} ms · {models}"
+    },
+    "models": {
+      "one": "{count} model",
+      "other": "{count} models"
+    },
+    "delete": {
+      "title": "Delete this connection?",
+      "message": "“{name}” will be removed. Your conversations are not affected."
+    }
+  },
+  "form": {
+    "titleAdd": "Add a connection",
+    "titleEdit": "Edit connection",
+    "back": "← Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "add": "Add",
+    "saving": "Saving…",
+    "adding": "Adding…",
+    "step1": {
+      "question": "Where does your model run?",
+      "localTitle": "On this computer",
+      "localText": "Ollama is installed here.",
+      "remoteTitle": "On another machine",
+      "remoteText": "A PC or server reachable through your WireGuard VPN or your local network.",
+      "custom": "Use a custom URL"
+    },
+    "localHint": "No setup needed: we look for Ollama on the default port.",
+    "host": {
+      "label": "IP address or machine name",
+      "help": "Its address inside the WireGuard tunnel. Port 11434 is added automatically.",
+      "invalid": "Invalid address (e.g. 10.0.0.2)."
+    },
+    "url": {
+      "label": "Ollama server URL",
+      "invalid": "The URL is invalid (e.g. http://192.168.1.20:11434)."
+    },
+    "test": {
+      "searchingLocal": "Looking for Ollama on this computer…",
+      "testing": "Testing the connection…",
+      "detected": "✓ Ollama detected · {models}",
+      "failed": "Could not connect.",
+      "helpLocal": "Start Ollama and try again. You can also add the connection now and start it later.",
+      "helpRemote": "Is the tunnel up? ",
+      "helpCustom": "Check the address and that the server is running.",
+      "guide": "See the guide",
+      "retry": "Retry",
+      "modelsLabel": "Detected models"
+    },
+    "name": {
+      "label": "Name:",
+      "edit": "Edit name",
+      "inputLabel": "Connection name",
+      "local": "This computer",
+      "remote": "Machine {host}",
+      "remoteFallback": "Other machine",
+      "customFallback": "Custom connection"
+    },
+    "advanced": {
+      "summary": "Advanced options",
+      "autoLabel": "Detect models automatically",
+      "autoHelp": "Lists the installed models each time the picker is opened.",
+      "manualLabel": "Manually added models",
+      "manualPlaceholder": "E.g. llama3.2:3b, then Enter",
+      "manualDuplicate": "This model is already in the list.",
+      "manualListLabel": "Added models",
+      "remove": "Remove {model}",
+      "detectedHint": "Detected: click to add.",
+      "alreadyAdded": "{model} already added",
+      "addModel": "Add {model}",
+      "shutdownLabel": "Remote shutdown",
+      "shutdownHelp": "Shows a “Shut down” button in the sidebar.",
+      "shutdownUrl": "Listener URL",
+      "shutdownUrlInvalid": "The listener URL must start with http:// or https://.",
+      "shutdownMethod": "HTTP method",
+      "token": "Token (optional)",
+      "tokenSaved": "•••••••• (saved, leave empty to keep)",
+      "tokenClear": "Clear the saved token"
+    }
+  },
+  "shutdown": {
+    "title": "Remote shutdown",
+    "description": "The “Shut down” button in the sidebar sends an HTTP request to a small program running on the remote machine. You need that program's URL and its secret token.",
+    "empty": "No connections yet.",
+    "emptyLink": "Add a connection",
+    "enable": "Enable shutdown",
+    "toggleLabel": "Enable shutdown for {name}",
+    "url": "Shutdown program URL",
+    "urlInvalid": "The URL must start with http:// or https://.",
+    "method": "HTTP method",
+    "token": "Secret token",
+    "tokenSaved": "•••••••• (saved)",
+    "tokenClear": "Clear token",
+    "tokenCleared": "The token will be cleared on save.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved ✓"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "description": "Choose the color theme and the interface language.",
+    "themeTitle": "Theme",
+    "themeLabel": "Color theme",
+    "languageTitle": "Language",
+    "languageLabel": "Interface language",
+    "hint": "The theme and language are saved on this device."
+  },
+  "wireguard": {
+    "title": "WireGuard guide",
+    "description": "Use Ollama on another machine, through a VPN tunnel.",
+    "step1": {
+      "title": "Install WireGuard",
+      "before": "On this PC and on the server, from ",
+      "link": "wireguard.com/install",
+      "after": "."
+    },
+    "step2": {
+      "title": "Create the tunnel",
+      "text": "Import or create the tunnel in the official client, then bring it up on both sides."
+    },
+    "step3": {
+      "title": "Make Ollama reachable through the tunnel",
+      "text": "On the server, set the environment variable below, then restart Ollama.",
+      "firewallBefore": "Then allow port ",
+      "firewallAfter": " in the firewall, for the WireGuard interface only."
+    },
+    "step4": {
+      "title": "Add the connection here",
+      "text": "In the Connections section, click “Add a connection” and choose “On another machine”. Enter the server's IP inside the tunnel, for example:",
+      "done": "The connection test starts on its own: the detected models are listed if everything works."
+    },
+    "securityTitle": "Security.",
+    "security": "Never expose port 11434 to the Internet without a VPN: Ollama has no authentication."
+  },
+  "about": {
+    "title": "About",
+    "description": "Lucania, a local chat interface for Ollama models.",
+    "version": "Version",
+    "data": "Data",
+    "dataBefore": "Conversations are stored locally in ",
+    "dataAfter": ".",
+    "dataDir": "Data folder",
+    "copy": "Copy",
+    "copied": "Copied",
+    "dataDirDesktop": "This folder is kept across updates and deleted on uninstall.",
+    "dataDirWeb": "Web version: data is stored in the project's data/ folder.",
+    "source": "Source code",
+    "repo": "Project repository"
+  }
+}

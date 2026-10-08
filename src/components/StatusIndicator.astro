@@ -1,0 +1,9 @@
+---
+import { getLang, t } from '../i18n/index';
+const lang = getLang(Astro);
+---
+<div id="status-indicator" class="flex items-center gap-2">
+	<span id="status-dot" data-status="checking" class="size-2 rounded-full bg-muted data-[status=checking]:animate-dot-pulse motion-reduce:animate-none data-[status=online]:bg-emerald-500 data-[status=online]:shadow-[0_0_8px_rgb(16_185_129/0.55)] data-[status=offline]:bg-danger"></span>
+	<span id="status-label" class="hidden text-xs text-muted sm:inline">{t(lang, 'chat.status.checking')}</span>
+	<a id="status-settings-link" href="/parametres" data-show="false" class="hidden text-xs text-muted underline underline-offset-2 transition-colors hover:text-fg sm:data-[show=true]:inline">{t(lang, 'chat.status.configure')}</a>
+</div>

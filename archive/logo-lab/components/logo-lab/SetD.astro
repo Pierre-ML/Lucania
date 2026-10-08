@@ -1,0 +1,89 @@
+---
+import LogoCard from './LogoCard.astro';
+---
+<section id="set-d" class="space-y-6">
+  <header>
+    <h2 class="font-serif text-2xl">Caractère & mascottes</h2>
+    <p class="text-sm text-muted">Des figures franches (corbeau, hibou, renard, fantôme…) qui donnent un visage à l'IA qui veille sur la tour.</p>
+  </header>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <LogoCard id="D1" name="Corvus" vibe="Le corbeau de RavenX, profil tranchant et œil rouge qui ne cille pas." tags={["corbeau", "RavenX", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M10 42C10 24 22 10 38 10C45 10 50 14 52 20L60 34H46C44 44 38 52 26 54H18C22 51 25 48 26 46C16 46 10 46 10 42Z" fill="currentColor"/>
+        <circle cx="39" cy="22" r="3.5" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D2" name="Plume" vibe="Une seule plume, légère et nette : écrire, penser, s'envoler." tags={["plume", "écriture", "léger"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M54 8C30 8 14 24 14 42L8 56L14 54L20 50C40 50 54 34 54 8ZM48 14L46.5 12.5L14 52L16 53.5Z" fill="currentColor"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D3" name="Vigie" vibe="Un œil amande qui veille en silence, pupille rouge allumée." tags={["œil", "veille", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M5 32C14 18 24 13 32 13C40 13 50 18 59 32C50 46 40 51 32 51C24 51 14 46 5 32Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+        <circle cx="32" cy="32" r="11" fill="currentColor"/>
+        <circle cx="32" cy="32" r="4.5" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D4" name="Sage" vibe="Le hibou aux grands yeux ronds : calme, érudit, un peu solennel." tags={["hibou", "sagesse", "savoir"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M10 8L24 17H40L54 8L55 30C55 46 45 57 32 57C19 57 9 46 9 30ZM15 31A8.5 8.5 0 1 0 32 31A8.5 8.5 0 1 0 15 31ZM32 31A8.5 8.5 0 1 0 49 31A8.5 8.5 0 1 0 32 31ZM32 39L28.5 46H35.5Z" fill="currentColor"/>
+        <circle cx="23.5" cy="31" r="3" fill="currentColor"/>
+        <circle cx="40.5" cy="31" r="3" fill="currentColor"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D5" name="Rusé" vibe="Un renard en facettes, regard en biais, toujours une idée d'avance." tags={["renard", "malin", "facettes"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M7 7L24 20H40L57 7L60 34L32 59L4 34ZM15 30L27 34L25 39L15 35ZM49 30L37 34L39 39L49 35ZM28 49H36L32 55Z" fill="currentColor"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D6" name="Spectre" vibe="Le fantôme dans la machine : discret, espiègle, jamais très loin." tags={["fantôme", "espiègle", "ghost"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 56V28C12 16 20 8 32 8C44 8 52 16 52 28V56Q47 49 42 56Q37 49 32 56Q27 49 22 56Q17 49 12 56ZM20 27A4 5.5 0 1 0 28 27A4 5.5 0 1 0 20 27ZM36 27A4 5.5 0 1 0 44 27A4 5.5 0 1 0 36 27Z" fill="currentColor"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D7" name="Monolithe" vibe="Une dalle sombre et une étincelle rouge : la tour qui pense." tags={["tour", "monolithe", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M23 24H41L44 60H20ZM30 33H34V43H30Z" fill="currentColor"/>
+        <path d="M32 3Q33 10 40 11.5Q33 13 32 20Q31 13 24 11.5Q31 10 32 3Z" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D8" name="Foyer" vibe="Une maison et son étincelle : l'IA vit chez toi, pas dans le cloud." tags={["maison", "local", "étincelle"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M32 5L59 28H52V58H12V28H5ZM32 26Q33.5 35.5 43 37Q33.5 38.5 32 48Q30.5 38.5 21 37Q30.5 35.5 32 26Z" fill="currentColor"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D9" name="Volt" vibe="Un éclair arrondi, braise vers orange : réponse instantanée." tags={["éclair", "vitesse", "dégradé"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="d9-grad" x1="48" y1="4" x2="16" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ff8a5c"/>
+            <stop offset="1" stop-color="#e5383b"/>
+          </linearGradient>
+        </defs>
+        <path d="M37 6L13 36H28L25 58L51 25H36Z" fill="url(#d9-grad)" stroke="url(#d9-grad)" stroke-width="3" stroke-linejoin="round"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="D10" name="Orbite" vibe="Une planète ceinturée d'un anneau : un monde de connaissances en rotation." tags={["planète", "anneau", "cosmos"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <mask id="d10-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+            <rect width="64" height="64" fill="#fff"/>
+            <ellipse cx="32" cy="32" rx="28" ry="9" transform="rotate(-20 32 32)" stroke="#000" stroke-width="9"/>
+          </mask>
+        </defs>
+        <circle cx="32" cy="32" r="16" fill="currentColor" mask="url(#d10-mask)"/>
+        <ellipse cx="32" cy="32" rx="28" ry="9" transform="rotate(-20 32 32)" stroke="currentColor" stroke-width="3.5"/>
+      </svg>
+    </LogoCard>
+  </div>
+</section>

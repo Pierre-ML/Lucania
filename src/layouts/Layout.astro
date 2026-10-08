@@ -1,0 +1,34 @@
+---
+import '../styles/global.css';
+import { getLang } from '../i18n/index';
+import { THEMES } from '../lib/client/theme.js';
+interface Props { title?: string }
+const { title = 'Lucania' } = Astro.props;
+const lang = getLang(Astro);
+const cookieTheme = Astro.cookies.get('theme')?.value ?? 'lucania';
+const themeId = THEMES.some((t) => t.id === cookieTheme) ? cookieTheme : 'lucania';
+const isSystem = themeId === 'system';
+// Pour « system », rendu serveur en sombre ; le script inline corrige avant le premier rendu.
+const dataTheme = isSystem ? 'dark' : themeId;
+const isDark = isSystem ? true : (THEMES.find((t) => t.id === themeId)?.dark ?? true);
+---
+<!doctype html>
+<html lang={lang} data-theme={dataTheme}>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content={isSystem ? 'light dark' : isDark ? 'dark' : 'light'} />
+		{isSystem && (
+			<script is:inline>
+				document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+			</script>
+		)}
+		<link rel="icon" href="/favicon.ico" sizes="48x48" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+	</head>
+	<body class="bg-bg text-fg antialiased">
+		<slot />
+	</body>
+</html>

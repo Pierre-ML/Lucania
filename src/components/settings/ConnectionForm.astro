@@ -1,0 +1,170 @@
+---
+import { getLang, t } from '../../i18n/index';
+import Switch from './Switch.astro';
+
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger/60';
+const label = 'mb-1.5 block text-sm font-medium';
+const help = 'mt-1.5 text-xs text-muted';
+const err = 'mt-1.5 text-xs text-danger';
+const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const ghostBtn = 'inline-flex cursor-pointer items-center rounded-md text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40';
+const card = 'flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:border-fg/20 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.98] motion-reduce:transition-none';
+const step = 'transition-[opacity,transform] duration-200 ease-out data-[enter]:translate-x-2 data-[enter]:opacity-0 motion-reduce:transform-none motion-reduce:transition-none';
+const lang = getLang(Astro);
+---
+<dialog id="connection-dialog" aria-labelledby="cf-title" class="m-auto max-h-none w-[min(28rem,calc(100vw-2rem))] max-w-md overflow-hidden rounded-2xl border border-border bg-surface p-0 text-fg open:animate-pop-in backdrop:bg-black/70 motion-reduce:animate-none">
+	<form id="connection-form" novalidate class="flex max-h-[calc(100dvh-2rem)] flex-col">
+		<header class="px-6 pb-4 pt-5">
+			<button type="button" data-action="back" hidden class={`${ghostBtn} -ml-1.5 mb-1 px-1.5 py-0.5`}>{t(lang, 'settings.form.back')}</button>
+			<h2 id="cf-title" class="font-serif text-xl">{t(lang, 'settings.form.titleAdd')}</h2>
+		</header>
+
+		<div class="flex-1 overflow-y-auto px-6 pb-5">
+			<!-- Étape 1 : où tourne le modèle ? -->
+			<div data-step="1" class={step}>
+				<p class="mb-3 text-sm font-medium">{t(lang, 'settings.form.step1.question')}</p>
+				<div class="space-y-2">
+					<button type="button" data-kind="local" class={card}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-muted"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+						<span class="min-w-0">
+							<span class="block text-sm font-medium">{t(lang, 'settings.form.step1.localTitle')}</span>
+							<span class="mt-0.5 block text-xs text-muted">{t(lang, 'settings.form.step1.localText')}</span>
+						</span>
+					</button>
+					<button type="button" data-kind="remote" class={card}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-muted"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg>
+						<span class="min-w-0">
+							<span class="block text-sm font-medium">{t(lang, 'settings.form.step1.remoteTitle')}</span>
+							<span class="mt-0.5 block text-xs text-muted">{t(lang, 'settings.form.step1.remoteText')}</span>
+						</span>
+					</button>
+				</div>
+				<button type="button" data-kind="custom" class={`${ghostBtn} mt-4 text-xs underline underline-offset-2`}>{t(lang, 'settings.form.step1.custom')}</button>
+			</div>
+
+			<!-- Étape 2 : détails -->
+			<div data-step="2" hidden class={`${step} space-y-5`}>
+				<p data-only="local" hidden class="text-sm text-muted">{t(lang, 'settings.form.localHint')}</p>
+
+				<div data-only="remote" hidden>
+					<label for="cf-host" class={label}>{t(lang, 'settings.form.host.label')}</label>
+					<input id="cf-host" data-field="host" type="text" inputmode="url" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="10.0.0.2" class={`${input} font-mono`} aria-describedby="cf-host-help cf-host-error" />
+					<p id="cf-host-help" class={help}>{t(lang, 'settings.form.host.help')}</p>
+					<p id="cf-host-error" data-error-for="host" hidden class={err}></p>
+				</div>
+
+				<div data-only="custom" hidden>
+					<label for="cf-url" class={label}>{t(lang, 'settings.form.url.label')}</label>
+					<input id="cf-url" data-field="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="http://192.168.1.20:11434" class={`${input} font-mono`} aria-describedby="cf-url-error" />
+					<p id="cf-url-error" data-error-for="url" hidden class={err}></p>
+				</div>
+
+				<div id="cf-status" role="status" aria-live="polite" hidden class="rounded-lg border border-border px-3 py-2.5">
+					<div class="flex items-start gap-2.5">
+						<span data-test-dot data-state="pending" aria-hidden="true" class="mt-1.5 size-2 shrink-0 rounded-full bg-muted data-[state=ok]:bg-emerald-500 data-[state=error]:bg-danger data-[state=pending]:animate-dot-pulse motion-reduce:animate-none"></span>
+						<div class="min-w-0 flex-1">
+							<p data-test-text class="text-sm [overflow-wrap:anywhere]"></p>
+							<p data-test-help hidden class="mt-1 text-xs text-muted">
+								<span data-test-help-text></span>
+								<a data-guide href="#wireguard" hidden class="text-fg underline underline-offset-2 focus-visible:outline-fg/40">{t(lang, 'settings.form.test.guide')}</a>
+							</p>
+							<ul data-test-models hidden aria-label={t(lang, 'settings.form.test.modelsLabel')} class="mt-2 flex flex-wrap gap-1"></ul>
+						</div>
+						<button type="button" data-action="retry" hidden class="-my-0.5 inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md border border-border px-2.5 text-xs font-medium transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] motion-reduce:transition-none">{t(lang, 'settings.form.test.retry')}</button>
+					</div>
+				</div>
+
+				<div class="flex min-w-0 items-center gap-1 text-sm text-muted">
+					<span>{t(lang, 'settings.form.name.label')}</span>
+					<button type="button" id="cf-name-btn" aria-label={t(lang, 'settings.form.name.edit')} class="-mx-0.5 inline-flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-fg transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-fg/40">
+						<span id="cf-name-text" class="truncate"></span>
+						<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-3.5 shrink-0 text-muted"><path d="M11 2.5l2.5 2.5L5.5 13H3v-2.5z"/></svg>
+					</button>
+					<input id="cf-name" name="name" type="text" maxlength="80" autocomplete="off" hidden aria-label={t(lang, 'settings.form.name.inputLabel')} class={`${input} h-8 min-w-0 flex-1 text-fg`} />
+				</div>
+
+				<details id="cf-advanced" class="group/adv border-t border-border pt-4">
+					<summary class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md text-sm font-medium text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 [&::-webkit-details-marker]:hidden">
+						<span>{t(lang, 'settings.form.advanced.summary')}</span>
+						<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-4 transition-transform duration-150 group-open/adv:rotate-180 motion-reduce:transition-none"><path d="M4 6l4 4 4-4"/></svg>
+					</summary>
+					<div class="mt-4 space-y-5">
+						<div class="flex items-center justify-between gap-4">
+							<div class="min-w-0">
+								<p id="cf-auto-label" class="text-sm font-medium">{t(lang, 'settings.form.advanced.autoLabel')}</p>
+								<p class={help}>{t(lang, 'settings.form.advanced.autoHelp')}</p>
+							</div>
+							<Switch id="cf-auto" labelledby="cf-auto-label" checked />
+						</div>
+
+						<div>
+							<label for="cf-manual-input" class={label}>{t(lang, 'settings.form.advanced.manualLabel')}</label>
+							<input id="cf-manual-input" data-field="manual" type="text" autocomplete="off" spellcheck="false" placeholder={t(lang, 'settings.form.advanced.manualPlaceholder')} class={`${input} font-mono`} aria-describedby="cf-manual-error" />
+							<p id="cf-manual-error" data-error-for="manual" hidden class={err}></p>
+							<ul id="cf-manual-list" aria-label={t(lang, 'settings.form.advanced.manualListLabel')} class="mt-2 flex flex-wrap gap-1.5"></ul>
+							<div id="cf-detected" hidden class="mt-3">
+								<p class="mb-2 text-xs text-muted">{t(lang, 'settings.form.advanced.detectedHint')}</p>
+								<ul id="cf-detected-list" class="flex flex-wrap gap-1.5"></ul>
+							</div>
+						</div>
+
+						<div class="space-y-4 border-t border-border pt-4">
+							<div class="flex items-center justify-between gap-4">
+								<div class="min-w-0">
+									<p id="cf-sd-label" class="text-sm font-medium">{t(lang, 'settings.form.advanced.shutdownLabel')}</p>
+									<p class={help}>{t(lang, 'settings.form.advanced.shutdownHelp')}</p>
+								</div>
+								<Switch id="cf-sd-enabled" labelledby="cf-sd-label" />
+							</div>
+							<div id="cf-sd-fields" hidden class="space-y-4">
+								<div>
+									<label for="cf-sd-url" class={label}>{t(lang, 'settings.form.advanced.shutdownUrl')}</label>
+									<input id="cf-sd-url" data-field="shutdownUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://10.0.0.2:9000/shutdown" class={`${input} font-mono`} aria-describedby="cf-sd-url-error" />
+									<p id="cf-sd-url-error" data-error-for="shutdownUrl" hidden class={err}></p>
+								</div>
+								<div>
+									<label for="cf-sd-method" class={label}>{t(lang, 'settings.form.advanced.shutdownMethod')}</label>
+									<select id="cf-sd-method" class={`${input} [&>option]:bg-surface`}>
+										<option value="POST">POST</option>
+										<option value="GET">GET</option>
+									</select>
+								</div>
+								<div>
+									<label for="cf-sd-token" class={label}>{t(lang, 'settings.form.advanced.token')}</label>
+									<input id="cf-sd-token" type="password" autocomplete="new-password" class={input} />
+									<label id="cf-sd-clear-wrap" hidden class="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted">
+										<input id="cf-sd-clear" type="checkbox" class="size-4 accent-fg" />
+										{t(lang, 'settings.form.advanced.tokenClear')}
+									</label>
+								</div>
+							</div>
+						</div>
+					</div>
+				</details>
+			</div>
+		</div>
+
+		<p id="cf-error" role="alert" hidden class="px-6 pb-3 text-xs text-danger"></p>
+
+		<footer class="flex justify-end gap-2 border-t border-border px-6 py-4">
+			<button type="button" data-action="cancel" class={ghostBtn + ' h-9 px-3'}>{t(lang, 'settings.form.cancel')}</button>
+			<button type="submit" id="cf-save" hidden class={primaryBtn}><span id="cf-save-label">{t(lang, 'settings.form.add')}</span></button>
+		</footer>
+	</form>
+
+	<template id="tpl-chip">
+		<li class="inline-flex max-w-full items-center gap-0.5 rounded-md border border-border bg-code py-0.5 pl-2.5 pr-0.5 font-mono text-xs">
+			<span data-chip-label class="truncate"></span>
+			<button type="button" data-chip-remove class="grid size-5 cursor-pointer place-items-center rounded text-muted transition-colors duration-150 hover:bg-fg/10 hover:text-fg focus-visible:outline-fg/40"><span aria-hidden="true">×</span></button>
+		</li>
+	</template>
+	<template id="tpl-detected">
+		<li>
+			<button type="button" data-detected class="cursor-pointer rounded-md border border-border bg-code px-2.5 py-1 font-mono text-xs transition-colors duration-150 hover:border-fg/20 hover:bg-fg/5 focus-visible:outline-fg/40 disabled:cursor-default disabled:text-muted disabled:hover:border-border disabled:hover:bg-code"></button>
+		</li>
+	</template>
+	<template id="tpl-pill">
+		<li class="max-w-full truncate rounded-md border border-border bg-code px-2 py-0.5 font-mono text-xs text-muted"></li>
+	</template>
+</dialog>

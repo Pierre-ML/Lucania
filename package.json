@@ -1,0 +1,54 @@
+{
+  "name": "lucania",
+  "description": "Interface de chat web locale pour modèles Ollama (local ou via WireGuard)",
+  "license": "MIT",
+  "author": "Pierre Mouilleseaux Lhuillier",
+  "keywords": [
+    "ollama",
+    "llm",
+    "chat",
+    "local",
+    "astro",
+    "wireguard"
+  ],
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "check": "astro check",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.7",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/api": "^2.12.1",
+    "@tauri-apps/plugin-fs": "^2.6.0",
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "@tauri-apps/plugin-shell": "^2.4.1",
+    "astro": "^7.3.7",
+    "dompurify": "^3.4.16",
+    "marked": "^18.1.0",
+    "tailwindcss": "^4.3.3"
+  },
+  "allowScripts": {
+    "esbuild": true
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@tailwindcss/typography": "^0.5.20",
+    "@tauri-apps/cli": "^2.12.1",
+    "@types/node": "^24.19.1",
+    "daisyui": "^5.7.47",
+    "typescript": "^6.0.3"
+  }
+}

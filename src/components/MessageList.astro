@@ -1,0 +1,36 @@
+---
+import { getLang, t } from '../i18n/index';
+const lang = getLang(Astro);
+---
+<div id="messages-scroll" class="min-h-0 flex-1 overflow-y-auto">
+	<div class="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-8">
+		<div id="empty-state" class="flex flex-1 flex-col items-center justify-center py-24 text-center">
+			<svg viewBox="0 0 64 64" fill="none" class="size-14 text-fg/25" aria-hidden="true" focusable="false">
+				<path d="M14 4L26 22L14 34Z" fill="currentColor" fill-opacity="0.7"/>
+				<path d="M50 4L38 22L50 34Z" fill="currentColor" fill-opacity="0.45"/>
+				<path d="M26 22L38 22L32 36Z" fill="currentColor"/>
+				<path d="M14 34L26 22L32 36Z" fill="currentColor" fill-opacity="0.5"/>
+				<path d="M50 34L38 22L32 36Z" fill="currentColor" fill-opacity="0.3"/>
+				<path d="M14 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.3"/>
+				<path d="M50 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.2"/>
+			</svg>
+			<h2 class="mt-8 font-serif text-3xl">{t(lang, 'chat.messages.emptyTitle')}</h2>
+			<p class="mt-3 text-sm text-muted">{t(lang, 'chat.messages.emptySubtitle')}</p>
+		</div>
+		<div id="messages" class="flex flex-col gap-8"></div>
+	</div>
+	<template id="thinking-logo-template">
+		<div class="group flex h-7 max-w-full items-center gap-2.5 font-sans text-fg" role="status" aria-label={t(lang, 'chat.messages.thinkingStatus')}>
+			<svg viewBox="0 0 64 64" fill="none" aria-hidden="true" focusable="false" class="h-6 w-6 flex-none overflow-visible text-fg group-data-[compact=true]:h-4 group-data-[compact=true]:w-4">
+				<path class="animate-facet transform-fill motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:transform-none" d="M14 4L26 22L14 34Z" fill="currentColor" fill-opacity="0.7"/>
+				<path class="animate-facet [animation-delay:120ms] transform-fill motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:transform-none" d="M50 4L38 22L50 34Z" fill="currentColor" fill-opacity="0.45"/>
+				<path class="animate-facet [animation-delay:240ms] transform-fill motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:transform-none" d="M26 22L38 22L32 36Z" fill="currentColor"/>
+				<path class="animate-facet [animation-delay:360ms] transform-fill motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:transform-none" d="M14 34L26 22L32 36Z" fill="currentColor" fill-opacity="0.5"/>
+				<path class="animate-facet [animation-delay:480ms] transform-fill motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:transform-none" d="M50 34L38 22L32 36Z" fill="currentColor" fill-opacity="0.3"/>
+				<path class="animate-facet [animation-delay:600ms] transform-fill motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:transform-none" d="M14 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.3"/>
+				<path class="animate-facet [animation-delay:720ms] transform-fill motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:transform-none" d="M50 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.2"/>
+			</svg>
+			<span class="block max-w-[min(28rem,70vw)] min-w-0 truncate font-sans text-sm text-muted group-data-[compact=true]:hidden"><span data-role="thinking-word" class="transition-opacity duration-300 motion-reduce:transition-none">{t(lang, 'chat.messages.thinkingLabel')}</span><span aria-hidden="true"><span class="animate-ellipsis motion-reduce:animate-none motion-reduce:opacity-100">.</span><span class="animate-ellipsis [animation-delay:160ms] motion-reduce:animate-none motion-reduce:opacity-100">.</span><span class="animate-ellipsis [animation-delay:320ms] motion-reduce:animate-none motion-reduce:opacity-100">.</span></span></span>
+		</div>
+	</template>
+</div>

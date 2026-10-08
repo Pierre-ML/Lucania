@@ -1,0 +1,20 @@
+---
+interface Props {
+	id?: string;
+	labelledby?: string;
+	checked?: boolean;
+	attrs?: Record<string, string>;
+}
+const { id, labelledby, checked = false, attrs = {} } = Astro.props;
+---
+<button
+	type="button"
+	role="switch"
+	id={id}
+	aria-checked={checked ? 'true' : 'false'}
+	aria-labelledby={labelledby}
+	{...attrs}
+	class="group relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border bg-code transition-colors duration-150 aria-checked:border-fg aria-checked:bg-fg focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+>
+	<span class="pointer-events-none block size-3.5 translate-x-0.5 rounded-full bg-muted transition-transform duration-150 group-aria-checked:translate-x-4 group-aria-checked:bg-bg motion-reduce:transition-none"></span>
+</button>

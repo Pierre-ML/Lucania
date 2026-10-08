@@ -1,0 +1,130 @@
+---
+import LogoCard from './LogoCard.astro';
+---
+
+<section id="set-a" class="space-y-6">
+  <header>
+    <h2 class="font-serif text-2xl">Géométrie sacrée</h2>
+    <p class="text-sm text-muted">Rosaces, nœuds, orbites et polyèdres : des marques à symétrie radiale construites au compas.</p>
+  </header>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <LogoCard id="A1" name="Pétale" vibe="Une rosace à huit pétales qui s'ouvre comme une fleur de lumière." tags={["rosace", "organique", "doux"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <ellipse id="a1-petal" cx="32" cy="17" rx="5.5" ry="11" />
+        </defs>
+        <g fill="currentColor">
+          <use href="#a1-petal" />
+          <use href="#a1-petal" transform="rotate(45 32 32)" />
+          <use href="#a1-petal" transform="rotate(90 32 32)" />
+          <use href="#a1-petal" transform="rotate(135 32 32)" />
+          <use href="#a1-petal" transform="rotate(180 32 32)" />
+          <use href="#a1-petal" transform="rotate(225 32 32)" />
+          <use href="#a1-petal" transform="rotate(270 32 32)" />
+          <use href="#a1-petal" transform="rotate(315 32 32)" />
+        </g>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A2" name="Trinité" vibe="Trois anneaux entrelacés, un dialogue à trois voix." tags={["anneaux", "triple", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g transform="translate(0 3.5)" stroke-width="3.5">
+          <circle cx="32" cy="22" r="14" stroke="currentColor" />
+          <circle cx="40.66" cy="37" r="14" stroke="currentColor" />
+          <circle cx="23.34" cy="37" r="14" stroke="#e5383b" />
+        </g>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A3" name="Astérie" vibe="Un astérisque franc à huit branches de deux longueurs, net et éclatant." tags={["astérisque", "radial", "net"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g stroke="currentColor" stroke-width="5.5" stroke-linecap="round">
+          <line x1="32" y1="7" x2="32" y2="57" />
+          <line x1="7" y1="32" x2="57" y2="32" />
+          <g transform="rotate(45 32 32)">
+            <line x1="32" y1="14" x2="32" y2="50" />
+            <line x1="14" y1="32" x2="50" y2="32" />
+          </g>
+        </g>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A4" name="Cubis" vibe="Un cube isométrique solide, la rigueur d'une brique de calcul." tags={["polyèdre", "cube", "solide"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g stroke="currentColor" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+          <polygon points="32,7 53.65,19.5 53.65,44.5 32,57 10.35,44.5 10.35,19.5" />
+          <polygon points="32,32 10.35,19.5 32,7 53.65,19.5" fill="currentColor" />
+          <polyline points="10.35,19.5 32,32 53.65,19.5" />
+          <line x1="32" y1="32" x2="32" y2="57" />
+        </g>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A5" name="Orbe" vibe="Deux orbites croisées autour d'un noyau rouge : l'intelligence en rotation." tags={["orbites", "atome", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g stroke="currentColor" stroke-width="3.5">
+          <ellipse cx="32" cy="32" rx="28" ry="11" transform="rotate(45 32 32)" />
+          <ellipse cx="32" cy="32" rx="28" ry="11" transform="rotate(-45 32 32)" />
+        </g>
+        <circle cx="32" cy="32" r="6" fill="#e5383b" />
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A6" name="Volute" vibe="Une spirale de demi-cercles qui s'enroule vers l'infini." tags={["spirale", "fluide", "croissance"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g transform="translate(32 32) scale(1.2) translate(-34 -30)">
+          <path d="M30 32 A4 4 0 0 1 38 32 A8 8 0 0 1 22 32 A12 12 0 0 1 46 32 A16 16 0 0 1 14 32 A20 20 0 0 1 54 32" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" />
+        </g>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A7" name="Genèse" vibe="La fleur de vie en dégradé rouge : sept cercles, une origine." tags={["fleur de vie", "dégradé", "origine"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="a7-grad" x1="0" y1="4" x2="0" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#e5383b" />
+            <stop offset="1" stop-color="currentColor" />
+          </linearGradient>
+        </defs>
+        <g stroke="url(#a7-grad)" stroke-width="3">
+          <circle cx="32" cy="32" r="9" />
+          <circle cx="41" cy="32" r="9" />
+          <circle cx="36.5" cy="39.79" r="9" />
+          <circle cx="27.5" cy="39.79" r="9" />
+          <circle cx="23" cy="32" r="9" />
+          <circle cx="27.5" cy="24.21" r="9" />
+          <circle cx="36.5" cy="24.21" r="9" />
+        </g>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A8" name="Mandor" vibe="Un mandala minimal : un cercle gardien, quatre lames et quatre éclats." tags={["mandala", "cercle", "calme"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="32" cy="32" r="25" stroke="currentColor" stroke-width="3.5" />
+        <g fill="currentColor">
+          <path d="M32 11 L37.5 32 L32 53 L26.5 32 Z" />
+          <path d="M32 11 L37.5 32 L32 53 L26.5 32 Z" transform="rotate(90 32 32)" />
+          <g opacity="0.55">
+            <path d="M32 19 L35.5 32 L32 45 L28.5 32 Z" transform="rotate(45 32 32)" />
+            <path d="M32 19 L35.5 32 L32 45 L28.5 32 Z" transform="rotate(135 32 32)" />
+          </g>
+        </g>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A9" name="Entrelacs" vibe="Un octogramme tissé d'un seul fil, nœud sans début ni fin." tags={["nœud", "étoile", "tissage"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <polygon points="32,6 13.62,50.38 58,32 13.62,13.62 32,58 50.38,13.62 6,32 50.38,50.38" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round" />
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="A10" name="Merkaba" vibe="Deux triangles opposés, l'un clair, l'autre rouge : tension et équilibre." tags={["hexagramme", "dualité", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g stroke-width="3.8" stroke-linejoin="round">
+          <polygon points="32,58 9.48,19 54.52,19" stroke="#e5383b" />
+          <polygon points="32,6 54.52,45 9.48,45" stroke="currentColor" />
+        </g>
+      </svg>
+    </LogoCard>
+  </div>
+</section>

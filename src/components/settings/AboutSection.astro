@@ -1,0 +1,33 @@
+---
+import { getLang, t } from '../../i18n/index';
+const row = 'grid gap-1 py-3 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4';
+const lang = getLang(Astro);
+---
+<section aria-labelledby="about-title">
+	<h2 id="about-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.about.title')}</h2>
+	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.about.description')}</p>
+	<dl class="mt-6 divide-y divide-border border-y border-border text-sm">
+		<div class={row}>
+			<dt class="text-muted">{t(lang, 'settings.about.version')}</dt>
+			<dd id="about-version">0.1.0</dd>
+		</div>
+		<div id="about-datadir-row" hidden class={row}>
+			<dt class="text-muted">{t(lang, 'settings.about.dataDir')}</dt>
+			<dd class="min-w-0">
+				<div class="flex items-start gap-2">
+					<code id="about-datadir" class="min-w-0 flex-1 select-all rounded-md bg-code px-2 py-1 font-mono text-xs [overflow-wrap:anywhere]"></code>
+					<button type="button" id="about-datadir-copy" class="h-7 shrink-0 cursor-pointer rounded-md border border-border px-2.5 text-xs text-muted transition-colors duration-150 hover:border-fg/20 hover:text-fg focus-visible:outline-fg/40">{t(lang, 'settings.about.copy')}</button>
+				</div>
+				<p id="about-datadir-note" class="mt-2 text-xs text-muted"></p>
+			</dd>
+		</div>
+		<div id="about-data-fallback" class={row}>
+			<dt class="text-muted">{t(lang, 'settings.about.data')}</dt>
+			<dd>{t(lang, 'settings.about.dataBefore')}<code class="rounded-md bg-code px-2 py-1 font-mono text-xs">data/app.db</code>{t(lang, 'settings.about.dataAfter')}</dd>
+		</div>
+		<div class={row}>
+			<dt class="text-muted">{t(lang, 'settings.about.source')}</dt>
+			<dd><a href="https://github.com/Pierre-ML/ia-local-interface" target="_blank" rel="noopener noreferrer" class="text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg">{t(lang, 'settings.about.repo')}</a></dd>
+		</div>
+	</dl>
+</section>

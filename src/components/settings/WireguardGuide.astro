@@ -1,0 +1,50 @@
+---
+import { getLang, t } from '../../i18n/index';
+const code = 'rounded-md bg-code px-2 py-1 font-mono text-xs text-fg';
+const num = 'grid size-6 shrink-0 place-items-center rounded-full border border-border text-xs text-muted';
+const link = 'text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg';
+const lang = getLang(Astro);
+---
+<section aria-labelledby="wireguard-title">
+	<h2 id="wireguard-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.wireguard.title')}</h2>
+	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.wireguard.description')}</p>
+
+	<ol class="mt-6 space-y-6 text-sm leading-relaxed">
+		<li class="flex gap-4">
+			<span class={num}>1</span>
+			<div class="min-w-0">
+				<p class="font-medium">{t(lang, 'settings.wireguard.step1.title')}</p>
+				<p class="mt-1 text-muted">{t(lang, 'settings.wireguard.step1.before')}<a href="https://www.wireguard.com/install/" target="_blank" rel="noopener noreferrer" class={link}>{t(lang, 'settings.wireguard.step1.link')}</a>{t(lang, 'settings.wireguard.step1.after')}</p>
+			</div>
+		</li>
+		<li class="flex gap-4">
+			<span class={num}>2</span>
+			<div class="min-w-0">
+				<p class="font-medium">{t(lang, 'settings.wireguard.step2.title')}</p>
+				<p class="mt-1 text-muted">{t(lang, 'settings.wireguard.step2.text')}</p>
+			</div>
+		</li>
+		<li class="flex gap-4">
+			<span class={num}>3</span>
+			<div class="min-w-0">
+				<p class="font-medium">{t(lang, 'settings.wireguard.step3.title')}</p>
+				<p class="mt-1 text-muted">{t(lang, 'settings.wireguard.step3.text')}</p>
+				<p class="mt-2"><code class={code}>OLLAMA_HOST=0.0.0.0</code></p>
+				<p class="mt-3 text-muted">{t(lang, 'settings.wireguard.step3.firewallBefore')}<code class={code}>11434</code>{t(lang, 'settings.wireguard.step3.firewallAfter')}</p>
+			</div>
+		</li>
+		<li class="flex gap-4">
+			<span class={num}>4</span>
+			<div class="min-w-0">
+				<p class="font-medium">{t(lang, 'settings.wireguard.step4.title')}</p>
+				<p class="mt-1 text-muted">{t(lang, 'settings.wireguard.step4.text')}</p>
+				<p class="mt-2"><code class={code}>http://10.0.0.2:11434</code></p>
+				<p class="mt-3 text-muted">{t(lang, 'settings.wireguard.step4.done')}</p>
+			</div>
+		</li>
+	</ol>
+
+	<p class="mt-8 rounded-lg border border-border bg-fg/[0.03] px-4 py-3 text-sm leading-relaxed text-muted">
+		<strong class="font-medium text-fg">{t(lang, 'settings.wireguard.securityTitle')}</strong> {t(lang, 'settings.wireguard.security')}
+	</p>
+</section>

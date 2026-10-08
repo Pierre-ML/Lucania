@@ -1,0 +1,54 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Lucania",
+  "version": "0.0.1",
+  "identifier": "com.lucania.desktop",
+  "build": {
+    "frontendDist": "../src-tauri/loader",
+    "devUrl": "http://localhost:4748",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build:desktop"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Lucania",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:4749 http://localhost:11434; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "publisher": "Pierre Mouilleseaux Lhuillier",
+    "copyright": "© 2026 Pierre Mouilleseaux Lhuillier",
+    "shortDescription": "Interface de chat locale pour modèles Ollama",
+    "longDescription": "Interface de chat locale pour modèles Ollama",
+    "homepage": "https://github.com/Pierre-ML/ia-local-interface",
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/node"],
+    "resources": { "resources/app/": "app/" },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
+  }
+}

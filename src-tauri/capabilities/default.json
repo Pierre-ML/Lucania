@@ -1,0 +1,35 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions minimales de la fenêtre principale (loader local + pages Astro)",
+  "windows": ["main"],
+  "remote": { "urls": ["http://localhost:4748", "http://127.0.0.1:4749"] },
+  "permissions": [
+    "core:default",
+    { "identifier": "opener:allow-open-url", "allow": [{ "url": "https://*" }] },
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-read-dir",
+    "fs:allow-mkdir",
+    "fs:allow-exists",
+    "fs:allow-remove",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    { "identifier": "fs:scope", "allow": [{ "path": "$DOCUMENT/Lucania" }, { "path": "$DOCUMENT/Lucania/**" }] },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "ollama-list", "cmd": "ollama", "args": ["list"] },
+        { "name": "ollama-ps", "cmd": "ollama", "args": ["ps"] },
+        { "name": "ollama-pull", "cmd": "ollama", "args": ["pull", { "validator": "^[a-zA-Z0-9._/:-]{1,200}$" }] },
+        { "name": "explorer-docs", "cmd": "explorer", "args": [{ "validator": "^[A-Za-z]:\\\\Users\\\\[^\\\\]+\\\\Documents\\\\Lucania(\\\\[^\\\\.][^\\\\]*)*$" }] }
+      ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        { "name": "ollama-serve", "cmd": "ollama", "args": ["serve"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+---
+import { getLang, t } from '../i18n/index';
+const lang = getLang(Astro);
+---
+<dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message" class="backdrop:bg-black/70 backdrop:backdrop-blur-sm m-auto w-[min(24rem,calc(100vw-2rem))] max-w-sm rounded-2xl border border-border bg-surface p-6 text-fg shadow-[0_24px_80px_-12px_rgb(0_0_0/0.8)] open:animate-pop-in motion-reduce:animate-none">
+	<h2 id="confirm-title" class="font-serif text-xl"></h2>
+	<p id="confirm-message" class="mt-3 text-sm leading-relaxed text-muted [overflow-wrap:anywhere]"></p>
+	<div class="mt-5 flex justify-end gap-2">
+		<button id="confirm-cancel" type="button" autofocus class="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm text-fg transition-colors hover:bg-white/5">{t(lang, 'common.cancel')}</button>
+		<button id="confirm-ok" type="button" data-danger="true" class="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90 data-[danger=true]:bg-danger data-[danger=true]:text-black data-[danger=false]:bg-fg data-[danger=false]:text-bg">{t(lang, 'common.delete')}</button>
+	</div>
+</dialog>

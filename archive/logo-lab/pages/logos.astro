@@ -1,0 +1,57 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SetA from '../components/logo-lab/SetA.astro';
+import SetB from '../components/logo-lab/SetB.astro';
+import SetC from '../components/logo-lab/SetC.astro';
+import SetD from '../components/logo-lab/SetD.astro';
+import SetE from '../components/logo-lab/SetE.astro';
+import SetH from '../components/logo-lab/SetH.astro';
+import SetI from '../components/logo-lab/SetI.astro';
+import SetJ from '../components/logo-lab/SetJ.astro';
+import SetF from '../components/logo-lab/SetF.astro';
+import SetG from '../components/logo-lab/SetG.astro';
+
+const links = [
+  ['#set-a', 'Géométrie sacrée'],
+  ['#set-b', 'Neural & organique'],
+  ['#set-c', 'Tech & monogrammes'],
+  ['#set-d', 'Caractère & mascottes'],
+  ['#set-e', 'Low-poly · animaux'],
+  ['#set-h', 'Low-poly · minimal'],
+  ['#set-i', 'Low-poly · détaillé'],
+  ['#set-j', 'Low-poly · nouveaux'],
+  ['#set-f', 'Cristaux & gemmes'],
+  ['#set-g', 'Volumes isométriques'],
+];
+---
+
+<Layout title="Logos — propositions">
+  <div class="h-screen overflow-y-auto">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <header class="mb-12">
+        <a href="/" class="text-sm text-muted hover:text-accent transition">← Retour au chat</a>
+        <h1 class="font-serif text-4xl mt-4">Propositions de logos</h1>
+        <p class="text-muted mt-2 max-w-2xl">
+          Page temporaire pour choisir le logo de l'app. Une fois le choix fait, elle sera supprimée.
+        </p>
+        <nav class="flex flex-wrap gap-2 mt-5">
+          {links.map(([href, label]) => (
+            <a href={href} class="text-sm border border-border rounded-full px-3 py-1 hover:border-accent/40 hover:text-accent transition">{label}</a>
+          ))}
+        </nav>
+      </header>
+      <div class="space-y-20">
+        <SetA />
+        <SetB />
+        <SetC />
+        <SetD />
+        <SetE />
+        <SetH />
+        <SetI />
+        <SetJ />
+        <SetF />
+        <SetG />
+      </div>
+    </div>
+  </div>
+</Layout>

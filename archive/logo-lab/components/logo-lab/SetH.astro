@@ -1,0 +1,129 @@
+---
+import LogoCard from './LogoCard.astro';
+---
+<section id="set-h" class="space-y-6">
+  <header>
+    <h2 class="font-serif text-2xl">Low-poly · minimal</h2>
+    <p class="text-sm text-muted">Les mêmes animaux en 3 à 8 facettes seulement : presque des icônes d'app, lisibles à 16 px.</p>
+  </header>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <LogoCard id="H1" name="Corbeau" vibe="Un corbeau de profil en 6 facettes, bec franc, œil rouge." tags={["corbeau", "profil", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M14 12L36 8L30 30Z" fill="currentColor"/>
+        <path d="M36 8L48 24L30 30Z" fill="currentColor" fill-opacity="0.7"/>
+        <path d="M48 24L60 36L40 38Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M30 30L48 24L40 38Z" fill="currentColor" fill-opacity="0.25"/>
+        <path d="M14 12L30 30L10 54Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M30 30L40 38L24 56L10 54Z" fill="currentColor" fill-opacity="0.7"/>
+        <circle cx="39" cy="21" r="2.5" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H2" name="Loup" vibe="Un loup de face en 7 facettes, oreilles hautes, museau étroit." tags={["loup", "frontal"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M14 4L26 22L14 34Z" fill="currentColor" fill-opacity="0.7"/>
+        <path d="M50 4L38 22L50 34Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M26 22L38 22L32 36Z" fill="currentColor"/>
+        <path d="M14 34L26 22L32 36Z" fill="currentColor" fill-opacity="0.5"/>
+        <path d="M50 34L38 22L32 36Z" fill="currentColor" fill-opacity="0.3"/>
+        <path d="M14 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.3"/>
+        <path d="M50 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.2"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H3" name="Hibou" vibe="Un hibou en bouclier à 3 facettes, aigrettes en pointe, yeux rouges." tags={["hibou", "nuit", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M10 8L32 22L32 58L10 40Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M54 8L32 22L32 58L54 40Z" fill="currentColor" fill-opacity="0.35"/>
+        <path d="M28 32H36L32 44Z" fill="currentColor"/>
+        <circle cx="21" cy="28" r="5" fill="#e5383b"/>
+        <circle cx="43" cy="28" r="5" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H4" name="Renard" vibe="Un renard de face, joues larges et museau en pointe, nez rouge." tags={["renard", "frontal", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M8 6L28 22L8 30Z" fill="currentColor" fill-opacity="0.7"/>
+        <path d="M56 6L36 22L56 30Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M28 22L36 22L32 36Z" fill="currentColor"/>
+        <path d="M8 30L28 22L32 36Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M56 30L36 22L32 36Z" fill="currentColor" fill-opacity="0.35"/>
+        <path d="M8 30L32 36L32 58Z" fill="currentColor" fill-opacity="0.35"/>
+        <path d="M56 30L32 36L32 58Z" fill="currentColor" fill-opacity="0.2"/>
+        <path d="M29 53H35L32 58Z" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H5" name="Chat" vibe="Un chat de face en 6 facettes : deux oreilles, front, joues." tags={["chat", "frontal"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M8 8L24 18L8 34Z" fill="currentColor" fill-opacity="0.7"/>
+        <path d="M56 8L40 18L56 34Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M24 18L40 18L32 30Z" fill="currentColor"/>
+        <path d="M8 34L24 18L32 30L24 54Z" fill="currentColor" fill-opacity="0.5"/>
+        <path d="M56 34L40 18L32 30L40 54Z" fill="currentColor" fill-opacity="0.3"/>
+        <path d="M24 54L32 30L40 54L32 58Z" fill="currentColor" fill-opacity="0.8"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H6" name="Aigle" vibe="Un aigle de profil, bec crochu, œil rouge, 5 facettes." tags={["aigle", "rapace", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M12 12L36 8L42 26Z" fill="currentColor"/>
+        <path d="M36 8L58 30L44 30Z" fill="currentColor" fill-opacity="0.8"/>
+        <path d="M44 30L58 30L46 42Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M12 12L42 26L44 30L46 42L30 58Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M12 12L30 58L8 44Z" fill="currentColor" fill-opacity="0.3"/>
+        <circle cx="36" cy="18" r="2" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H7" name="Ours" vibe="Un ours de face, oreilles rondes et museau large, 8 facettes." tags={["ours", "puissant"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 10L20 8L18 22L8 22Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M58 10L44 8L46 22L56 22Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M14 22L50 22L32 26Z" fill="currentColor"/>
+        <path d="M14 22L32 26L8 40Z" fill="currentColor" fill-opacity="0.7"/>
+        <path d="M50 22L32 26L56 40Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M8 40L32 26L32 58L20 58Z" fill="currentColor" fill-opacity="0.5"/>
+        <path d="M56 40L32 26L32 58L44 58Z" fill="currentColor" fill-opacity="0.3"/>
+        <path d="M28 44H36L32 50Z" fill="currentColor"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H8" name="Cerf" vibe="Un cerf de face, bois en lames et museau en losange." tags={["cerf", "bois"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M19 26L8 4L27 25Z" fill="currentColor" fill-opacity="0.85"/>
+        <path d="M18 17L4 14L23 21Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M45 26L56 4L37 25Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M46 17L60 14L41 21Z" fill="currentColor" fill-opacity="0.4"/>
+        <path d="M10 26L22 26L22 36Z" fill="currentColor" fill-opacity="0.5"/>
+        <path d="M54 26L42 26L42 36Z" fill="currentColor" fill-opacity="0.3"/>
+        <path d="M22 26L42 26L32 30Z" fill="currentColor"/>
+        <path d="M22 26L32 30L32 58Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M42 26L32 30L32 58Z" fill="currentColor" fill-opacity="0.35"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H9" name="Dragon" vibe="Une tête de dragon de profil, corne, mâchoire en lame, œil rouge." tags={["dragon", "profil", "accent"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 6L26 20L14 30Z" fill="currentColor" fill-opacity="0.6"/>
+        <path d="M14 30L26 20L44 28L34 40Z" fill="currentColor"/>
+        <path d="M44 28L60 42L34 40Z" fill="currentColor" fill-opacity="0.75"/>
+        <path d="M34 40L60 42L40 56Z" fill="currentColor" fill-opacity="0.35"/>
+        <path d="M14 30L34 40L40 56L10 58Z" fill="currentColor" fill-opacity="0.45"/>
+        <circle cx="35" cy="31" r="2.2" fill="#e5383b"/>
+      </svg>
+    </LogoCard>
+
+    <LogoCard id="H10" name="Requin" vibe="Un requin de profil : aileron dressé, museau pointu, queue en faux." tags={["requin", "profil"]}>
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M24 30L34 6L42 32Z" fill="currentColor"/>
+        <path d="M4 42L24 30L42 32L34 42Z" fill="currentColor" fill-opacity="0.7"/>
+        <path d="M42 32L60 16L54 38Z" fill="currentColor" fill-opacity="0.5"/>
+        <path d="M4 42L34 42L42 46L30 52Z" fill="currentColor" fill-opacity="0.3"/>
+        <path d="M42 32L54 38L42 46L34 42Z" fill="currentColor" fill-opacity="0.45"/>
+        <path d="M54 38L60 58L42 46Z" fill="currentColor" fill-opacity="0.35"/>
+      </svg>
+    </LogoCard>
+
+  </div>
+</section>

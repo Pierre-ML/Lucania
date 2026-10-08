@@ -1,0 +1,42 @@
+---
+import { getLang, t } from '../../i18n/index';
+
+const lang = getLang(Astro);
+const langs = [
+	{ id: 'fr', label: 'Français' },
+	{ id: 'en', label: 'English' },
+];
+const h3 = 'text-sm font-medium';
+---
+<section aria-labelledby="appearance-title">
+	<h2 id="appearance-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.appearance.title')}</h2>
+	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.appearance.description')}</p>
+
+	<div class="mt-6">
+		<h3 id="theme-title" class={h3}>{t(lang, 'settings.appearance.themeTitle')}</h3>
+		<!-- Cartes générées par settings.js (aperçus réels : data-theme local) -->
+		<div id="theme-grid" role="radiogroup" aria-labelledby="theme-title" class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"></div>
+	</div>
+
+	<div class="mt-8">
+		<h3 id="language-title" class={h3}>{t(lang, 'settings.appearance.languageTitle')}</h3>
+		<div id="lang-switch" role="radiogroup" aria-labelledby="language-title" class="mt-3 inline-flex rounded-lg border border-border bg-code p-0.5">
+			{langs.map((l) => (
+				<button type="button" role="radio" data-lang={l.id} aria-checked={l.id === lang ? 'true' : 'false'} lang={l.id} class="h-8 cursor-pointer rounded-md px-4 text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-checked:bg-fg aria-checked:text-bg aria-checked:hover:text-bg motion-reduce:transition-none">{l.label}</button>
+			))}
+		</div>
+	</div>
+
+	<p class="mt-8 text-xs text-muted">{t(lang, 'settings.appearance.hint')}</p>
+
+	<template id="tpl-theme">
+		<button type="button" role="radio" aria-checked="false" data-theme-card class="group flex cursor-pointer flex-col gap-2 rounded-xl p-1.5 text-left transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.98] aria-checked:ring-2 aria-checked:ring-base-content/60 motion-reduce:transition-none">
+			<span data-preview class="relative block h-20 w-full overflow-hidden rounded-lg border border-fg/15">
+				<span data-check aria-hidden="true" class="absolute right-1.5 top-1.5 z-10 hidden size-5 place-items-center rounded-full bg-fg text-bg group-aria-checked:grid">
+					<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3"><path d="M3.5 8.5l3 3 6-7"/></svg>
+				</span>
+			</span>
+			<span data-label class="px-1 pb-0.5 text-sm text-fg"></span>
+		</button>
+	</template>
+</section>

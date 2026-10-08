@@ -1,0 +1,60 @@
+---
+import { getLang, t } from '../../i18n/index';
+import Switch from './Switch.astro';
+
+const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const menuItem = 'flex w-full cursor-pointer items-center rounded-md px-3 py-1.5 text-left text-sm transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 focus-visible:-outline-offset-2';
+const lang = getLang(Astro);
+---
+<section aria-labelledby="connections-title">
+	<div class="flex items-start justify-between gap-4">
+		<div class="min-w-0">
+			<h2 id="connections-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.connections.title')}</h2>
+			<p class="mt-1 text-sm text-muted">{t(lang, 'settings.connections.description')}</p>
+		</div>
+		<button type="button" data-action="add-connection" class={primaryBtn}>{t(lang, 'settings.connections.add')}</button>
+	</div>
+
+	<p id="connections-feedback" role="status" aria-live="polite" class="mt-4 hidden rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+
+	<ul id="connections-list" hidden class="mt-6 divide-y divide-border rounded-xl border border-border" aria-busy="true"></ul>
+
+	<div id="connections-empty" hidden class="mt-6 flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-14 text-center">
+		<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="size-14 text-fg/10">
+			<path d="M14 4L26 22L14 34Z" fill="currentColor" fill-opacity="0.7"/>
+			<path d="M50 4L38 22L50 34Z" fill="currentColor" fill-opacity="0.45"/>
+			<path d="M26 22L38 22L32 36Z" fill="currentColor"/>
+			<path d="M14 34L26 22L32 36Z" fill="currentColor" fill-opacity="0.5"/>
+			<path d="M50 34L38 22L32 36Z" fill="currentColor" fill-opacity="0.3"/>
+			<path d="M14 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.3"/>
+			<path d="M50 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.2"/>
+		</svg>
+		<p class="mt-5 text-sm font-medium">{t(lang, 'settings.connections.emptyTitle')}</p>
+		<p class="mt-1 max-w-xs text-sm text-muted">{t(lang, 'settings.connections.emptyText')}</p>
+		<button type="button" data-action="add-connection" class={`${primaryBtn} mt-6`}>{t(lang, 'settings.connections.add')}</button>
+	</div>
+	<p id="connections-loading" class="mt-6 text-sm text-muted">{t(lang, 'settings.connections.loading')}</p>
+
+	<template id="tpl-connection">
+		<li data-connection class="relative flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors duration-150 first:rounded-t-xl last:rounded-b-xl hover:bg-fg/[0.03]">
+			<span data-status-dot data-state="pending" aria-hidden="true" class="size-2 shrink-0 rounded-full bg-muted/40 data-[state=ok]:bg-emerald-500 data-[state=error]:bg-danger data-[state=pending]:animate-dot-pulse data-[state=pending]:bg-muted motion-reduce:animate-none"></span>
+			<div data-info class="min-w-0 flex-1 transition-opacity duration-150">
+				<p data-name class="truncate text-sm font-medium"></p>
+				<p data-meta role="status" aria-live="polite" class="mt-0.5 text-xs text-muted [overflow-wrap:anywhere]"></p>
+			</div>
+			<div data-stop class="flex shrink-0 items-center gap-1">
+				<Switch attrs={{ 'data-toggle': '' }} />
+				<div class="relative" data-menu-wrap>
+					<button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false" class="grid size-8 cursor-pointer place-items-center rounded-lg text-muted transition-[background-color,color,transform] duration-150 hover:bg-fg/5 hover:text-fg focus-visible:outline-fg/40 active:scale-[0.95] motion-reduce:transition-none">
+						<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" class="size-4"><circle cx="3" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="13" cy="8" r="1.3"/></svg>
+					</button>
+					<div data-menu role="menu" hidden class="absolute right-0 top-full z-20 mt-1 w-40 origin-top-right animate-pop-in rounded-lg border border-border bg-surface p-1 data-flip:bottom-full data-flip:top-auto data-flip:mb-1 data-flip:mt-0 data-flip:origin-bottom-right motion-reduce:animate-none">
+						<button type="button" role="menuitem" data-test class={`${menuItem} text-fg`}>{t(lang, 'settings.connections.menu.test')}</button>
+						<button type="button" role="menuitem" data-edit class={`${menuItem} text-fg`}>{t(lang, 'settings.connections.menu.edit')}</button>
+						<button type="button" role="menuitem" data-delete class={`${menuItem} text-danger`}>{t(lang, 'settings.connections.menu.delete')}</button>
+					</div>
+				</div>
+			</div>
+		</li>
+	</template>
+</section>

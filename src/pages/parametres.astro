@@ -1,0 +1,49 @@
+---
+import { getLang, t } from '../i18n/index';
+import Layout from '../layouts/Layout.astro';
+import ConfirmDialog from '../components/ConfirmDialog.astro';
+import ConnectionsSection from '../components/settings/ConnectionsSection.astro';
+import ConnectionForm from '../components/settings/ConnectionForm.astro';
+import WireguardGuide from '../components/settings/WireguardGuide.astro';
+import AppearanceSection from '../components/settings/AppearanceSection.astro';
+import AboutSection from '../components/settings/AboutSection.astro';
+import ShutdownSection from '../components/settings/ShutdownSection.astro';
+
+const lang = getLang(Astro);
+const tabs = [
+	{ id: 'connexions', label: t(lang, 'settings.nav.connections') },
+	{ id: 'extinction', label: t(lang, 'settings.nav.shutdown'), icon: true },
+		{ id: 'apparence', label: t(lang, 'settings.nav.appearance') },
+	{ id: 'wireguard', label: t(lang, 'settings.nav.wireguard') },
+	{ id: 'a-propos', label: t(lang, 'settings.nav.about') },
+];
+const panel = 'animate-pop-in motion-reduce:animate-none';
+---
+<Layout title={t(lang, 'settings.docTitle')}>
+	<main class="mx-auto min-h-dvh w-full max-w-4xl px-6 py-10">
+		<header>
+			<a href="/" class="inline-flex items-center gap-1 rounded text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40">{t(lang, 'settings.back')}</a>
+			<h1 class="mt-4 font-serif text-2xl">{t(lang, 'settings.title')}</h1>
+		</header>
+
+		<div class="mt-8 grid gap-6 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-10">
+			<nav aria-label={t(lang, 'settings.navLabel')} class="-mx-6 flex gap-1 overflow-x-auto border-b border-border px-6 pb-3 md:sticky md:top-10 md:mx-0 md:flex-col md:self-start md:overflow-visible md:border-0 md:px-0 md:pb-0">
+				{tabs.map((tab, i) => (
+					<a href={`#${tab.id}`} data-nav={tab.id} aria-current={i === 0 ? 'page' : undefined} class="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-[current=page]:bg-fg/5 aria-[current=page]:text-fg">{tab.label}{tab.icon && (<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" class="ml-1.5 inline-block size-3 align-[-1px] opacity-60"><path d="M8 2v5.5M4.7 4.4a5 5 0 1 0 6.6 0"/></svg>)}</a>
+				))}
+			</nav>
+
+			<div class="min-w-0 max-w-2xl">
+				<div data-panel="connexions" class={panel}><ConnectionsSection /></div>
+				<div data-panel="extinction" hidden class={panel}><ShutdownSection /></div>
+				<div data-panel="apparence" hidden class={panel}><AppearanceSection /></div>
+					<div data-panel="wireguard" hidden class={panel}><WireguardGuide /></div>
+				<div data-panel="a-propos" hidden class={panel}><AboutSection /></div>
+			</div>
+		</div>
+	</main>
+
+	<ConnectionForm />
+	<ConfirmDialog />
+	<script>import '../lib/client/settings.js';</script>
+</Layout>

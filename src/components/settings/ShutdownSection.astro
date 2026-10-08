@@ -1,0 +1,62 @@
+---
+import { getLang, t } from '../../i18n/index';
+import Switch from './Switch.astro';
+
+const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger/60';
+const label = 'mb-1.5 block text-sm font-medium';
+const err = 'mt-1.5 text-xs text-danger';
+const seg = 'h-8 cursor-pointer rounded-md px-3 font-mono text-xs text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-checked:bg-fg aria-checked:text-bg';
+const lang = getLang(Astro);
+---
+<section aria-labelledby="shutdown-title">
+	<h2 id="shutdown-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.shutdown.title')}</h2>
+	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.shutdown.description')}</p>
+
+	<p id="shutdown-feedback" role="status" aria-live="polite" class="mt-4 hidden rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+
+	<ul id="shutdown-list" hidden class="mt-6 space-y-3"></ul>
+
+	<div id="shutdown-empty" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+		<p class="text-sm text-muted">{t(lang, 'settings.shutdown.empty')}</p>
+		<a href="#connexions" class="mt-2 inline-block text-sm text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg">{t(lang, 'settings.shutdown.emptyLink')}</a>
+	</div>
+	<p id="shutdown-loading" class="mt-6 text-sm text-muted">{t(lang, 'settings.connections.loading')}</p>
+
+	<template id="tpl-shutdown">
+		<li data-sd-card class="rounded-xl border border-border p-4">
+			<div class="flex items-center justify-between gap-4">
+				<div class="min-w-0">
+					<p data-sd-name class="truncate text-sm font-medium"></p>
+					<p data-sd-toggle-label class="mt-0.5 text-xs text-muted">{t(lang, 'settings.shutdown.enable')}</p>
+				</div>
+				<Switch attrs={{ 'data-sd-switch': '' }} />
+			</div>
+			<div data-sd-fields hidden class="mt-4 space-y-4 border-t border-border pt-4">
+				<div>
+					<label data-sd-url-label class={label}>{t(lang, 'settings.shutdown.url')}</label>
+					<input data-sd-url type="url" inputmode="url" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="http://10.0.0.2:9999/shutdown" class={`${input} font-mono`} />
+					<p data-sd-error="url" hidden class={err}></p>
+				</div>
+				<div>
+					<p data-sd-method-label class={label}>{t(lang, 'settings.shutdown.method')}</p>
+					<div data-sd-method role="radiogroup" class="inline-flex gap-1 rounded-lg border border-border p-0.5">
+						<button type="button" role="radio" data-method="GET" aria-checked="false" class={seg}>GET</button>
+						<button type="button" role="radio" data-method="POST" aria-checked="false" class={seg}>POST</button>
+					</div>
+				</div>
+				<div>
+					<label data-sd-token-label class={label}>{t(lang, 'settings.shutdown.token')}</label>
+					<input data-sd-token type="password" autocomplete="new-password" class={input} />
+					<button type="button" data-sd-clear hidden class="mt-2 cursor-pointer text-xs text-muted underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40">{t(lang, 'settings.shutdown.tokenClear')}</button>
+					<p data-sd-clear-note hidden class="mt-2 text-xs text-muted">{t(lang, 'settings.shutdown.tokenCleared')}</p>
+				</div>
+			</div>
+			<div class="mt-4 flex items-center justify-end gap-3">
+				<p data-sd-error="form" hidden class="min-w-0 flex-1 text-xs text-danger"></p>
+				<p data-sd-saved role="status" aria-live="polite" hidden class="text-xs text-muted">{t(lang, 'settings.shutdown.saved')}</p>
+				<button type="button" data-sd-save class={primaryBtn}>{t(lang, 'settings.shutdown.save')}</button>
+			</div>
+		</li>
+	</template>
+</section>
