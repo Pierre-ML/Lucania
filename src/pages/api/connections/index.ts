@@ -2,8 +2,6 @@ import type { APIRoute } from 'astro';
 import { createConnection, listConnections, parseConnectionInput } from '../../../lib/server/connections';
 import { json, readJson, sameOrigin } from '../../../lib/server/http';
 
-export const prerender = false;
-
 export const GET: APIRoute = async () => json(listConnections());
 
 export const POST: APIRoute = async ({ request }) => {

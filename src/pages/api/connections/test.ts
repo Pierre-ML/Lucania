@@ -3,8 +3,6 @@ import { normalizeHttpUrl } from '../../../lib/server/connections';
 import { json, readJson, sameOrigin } from '../../../lib/server/http';
 import { testBaseUrl } from '../../../lib/server/ollama';
 
-export const prerender = false;
-
 // Teste une adresse avant enregistrement. Répond toujours 200 (sauf origine refusée).
 export const POST: APIRoute = async ({ request }) => {
   if (!sameOrigin(request)) return json({ error: 'Origine refusée' }, 403);

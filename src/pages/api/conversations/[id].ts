@@ -1,9 +1,7 @@
 import type { APIRoute } from 'astro';
 import { connectionExists } from '../../../lib/server/connections';
-import { json, readJson, validMessage, validModel, validTitle } from '../../../lib/server/http';
+import { json, noContent, readJson, validMessage, validModel, validTitle } from '../../../lib/server/http';
 import { deleteConversation, folderExists, getConversation, updateConversation } from '../../../lib/server/storage';
-
-export const prerender = false;
 
 const notFound = () => json({ error: 'Conversation introuvable' }, 404);
 
@@ -68,5 +66,5 @@ export const PATCH: APIRoute = async ({ params, request }) => {
 
 export const DELETE: APIRoute = async ({ params }) => {
   const ok = await deleteConversation(params.id ?? '');
-  return ok ? new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } }) : notFound();
+  return ok ? noContent() : notFound();
 };

@@ -470,6 +470,8 @@ Var AppStartMenuFolder
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+; LUCANIA: en mise à jour, la case « raccourci Bureau » est décochée puis masquée (voir LucaniaFinishShow)
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW LucaniaFinishShow
 !insertmacro MUI_PAGE_FINISH
 
 Function RunMainBinary
@@ -1083,6 +1085,15 @@ FunctionEnd
 Function LucaniaSkipIfPassiveOrExisting
   ${IfThen} $PassiveMode = 1 ${|} Abort ${|}
   ${IfThen} $LucaniaExisting = 1 ${|} Abort ${|}
+FunctionEnd
+
+; LUCANIA: page de fin : en mise à jour ($LucaniaExisting = 1), la case « raccourci Bureau » est
+; LUCANIA: décochée (la fonction SHOWREADME n'est alors pas appelée à la sortie de la page) puis masquée.
+Function LucaniaFinishShow
+  ${If} $LucaniaExisting = 1
+    ${NSD_Uncheck} $mui.FinishPage.ShowReadme
+    ShowWindow $mui.FinishPage.ShowReadme ${SW_HIDE}
+  ${EndIf}
 FunctionEnd
 
 ; LUCANIA: détection (dans .onInit) d'une installation NSIS existante, avec les mêmes critères que

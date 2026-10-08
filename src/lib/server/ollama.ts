@@ -15,7 +15,7 @@ export interface TestResult extends Probe {
 class Unexpected extends Error {}
 
 /** Message lisible (français) pour une erreur de fetch ; ne contient jamais l'URL. */
-export function describeFetchError(e: unknown): string {
+function describeFetchError(e: unknown): string {
   const err = e as any;
   if (err instanceof Unexpected) return err.message;
   if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return 'Injoignable (délai dépassé)';
@@ -64,7 +64,7 @@ async function getJson(url: string, signal: AbortSignal): Promise<any> {
 }
 
 /** GET {baseUrl}/api/tags. Ne lève jamais d'exception. */
-export async function fetchTags(baseUrl: string, timeoutMs: number): Promise<Probe> {
+async function fetchTags(baseUrl: string, timeoutMs: number): Promise<Probe> {
   const t0 = performance.now();
   try {
     const d = await getJson(`${baseUrl}/api/tags`, AbortSignal.timeout(timeoutMs));

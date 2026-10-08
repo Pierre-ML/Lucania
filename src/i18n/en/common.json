@@ -1,34 +1,4 @@
 {
-  "app": {
-    "name": "Lucania",
-    "tagline": "Chat for Ollama models"
-  },
-  "yes": "Yes",
-  "no": "No",
-  "ok": "OK",
   "cancel": "Cancel",
-  "save": "Save",
-  "delete": "Delete",
-  "close": "Close",
-  "edit": "Edit",
-  "rename": "Rename",
-  "add": "Add",
-  "back": "Back",
-  "retry": "Retry",
-  "copy": "Copy",
-  "copied": "Copied",
-  "loading": "Loading…",
-  "error": {
-    "generic": "Something went wrong.",
-    "network": "Network error. Check your connection."
-  },
-  "language": {
-    "label": "Language",
-    "fr": "Français",
-    "en": "English"
-  },
-  "theme": {
-    "label": "Theme",
-    "system": "System"
-  }
+  "delete": "Delete"
 }

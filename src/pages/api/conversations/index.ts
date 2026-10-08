@@ -3,8 +3,6 @@ import { connectionExists } from '../../../lib/server/connections';
 import { json, readJson, validModel, validTitle } from '../../../lib/server/http';
 import { createConversation, folderExists, listConversations } from '../../../lib/server/storage';
 
-export const prerender = false;
-
 export const GET: APIRoute = async () => json(await listConversations());
 
 export const POST: APIRoute = async ({ request }) => {

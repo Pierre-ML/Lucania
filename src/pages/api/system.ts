@@ -4,8 +4,6 @@ import path from 'node:path';
 import { dataDirPath } from '../../lib/server/db';
 import { json } from '../../lib/server/http';
 
-export const prerender = false;
-
 function appVersion(): string {
   const v = process.env.LUCANIA_VERSION?.trim();
   if (v) return v;

@@ -3,8 +3,6 @@ import { listConnectionsSecret } from '../../lib/server/connections';
 import { json } from '../../lib/server/http';
 import { probeConnection } from '../../lib/server/ollama';
 
-export const prerender = false;
-
 export const GET: APIRoute = async () => {
   const conns = listConnectionsSecret().filter((c) => c.enabled);
   const probes = await Promise.all(conns.map((c) => probeConnection(c)));

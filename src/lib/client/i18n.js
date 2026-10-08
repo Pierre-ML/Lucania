@@ -54,11 +54,3 @@ export function setLang(lang) {
 	document.cookie = `lang=${lang}; path=/; max-age=31536000; SameSite=Lax`;
 	location.reload();
 }
-
-export function formatTime(date) {
-	return new Intl.DateTimeFormat(getLang(), { hour: '2-digit', minute: '2-digit' }).format(new Date(date));
-}
-
-export function formatDate(date) {
-	return new Intl.DateTimeFormat(getLang(), { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(date));
-}

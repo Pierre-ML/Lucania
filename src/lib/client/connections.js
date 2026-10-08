@@ -100,11 +100,6 @@ export function listConnections() {
   return request('/api/connections');
 }
 
-/** @param {string} id @returns {Promise<Connection>} */
-export function getConnection(id) {
-  return request(`/api/connections/${encodeURIComponent(id)}`);
-}
-
 /** @param {ConnectionInput} input @returns {Promise<Connection>} */
 export function createConnection(input) {
   return request('/api/connections', jsonInit('POST', input));

@@ -1,7 +1,7 @@
 // i18n côté serveur. Clé complète = `<namespace>.<chemin>` (ex. `chat.composer.placeholder`).
-export const LANGS = ['fr', 'en'] as const;
-export type Lang = (typeof LANGS)[number];
-export const DEFAULT_LANG: Lang = 'fr';
+const LANGS = ['fr', 'en'] as const;
+type Lang = (typeof LANGS)[number];
+const DEFAULT_LANG: Lang = 'fr';
 
 type Value = string | { [k: string]: Value };
 type Params = Record<string, string | number>;
@@ -16,7 +16,7 @@ for (const [path, content] of Object.entries(modules)) {
 	(dictionaries[m[1]] ??= {})[m[2]] = content;
 }
 
-export function isLang(value: unknown): value is Lang {
+function isLang(value: unknown): value is Lang {
 	return typeof value === 'string' && (LANGS as readonly string[]).includes(value);
 }
 

@@ -2,8 +2,6 @@ import type { APIRoute } from 'astro';
 import { getConnectionSecret } from '../../lib/server/connections';
 import { json, readJson, sameOrigin } from '../../lib/server/http';
 
-export const prerender = false;
-
 export const POST: APIRoute = async ({ request }) => {
   if (!sameOrigin(request)) return json({ ok: false, error: 'Origine refusée' }, 403);
   const body = await readJson(request);

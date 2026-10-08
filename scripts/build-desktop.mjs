@@ -11,6 +11,8 @@ const appDir = path.join(tauri, 'resources', 'app');
 const nodeDest = path.join(tauri, 'binaries', 'node-x86_64-pc-windows-msvc.exe');
 const log = (m) => console.log(`[build-desktop] ${m}`);
 const fail = (m) => { console.error(`[build-desktop] ERREUR : ${m}`); process.exit(1); };
+const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+  e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
 
 // a. Build Astro
 log('1/4 Compilation Astro (dépendances serveur embarquées)...');
@@ -46,10 +48,8 @@ log('2a/4 Neutralisation des chemins absolus de la machine de build...');
   const userRe = /[A-Za-z]:(\\\\|\\|\/)Users(\\\\|\\|\/)[^\\/"'`\s:*?<>|]+/gi;
   const userRepl = (m, sep) => 'C:' + sep + 'lucania-build';
   let safety = 0;
-  const walkAll = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? walkAll(path.join(d, e.name)) : [path.join(d, e.name)]);
   let n = 0;
-  for (const f of walkAll(appDir)) {
+  for (const f of walk(appDir)) {
     if (!/\.(mjs|js|cjs|json|html|map)$/i.test(f)) continue;
     let s = fs.readFileSync(f, 'utf8');
     const before = s;
@@ -81,8 +81,6 @@ log('2b/4 Scan anti-fuite (.env, IP, chemins utilisateur)...');
   }
   needles.push({ label: 'adresse 10.66.66.*', buf: Buffer.from('10.66.66.') });
   const userPathRe = /[A-Za-z]:(?:\\\\|\\|\/)Users(?:\\\\|\\|\/)/i;
-  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
   const leaks = [];
   for (const f of walk(appDir)) {
     const data = fs.readFileSync(f);

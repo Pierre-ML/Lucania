@@ -33,6 +33,10 @@ lancer-interface-ia.vbs
 *.db-wal
 *.db-shm
 
+# Instructions pour agents IA (locales)
+CLAUDE.md
+AGENTS.md
+
 # Tauri
 src-tauri/target/
 src-tauri/binaries/

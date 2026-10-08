@@ -25,7 +25,7 @@ export function getTheme() {
 }
 
 /** Thème réellement appliqué : 'system' devient 'light' ou 'dark'. */
-export function resolveTheme(id) {
+function resolveTheme(id) {
 	if (id === 'system') return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 	return isTheme(id) ? id : DEFAULT_THEME;
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Lucania",
-  "version": "0.0.3",
+  "version": "0.1.4",
   "identifier": "com.lucania.desktop",
   "build": {
     "frontendDist": "../src-tauri/loader",

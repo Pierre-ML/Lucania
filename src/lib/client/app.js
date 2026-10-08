@@ -259,10 +259,9 @@ function autoTitle(text) {
 
 /** Erreur de configuration avec lien vers les Paramètres. @param {string} text */
 function showSettingsError(text) {
-  messagesEl.querySelectorAll('[data-role="msg-error"][data-kind="settings"]').forEach((n) => n.remove());
+  messagesEl.querySelectorAll('[data-kind="settings"]').forEach((n) => n.remove());
   const div = document.createElement('div');
   div.className = CLS.msgError;
-  div.dataset.role = 'msg-error';
   div.dataset.kind = 'settings';
   div.append(`${text} `);
   const a = document.createElement('a');
@@ -279,11 +278,9 @@ function showError(text) {
   console.error(text);
   const div = document.createElement('div');
   div.className = CLS.msgError;
-  div.dataset.role = 'msg-error';
   div.textContent = text;
   messagesEl.appendChild(div);
   scrollToBottom();
-  return div;
 }
 
 /* ---------- Statut des serveurs ---------- */
@@ -547,7 +544,6 @@ function createConvItem(c) {
   if (c.pinned) {
     pinIcon = document.createElement('span');
     pinIcon.className = CLS.convPin;
-    pinIcon.dataset.role = 'conv-pin';
     pinIcon.setAttribute('aria-hidden', 'true');
     pinIcon.innerHTML = SVG_PIN_SMALL;
   }
@@ -610,11 +606,9 @@ function createFolderEl(f, items) {
 
   const children = document.createElement('ul');
   children.className = CLS.folderChildren;
-  children.dataset.role = 'folder-children';
   if (items.length === 0) {
     const empty = document.createElement('li');
     empty.className = CLS.folderEmpty;
-    empty.dataset.role = 'folder-empty';
     empty.setAttribute('role', 'presentation');
     empty.textContent = t('chat.list.folderEmpty');
     children.appendChild(empty);
@@ -640,7 +634,6 @@ function renderList() {
   if (pinned.length > 0) {
     const pl = document.createElement('li');
     pl.className = CLS.convGroup;
-    pl.dataset.role = 'pin-group';
     pl.setAttribute('role', 'presentation');
     pl.textContent = t('chat.list.pinned');
     listEl.appendChild(pl);
@@ -874,7 +867,6 @@ function openMoveMenu(btn, convId) {
 
   const menu = document.createElement('div');
   menu.className = CLS.moveMenu;
-  menu.dataset.role = 'move-menu';
   menu.setAttribute('role', 'menu');
   menu.setAttribute('aria-label', t('chat.list.moveToFolder'));
 
@@ -1131,7 +1123,6 @@ function updateEmptyState() {
 function createMessageEl(m, thinkSecs) {
   const wrap = document.createElement('div');
   wrap.className = `${CLS.msg} ${m.role === 'user' ? CLS.msgUser : CLS.msgAssistant}`;
-  wrap.dataset.role = 'msg';
   if (m.role === 'assistant' && m.thinking) {
     const d = createThinkingEl(m.thinking, false);
     if (thinkSecs) setThinkingSummary(d, thinkSecs);
@@ -1139,12 +1130,10 @@ function createMessageEl(m, thinkSecs) {
   }
   const content = document.createElement('div');
   content.className = m.role === 'user' ? CLS.contentUser : CLS.contentAssistant;
-  content.dataset.role = 'msg-content';
   if (m.role === 'user') content.textContent = m.content;
   else content.innerHTML = renderMarkdown(m.content);
   const meta = document.createElement('div');
   meta.className = CLS.msgMeta;
-  meta.dataset.role = 'msg-meta';
   meta.textContent = formatMeta(m, m.role === 'assistant');
   wrap.append(content, meta);
   return wrap;
@@ -1153,7 +1142,6 @@ function createMessageEl(m, thinkSecs) {
 function createThinkingEl(text, open) {
   const details = document.createElement('details');
   details.className = CLS.thinking;
-  details.dataset.role = 'thinking';
   details.open = open;
   const summary = document.createElement('summary');
   summary.className = CLS.thinkingSummary;
@@ -1354,11 +1342,8 @@ async function send() {
   // 3) Élément assistant en streaming
   const el = document.createElement('div');
   el.className = `${CLS.msg} ${CLS.msgAssistant}`;
-  el.dataset.role = 'msg';
-  el.dataset.streaming = 'true';
   const contentEl = document.createElement('div');
   contentEl.className = CLS.contentAssistant;
-  contentEl.dataset.role = 'msg-content';
   // Un seul indicateur (loup + phrase), déplacé selon la phase : attente -> réflexion -> réponse (compact).
   const logoTpl = /** @type {HTMLTemplateElement|null} */ (document.getElementById('thinking-logo-template'));
   const logoEl = /** @type {HTMLElement|null} */ (
@@ -1451,7 +1436,6 @@ async function send() {
   if (thinkStart && !thinkSecs) thinkSecs = Math.max(1, Math.round((Date.now() - thinkStart) / 1000));
 
   // 5) Fin
-  delete el.dataset.streaming;
   stopWords();
   if (logoEl) logoEl.remove();
   const visible = current === conv;
@@ -1460,7 +1444,6 @@ async function send() {
     if (visible) {
       const errEl = document.createElement('div');
       errEl.className = CLS.msgError;
-      errEl.dataset.role = 'msg-error';
       errEl.textContent = failure.message || String(failure);
       el.after(errEl);
     }

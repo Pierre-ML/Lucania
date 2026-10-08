@@ -3,8 +3,6 @@ import { listConnectionsSecret } from '../../lib/server/connections';
 import { json } from '../../lib/server/http';
 import { probeConnection } from '../../lib/server/ollama';
 
-export const prerender = false;
-
 interface ModelEntry {
   connectionId: string;
   connectionName: string;

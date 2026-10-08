@@ -2,8 +2,6 @@ import type { APIRoute } from 'astro';
 import { json, readJson, validFolderName } from '../../../lib/server/http';
 import { createFolder, listFolders } from '../../../lib/server/storage';
 
-export const prerender = false;
-
 export const GET: APIRoute = async () => json(await listFolders());
 
 export const POST: APIRoute = async ({ request }) => {

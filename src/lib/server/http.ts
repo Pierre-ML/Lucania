@@ -30,11 +30,11 @@ export function validFolderName(n: unknown): n is string {
   return typeof n === 'string' && n.trim().length > 0 && n.trim().length <= 80;
 }
 
-export function validMessage(m: any, roles: string[] = ['user', 'assistant']): boolean {
+export function validMessage(m: any): boolean {
   return (
     !!m &&
     typeof m === 'object' &&
-    roles.includes(m.role) &&
+    (m.role === 'user' || m.role === 'assistant') &&
     typeof m.content === 'string' &&
     (m.thinking === undefined || typeof m.thinking === 'string') &&
     typeof m.model === 'string' &&

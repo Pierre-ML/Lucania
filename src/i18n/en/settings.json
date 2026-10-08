@@ -132,9 +132,7 @@
     "title": "Appearance",
     "description": "Choose the color theme and the interface language.",
     "themeTitle": "Theme",
-    "themeLabel": "Color theme",
     "languageTitle": "Language",
-    "languageLabel": "Interface language",
     "hint": "The theme and language are saved on this device."
   },
   "wireguard": {

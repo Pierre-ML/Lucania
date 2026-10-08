@@ -132,9 +132,7 @@
     "title": "Apparence",
     "description": "Choisis le thème de couleurs et la langue de l'interface.",
     "themeTitle": "Thème",
-    "themeLabel": "Thème de couleurs",
     "languageTitle": "Langue",
-    "languageLabel": "Langue de l'interface",
     "hint": "Le thème et la langue sont enregistrés sur cet appareil."
   },
   "wireguard": {

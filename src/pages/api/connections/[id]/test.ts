@@ -3,8 +3,6 @@ import { getConnectionSecret } from '../../../../lib/server/connections';
 import { json, sameOrigin } from '../../../../lib/server/http';
 import { rememberProbe, testBaseUrl } from '../../../../lib/server/ollama';
 
-export const prerender = false;
-
 // Teste une connexion enregistrée. Répond toujours 200 (sauf origine refusée).
 export const POST: APIRoute = async ({ params, request }) => {
   if (!sameOrigin(request)) return json({ error: 'Origine refusée' }, 403);

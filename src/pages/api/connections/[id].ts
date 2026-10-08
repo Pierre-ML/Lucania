@@ -8,8 +8,6 @@ import {
 import { json, noContent, readJson, sameOrigin } from '../../../lib/server/http';
 import { invalidateProbe } from '../../../lib/server/ollama';
 
-export const prerender = false;
-
 const notFound = () => json({ error: 'Connexion introuvable' }, 404);
 
 export const GET: APIRoute = async ({ params }) => {

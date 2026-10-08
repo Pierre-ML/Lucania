@@ -1,7 +1,7 @@
 // Connexions = serveurs Ollama configurés (table `connections`). Serveur uniquement.
 // Le jeton d'extinction n'est JAMAIS renvoyé au client : seul `hasToken` est exposé.
 import crypto from 'node:crypto';
-import { getDb } from './db';
+import { getDb, withTransaction } from './db';
 import { isValidId } from './storage';
 
 export type ConnectionKind = 'local' | 'remote';
@@ -221,11 +221,9 @@ export function parseConnectionInput(
 // ---- Écriture ----
 
 export function createConnection(v: ConnectionChanges): Connection {
-  const db = getDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  withTransaction((db) => {
     const max = db.prepare('SELECT MAX(position) AS m FROM connections').get() as unknown as { m: number | null };
     const position = max.m === null || max.m === undefined ? 0 : Number(max.m) + 1;
     db.prepare(
@@ -248,26 +246,15 @@ export function createConnection(v: ConnectionChanges): Connection {
       now,
       now,
     );
-    db.exec('COMMIT');
-  } catch (e) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {}
-    throw e;
-  }
+  });
   return getConnection(id)!;
 }
 
 export function updateConnection(id: string, v: ConnectionChanges): Connection | null {
   if (!isValidId(id)) return null;
-  const db = getDb();
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  const found = withTransaction((db) => {
     const cur = getConnectionSecret(id);
-    if (!cur) {
-      db.exec('ROLLBACK');
-      return null;
-    }
+    if (!cur) return false;
     db.prepare(
       `UPDATE connections SET name = ?, kind = ?, base_url = ?, enabled = ?, auto_models = ?, manual_models = ?,
          shutdown_enabled = ?, shutdown_url = ?, shutdown_method = ?, shutdown_token = ?, updated_at = ?
@@ -286,30 +273,17 @@ export function updateConnection(id: string, v: ConnectionChanges): Connection |
       new Date().toISOString(),
       id,
     );
-    db.exec('COMMIT');
-  } catch (e) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {}
-    throw e;
-  }
-  return getConnection(id);
+    return true;
+  });
+  return found ? getConnection(id) : null;
 }
 
 /** Supprime la connexion ; les conversations sont conservées (connection_id → NULL). */
 export function deleteConnection(id: string): boolean {
   if (!isValidId(id)) return false;
-  const db = getDb();
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return withTransaction((db) => {
     db.prepare('UPDATE conversations SET connection_id = NULL WHERE connection_id = ?').run(id);
     const r = db.prepare('DELETE FROM connections WHERE id = ?').run(id);
-    db.exec('COMMIT');
     return Number(r.changes) > 0;
-  } catch (e) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {}
-    throw e;
-  }
+  });
 }

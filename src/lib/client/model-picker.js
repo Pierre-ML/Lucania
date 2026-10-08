@@ -53,7 +53,7 @@ export function setModelPickerData(meta, isLoaded) {
 }
 
 /** Nom lisible générique d'un identifiant de modèle. */
-export function prettyModelName(id) {
+function prettyModelName(id) {
   let s = String(id || '');
   s = s.slice(s.lastIndexOf('/') + 1);
   let tag = '';

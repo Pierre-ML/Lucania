@@ -13,8 +13,6 @@ const lang = getLang(Astro);
 	<h2 id="shutdown-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.shutdown.title')}</h2>
 	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.shutdown.description')}</p>
 
-	<p id="shutdown-feedback" role="status" aria-live="polite" class="mt-4 hidden rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
-
 	<ul id="shutdown-list" hidden class="mt-6 space-y-3"></ul>
 
 	<div id="shutdown-empty" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-10 text-center">
@@ -28,7 +26,7 @@ const lang = getLang(Astro);
 			<div class="flex items-center justify-between gap-4">
 				<div class="min-w-0">
 					<p data-sd-name class="truncate text-sm font-medium"></p>
-					<p data-sd-toggle-label class="mt-0.5 text-xs text-muted">{t(lang, 'settings.shutdown.enable')}</p>
+					<p class="mt-0.5 text-xs text-muted">{t(lang, 'settings.shutdown.enable')}</p>
 				</div>
 				<Switch attrs={{ 'data-sd-switch': '' }} />
 			</div>

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { getDb } from './db';
+import { getDb, withTransaction } from './db';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -166,14 +166,9 @@ export async function updateConversation(
   },
 ): Promise<Conversation | null> {
   if (!isValidId(id)) return null;
-  const db = getDb();
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  const found = withTransaction((db) => {
     const exists = db.prepare('SELECT 1 AS x FROM conversations WHERE id = ?').get(id);
-    if (!exists) {
-      db.exec('ROLLBACK');
-      return null;
-    }
+    if (!exists) return false;
     if (patch.messages !== undefined) {
       db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(id);
       const ins = db.prepare(
@@ -209,14 +204,9 @@ export async function updateConversation(
     if (patch.connectionId !== undefined) {
       db.prepare('UPDATE conversations SET connection_id = ? WHERE id = ?').run(patch.connectionId, id);
     }
-    db.exec('COMMIT');
-  } catch (e) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {}
-    throw e;
-  }
-  return loadConversation(id);
+    return true;
+  });
+  return found ? loadConversation(id) : null;
 }
 
 export async function deleteConversation(id: string): Promise<boolean> {
@@ -257,7 +247,7 @@ export async function listFolders(): Promise<Folder[]> {
   return rows.map(toFolder);
 }
 
-export async function getFolder(id: string): Promise<Folder | null> {
+async function getFolder(id: string): Promise<Folder | null> {
   if (!isValidId(id)) return null;
   const r = getDb().prepare(`${FOLDER_SELECT} WHERE f.id = ?`).get(id) as unknown as FolderRow | undefined;
   return r ? toFolder(r) : null;
@@ -280,17 +270,9 @@ export async function renameFolder(id: string, name: string): Promise<Folder | n
 
 export async function deleteFolder(id: string): Promise<boolean> {
   if (!isValidId(id)) return false;
-  const db = getDb();
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return withTransaction((db) => {
     db.prepare('UPDATE conversations SET folder_id = NULL WHERE folder_id = ?').run(id);
     const r = db.prepare('DELETE FROM folders WHERE id = ?').run(id);
-    db.exec('COMMIT');
     return Number(r.changes) > 0;
-  } catch (e) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {}
-    throw e;
-  }
+  });
 }

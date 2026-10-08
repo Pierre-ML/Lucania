@@ -2,8 +2,6 @@ import type { APIRoute } from 'astro';
 import { getConnectionSecret } from '../../lib/server/connections';
 import { json, readJson, validModel } from '../../lib/server/http';
 
-export const prerender = false;
-
 export const POST: APIRoute = async ({ request }) => {
   const body = await readJson(request);
   if (!body) return json({ error: 'Corps JSON invalide' }, 400);

@@ -11,7 +11,7 @@ import { t } from './i18n.js';
  * @param {string} raw
  * @returns {{ content: string, thinking: string }}
  */
-export function splitThinking(raw) {
+function splitThinking(raw) {
   const trimmed = raw.trimStart();
   if (!trimmed.startsWith('<think>')) return { content: raw, thinking: '' };
   const rest = trimmed.slice('<think>'.length);

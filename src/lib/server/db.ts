@@ -97,6 +97,27 @@ function migrateJson(db: DatabaseSync) {
 }
 
 // v5 : connexions multiples (serveurs Ollama). Appelée dans la transaction de migrateSchema.
+function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as unknown as { name: string }[];
+  return cols.some((c) => c.name === column);
+}
+
+/** Exécute `fn` dans une transaction BEGIN IMMEDIATE (COMMIT, ou ROLLBACK si `fn` lève). */
+export function withTransaction<T>(fn: (db: DatabaseSync) => T): T {
+  const db = getDb();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const r = fn(db);
+    db.exec('COMMIT');
+    return r;
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {}
+    throw e;
+  }
+}
+
 function migrateV5(db: DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS connections (
     id TEXT PRIMARY KEY,
@@ -114,8 +135,7 @@ function migrateV5(db: DatabaseSync) {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
-  const cols = db.prepare('PRAGMA table_info(conversations)').all() as unknown as { name: string }[];
-  if (!cols.some((c) => c.name === 'connection_id')) {
+  if (!hasColumn(db, 'conversations', 'connection_id')) {
     db.exec('ALTER TABLE conversations ADD COLUMN connection_id TEXT REFERENCES connections(id) ON DELETE SET NULL');
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_conv_connection ON conversations(connection_id)');
@@ -164,26 +184,23 @@ function migrateSchema(db: DatabaseSync) {
   db.exec('BEGIN IMMEDIATE');
   try {
     if (version < 2) {
-    db.exec(`CREATE TABLE IF NOT EXISTS folders (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`);
-    const cols = db.prepare('PRAGMA table_info(conversations)').all() as unknown as { name: string }[];
-    if (!cols.some((c) => c.name === 'folder_id')) {
-      db.exec('ALTER TABLE conversations ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL');
+      db.exec(`CREATE TABLE IF NOT EXISTS folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`);
+      if (!hasColumn(db, 'conversations', 'folder_id')) {
+        db.exec('ALTER TABLE conversations ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL');
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_conv_folder ON conversations(folder_id)');
+      db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '2')");
     }
-    db.exec('CREATE INDEX IF NOT EXISTS idx_conv_folder ON conversations(folder_id)');
-    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '2')");
-    }
-    const cols3 = db.prepare('PRAGMA table_info(conversations)').all() as unknown as { name: string }[];
-    if (!cols3.some((c) => c.name === 'think')) {
+    if (!hasColumn(db, 'conversations', 'think')) {
       db.exec('ALTER TABLE conversations ADD COLUMN think INTEGER NOT NULL DEFAULT 1');
     }
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '3')");
-    const cols4 = db.prepare('PRAGMA table_info(conversations)').all() as unknown as { name: string }[];
-    if (!cols4.some((c) => c.name === 'pinned')) {
+    if (!hasColumn(db, 'conversations', 'pinned')) {
       db.exec('ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
     }
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '4')");

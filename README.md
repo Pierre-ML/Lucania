@@ -1,5 +1,13 @@
 <img src="src/assets/logo/loup-blanc.svg" width="72" alt="Lucania">
 
+## App Windows
+
+Téléchargez l'installeur `.exe` dans les [Releases](https://github.com/Pierre-ML/Lucania/releases/latest), puis lancez-le.
+
+## Windows app
+
+Download the `.exe` installer from the [Releases](https://github.com/Pierre-ML/Lucania/releases/latest) page and run it.
+
 # Lucania
 
 Interface de chat web locale, dans le style de Claude.ai, pour vos modèles Ollama.

@@ -70,7 +70,6 @@ let connections = [];
 let editingId = null;
 /** @type {string[]} */
 let manualModels = [];
-let hasToken = false;
 /** @type {'local'|'remote'|'custom'} */
 let mode = 'local';
 let nameTouched = false;
@@ -206,7 +205,6 @@ const isOn = (sw) => sw.getAttribute('aria-checked') === 'true';
 const setOn = (sw, on) => sw.setAttribute('aria-checked', on ? 'true' : 'false');
 
 autoSwitch.addEventListener('click', () => setOn(autoSwitch, !isOn(autoSwitch)));
-sdSwitch.addEventListener('click', () => setOn(sdSwitch, !isOn(sdSwitch)));
 
 // ---------- Menu « ⋯ » (un seul ouvert à la fois) ----------
 
@@ -712,18 +710,17 @@ function openForm(conn) {
   manualModels = conn ? [...conn.manualModels] : [];
   renderManual();
 
+  const hasToken = Boolean(conn?.shutdown.hasToken);
   if (conn) {
     setOn(autoSwitch, conn.autoModels);
     setOn(sdSwitch, conn.shutdown.enabled);
     sdUrl.value = conn.shutdown.url || '';
     sdMethod.value = conn.shutdown.method || 'POST';
-    hasToken = Boolean(conn.shutdown.hasToken);
   } else {
     setOn(autoSwitch, true);
     setOn(sdSwitch, false);
     sdUrl.value = '';
     sdMethod.value = 'POST';
-    hasToken = false;
   }
   sdFields.hidden = !isOn(sdSwitch);
   sdToken.placeholder = hasToken ? t('settings.form.advanced.tokenSaved') : '';
@@ -741,10 +738,7 @@ function openForm(conn) {
     goStep2(d.mode);
   } else {
     mode = 'local';
-    step2.hidden = true;
-    fadeIn(step1);
-    backBtn.hidden = true;
-    saveBtn.hidden = true;
+    goStep1();
     /** @type {HTMLElement} */ ($('[data-kind="local"]', step1)).focus();
   }
 }
@@ -810,6 +804,7 @@ manualInput.addEventListener('keydown', (e) => {
 });
 
 sdSwitch.addEventListener('click', () => {
+  setOn(sdSwitch, !isOn(sdSwitch));
   sdFields.hidden = !isOn(sdSwitch);
 });
 
@@ -872,7 +867,6 @@ form.addEventListener('submit', async (e) => {
 const sdListEl = byId('shutdown-list');
 const sdEmptyEl = byId('shutdown-empty');
 const sdLoadingEl = byId('shutdown-loading');
-const sdFeedbackEl = byId('shutdown-feedback');
 const tplShutdown = /** @type {HTMLTemplateElement} */ (byId('tpl-shutdown'));
 const SAVED_MS = 2500;
 
@@ -882,10 +876,6 @@ function renderShutdown() {
   if (sdLoadingEl) sdLoadingEl.hidden = true;
   sdListEl.hidden = connections.length === 0;
   if (sdEmptyEl) sdEmptyEl.hidden = connections.length > 0;
-  if (sdFeedbackEl) {
-    sdFeedbackEl.textContent = '';
-    sdFeedbackEl.classList.add('hidden');
-  }
   for (const conn of connections) sdListEl.append(buildShutdownCard(conn));
 }
 

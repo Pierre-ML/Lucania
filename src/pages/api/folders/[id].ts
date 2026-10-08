@@ -1,8 +1,6 @@
 import type { APIRoute } from 'astro';
-import { json, readJson, validFolderName } from '../../../lib/server/http';
+import { json, noContent, readJson, validFolderName } from '../../../lib/server/http';
 import { deleteFolder, renameFolder } from '../../../lib/server/storage';
-
-export const prerender = false;
 
 const notFound = () => json({ error: 'Dossier introuvable' }, 404);
 
@@ -16,5 +14,5 @@ export const PATCH: APIRoute = async ({ params, request }) => {
 
 export const DELETE: APIRoute = async ({ params }) => {
   const ok = await deleteFolder(params.id ?? '');
-  return ok ? new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } }) : notFound();
+  return ok ? noContent() : notFound();
 };
