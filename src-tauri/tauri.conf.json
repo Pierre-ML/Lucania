@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Lucania",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "identifier": "com.lucania.desktop",
   "build": {
     "frontendDist": "../src-tauri/loader",
@@ -47,7 +47,9 @@
     "windows": {
       "nsis": {
         "installMode": "perMachine",
-        "installerHooks": "./windows/hooks.nsh"
+        "installerHooks": "./windows/hooks.nsh",
+        "template": "./windows/installer.nsi",
+        "languages": ["French", "English"]
       }
     }
   }
