@@ -121,6 +121,18 @@ Var LucaniaTmp               ; brouillon
   ${EndIf}
 !macroend
 
+; LUCANIA: double lancement (.onInit) : cherche une fenêtre de premier niveau de classe « #32770 » dont
+; LUCANIA: le titre est exactement TITLE, ou TITLE suivi d'une espace (pages MUI2). $LucaniaTmp reçoit
+; LUCANIA: le handle trouvé (0 sinon) ; ne cherche plus dès qu'une fenêtre a été trouvée.
+!macro LUCANIA_FIND_INSTALLER_WINDOW TITLE
+  ${If} $LucaniaTmp = 0
+    FindWindow $LucaniaTmp "#32770" "${TITLE}"
+  ${EndIf}
+  ${If} $LucaniaTmp = 0
+    FindWindow $LucaniaTmp "#32770" "${TITLE} "
+  ${EndIf}
+!macroend
+
 ; LUCANIA: retire le « \ » final éventuel d'un chemin (VAR ne doit pas être $LucaniaTmp)
 !macro LUCANIA_STRIP_TRAILING_SLASH VAR
   StrCpy $LucaniaTmp ${VAR} "" -1
@@ -366,7 +378,7 @@ FunctionEnd
 ; LUCANIA: automatiquement selon celle de Windows). $LucaniaInstalledVersion est remplacé à l'exécution
 ; LUCANIA: par la version installée. Chaque texte n'est compilé que dans l'exe qui l'utilise.
 !ifdef LANG_FRENCH
-; LUCANIA: double lancement (setup et update partagent le même mutex)
+; LUCANIA: double lancement (setup et update se détectent mutuellement, voir .onInit)
 LangString lucaniaSetupAlreadyRunning ${LANG_FRENCH} "Une installation ou une mise à jour de ${PRODUCTNAME} est déjà en cours."
 ; LUCANIA: remplace les textes NSIS intégrés ^FileError (Abandonner/Recommencer/Ignorer) et
 ; LUCANIA: ^FileError_NoIgnore (Recommencer/Annuler) affichés quand un fichier ne peut pas être écrit
@@ -392,7 +404,7 @@ LangString lucaniaUpdateDoneText ${LANG_FRENCH} "${PRODUCTNAME} a été mis à j
 !endif
 
 !ifdef LANG_ENGLISH
-; LUCANIA: double lancement (setup et update partagent le même mutex)
+; LUCANIA: double lancement (setup et update se détectent mutuellement, voir .onInit)
 LangString lucaniaSetupAlreadyRunning ${LANG_ENGLISH} "An installation or update of ${PRODUCTNAME} is already running."
 ; LUCANIA: message d'écriture impossible (voir le bloc français ci-dessus)
 LangString ^FileError ${LANG_ENGLISH} "Unable to write the file:$\r$\n$\r$\n$0$\r$\n$\r$\nYour antivirus is probably blocking the installation of ${PRODUCTNAME} (the program is not signed yet). Add an exception for this installer and for the folder $INSTDIR, then click Retry.$\r$\n$\r$\nAbort cancels the installation. Ignore skips this file: ${PRODUCTNAME} would then be incomplete."
@@ -413,24 +425,30 @@ LangString lucaniaUpdateDoneText ${LANG_ENGLISH} "${PRODUCTNAME} has been update
 !endif
 
 Function .onInit
-  ; LUCANIA: un seul setup OU update à la fois : les deux exe utilisent le MÊME nom de mutex (ne pas
-  ; LUCANIA: le changer). Mutex nommé (espace Global : toutes sessions), libéré automatiquement à la fin
-  ; LUCANIA: du processus. « ?e » empile GetLastError après l'appel :
-  ; LUCANIA: 183 = ERROR_ALREADY_EXISTS (setup/update déjà lancé), 5 = ERROR_ACCESS_DENIED (mutex existant
-  ; LUCANIA: créé par une autre session). Le second exe quitte (Abort dans .onInit), y compris en
-  ; LUCANIA: silencieux (message ignoré grâce à /SD). Rien dans un.onInit : le désinstallateur n'est
-  ; LUCANIA: pas concerné. $1/$R0 sont préservés.
-  Push $1
-  Push $R0
-  System::Call 'kernel32::CreateMutex(p 0, i 1, t "Global\${BUNDLEID}.SetupMutex") p .r1 ?e'
-  Pop $R0
-  ${If} $R0 = 183
-  ${OrIf} $R0 = 5
+  ; LUCANIA: un seul setup OU update à la fois, détection « au mieux » SANS appel système : l'ancien
+  ; LUCANIA: mutex nommé « Global\... » (créé par un appel système via le plugin System) a été retiré, car Norton le
+  ; LUCANIA: classait comme comportement suspect (IDP.Generic) dans un exe élevé non signé.
+  ; LUCANIA: Instruction NSIS native FindWindow (pas de plugin) : la fenêtre principale d'un installateur
+  ; LUCANIA: NSIS est une boîte de dialogue de premier niveau de classe « #32770 », dont le titre est la
+  ; LUCANIA: Caption de l'exe, suivie d'une espace sur les pages MUI2 (Caption " " de page) et sans
+  ; LUCANIA: espace sur la page Bienvenue. Titres testés (titre exact, avec et sans espace finale) :
+  ; LUCANIA:   setup  : « Installation de Lucania » (French.nlf ^SetupCaption), « Lucania Setup » (English.nlf)
+  ; LUCANIA:   update : « Mise à jour de Lucania », « Lucania Update » (LangString lucaniaUpdateTitle)
+  ; LUCANIA: Le setup et l'update se détectent donc mutuellement, quelle que soit la langue. Le
+  ; LUCANIA: désinstallateur (« Désinstallation de Lucania » / « Lucania Uninstall ») n'est PAS bloquant.
+  ; LUCANIA: Pendant .onInit, la fenêtre de l'instance courante n'est pas encore créée : FindWindow ne peut
+  ; LUCANIA: pas la trouver elle-même. Limites acceptées : une instance silencieuse (/S, sans fenêtre)
+  ; LUCANIA: n'est pas détectée, et une MessageBox d'une autre instance (même titre) l'est.
+  ; LUCANIA: Si les titres changent (Caption, lucaniaUpdateTitle), mettre à jour la liste ci-dessous.
+  StrCpy $LucaniaTmp 0
+  !insertmacro LUCANIA_FIND_INSTALLER_WINDOW "Installation de ${PRODUCTNAME}"
+  !insertmacro LUCANIA_FIND_INSTALLER_WINDOW "${PRODUCTNAME} Setup"
+  !insertmacro LUCANIA_FIND_INSTALLER_WINDOW "Mise à jour de ${PRODUCTNAME}"
+  !insertmacro LUCANIA_FIND_INSTALLER_WINDOW "${PRODUCTNAME} Update"
+  ${If} $LucaniaTmp <> 0
     MessageBox MB_ICONINFORMATION|MB_OK "$(lucaniaSetupAlreadyRunning)" /SD IDOK
     Abort
   ${EndIf}
-  Pop $R0
-  Pop $1
 
   StrCpy $WixMode 0 ; LUCANIA: migration WiX supprimée (évite aussi l'avertissement 6001 de makensis)
 
@@ -644,54 +662,6 @@ Section Install
     !insertmacro CheckIfAppIsRunning "$INSTDIR\node.exe" "${PRODUCTNAME}"
   ${EndIf}
 
-  ; LUCANIA: désinstallateur et clés de désinstallation écrits AVANT toute copie de fichiers (blocs
-  ; LUCANIA: déplacés depuis la fin de la section, non dupliqués). Si la copie échoue (antivirus qui
-  ; LUCANIA: bloque l'exe non signé, Abandonner), l'installation partielle a déjà son uninstall.exe et
-  ; LUCANIA: son entrée dans « Applications installées » : elle peut être désinstallée proprement, et
-  ; LUCANIA: LucaniaDetectInstall la voit comme installée (l'exe de mise à jour la répare). Seule
-  ; LUCANIA: EstimatedSize, qui dépend de la fin de l'installation, reste écrite en fin de section.
-  ; Create uninstaller
-  WriteUninstaller "$INSTDIR\uninstall.exe"
-
-  ; Save $INSTDIR in registry for future installations
-  WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
-
-  !if "${INSTALLMODE}" == "both"
-    ; Save install mode to be selected by default for the next installation such as updating
-    ; or when uninstalling
-    WriteRegStr SHCTX "${UNINSTKEY}" $MultiUser.InstallMode 1
-  !endif
-
-  ; LUCANIA: lecture de l'ancien MainBinaryName conservée AVANT son écriture ci-dessous (même ordre
-  ; LUCANIA: que le template) ; l'ancien exe est donc supprimé avant la copie du nouveau, sans effet
-  ; LUCANIA: quand le nom n'a pas changé.
-  ; Remove old main binary if it doesn't match new main binary name
-  ReadRegStr $OldMainBinaryName SHCTX "${UNINSTKEY}" "MainBinaryName"
-  ${If} $OldMainBinaryName != ""
-  ${AndIf} $OldMainBinaryName != "${MAINBINARYNAME}.exe"
-    Delete "$INSTDIR\$OldMainBinaryName"
-  ${EndIf}
-
-  ; Save current MAINBINARYNAME for future updates
-  WriteRegStr SHCTX "${UNINSTKEY}" "MainBinaryName" "${MAINBINARYNAME}.exe"
-
-  ; Registry information for add/remove programs
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
-  WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
-  WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
-  WriteRegStr SHCTX "${UNINSTKEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
-  WriteRegDWORD SHCTX "${UNINSTKEY}" "NoModify" "1"
-  WriteRegDWORD SHCTX "${UNINSTKEY}" "NoRepair" "1"
-
-  ; LUCANIA: liens (valeurs fixes) déplacés avec les autres clés de désinstallation
-  !if "${HOMEPAGE}" != ""
-    WriteRegStr SHCTX "${UNINSTKEY}" "URLInfoAbout" "${HOMEPAGE}"
-    WriteRegStr SHCTX "${UNINSTKEY}" "URLUpdateInfo" "${HOMEPAGE}"
-    WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
-  !endif
-
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
 
@@ -723,12 +693,48 @@ Section Install
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
   {{/each}}
 
-  ; LUCANIA: WriteUninstaller et les clés de désinstallation sont maintenant écrits avant la copie des
-  ; LUCANIA: fichiers (voir plus haut). Seule EstimatedSize reste ici, après la copie.
+  ; Create uninstaller
+  WriteUninstaller "$INSTDIR\uninstall.exe"
+
+  ; Save $INSTDIR in registry for future installations
+  WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
+
+  !if "${INSTALLMODE}" == "both"
+    ; Save install mode to be selected by default for the next installation such as updating
+    ; or when uninstalling
+    WriteRegStr SHCTX "${UNINSTKEY}" $MultiUser.InstallMode 1
+  !endif
+
+  ; Remove old main binary if it doesn't match new main binary name
+  ReadRegStr $OldMainBinaryName SHCTX "${UNINSTKEY}" "MainBinaryName"
+  ${If} $OldMainBinaryName != ""
+  ${AndIf} $OldMainBinaryName != "${MAINBINARYNAME}.exe"
+    Delete "$INSTDIR\$OldMainBinaryName"
+  ${EndIf}
+
+  ; Save current MAINBINARYNAME for future updates
+  WriteRegStr SHCTX "${UNINSTKEY}" "MainBinaryName" "${MAINBINARYNAME}.exe"
+
+  ; Registry information for add/remove programs
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
+  WriteRegStr SHCTX "${UNINSTKEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+  WriteRegDWORD SHCTX "${UNINSTKEY}" "NoModify" "1"
+  WriteRegDWORD SHCTX "${UNINSTKEY}" "NoRepair" "1"
+
   ${GetSize} "$INSTDIR" "/M=uninstall.exe /S=0K /G=0" $0 $1 $2
   IntOp $0 $0 + ${ESTIMATEDSIZE}
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD SHCTX "${UNINSTKEY}" "EstimatedSize" "$0"
+
+  !if "${HOMEPAGE}" != ""
+    WriteRegStr SHCTX "${UNINSTKEY}" "URLInfoAbout" "${HOMEPAGE}"
+    WriteRegStr SHCTX "${UNINSTKEY}" "URLUpdateInfo" "${HOMEPAGE}"
+    WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
+  !endif
 
   ; Create start menu shortcut
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
