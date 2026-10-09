@@ -67,9 +67,9 @@ jobs:
         shell: bash
         run: |
           v="${{ steps.version.outputs.version }}"
-          d="src-tauri/target/release/bundle/nsis"
+          d="src-tauri/target/release/bundle/release"
           missing=0
-          for f in "Lucania_${v}_x64-setup.exe" "Lucania_${v}_x64-update.exe"; do
+          for f in "Lucania-Setup.exe" "Lucania-Update.exe"; do
             if [ ! -f "$d/$f" ]; then
               echo "::error::Fichier manquant : $d/$f"
               missing=1
@@ -82,4 +82,6 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Lucania v${{ steps.version.outputs.version }}
-          files: src-tauri/target/release/bundle/nsis/*.exe
+          files: |
+            src-tauri/target/release/bundle/release/Lucania-Setup.exe
+            src-tauri/target/release/bundle/release/Lucania-Update.exe

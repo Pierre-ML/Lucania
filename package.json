@@ -13,7 +13,7 @@
   ],
   "private": true,
   "type": "module",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -27,7 +27,8 @@
     "build:desktop": "node scripts/build-desktop.mjs",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build && node scripts/build-updater.mjs",
+    "desktop:build": "tauri build && node scripts/build-updater.mjs && node scripts/name-installers.mjs",
+    "name:installers": "node scripts/name-installers.mjs",
     "build:updater": "node scripts/build-updater.mjs"
   },
   "dependencies": {

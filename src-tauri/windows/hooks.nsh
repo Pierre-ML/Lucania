@@ -19,16 +19,29 @@
 ; Ne pas renommer /UPDATE : c'est le seul drapeau que les désinstallateurs déjà installés connaissent
 ; (un ancien installateur ou un outil externe peut encore lancer « uninstall.exe /UPDATE »).
 ;
-; Contexte : installMode perMachine => l'installateur est en « SetShellVarContext all », où
-; $APPDATA/$LOCALAPPDATA pointent vers ProgramData. On repasse donc en contexte « current »
-; (utilisateur courant) pour la suppression, puis on restaure le contexte « all ».
+; Contexte : installMode currentUser (depuis la 0.1.12, tauri.conf.json) => l'installateur et le
+; désinstallateur sont déjà en « SetShellVarContext current » (macro SetContext de utils.nsh) :
+; $APPDATA et $LOCALAPPDATA sont ceux de l'utilisateur courant, on ne change donc pas de contexte.
+; Le programme est installé dans %LOCALAPPDATA%\Programs\Lucania, dossier DISTINCT des données
+; %LOCALAPPDATA%\com.lucania.desktop : seul ce hook (vraie désinstallation) supprime les données.
+; Si l'on revenait en perMachine (contexte « all », où $APPDATA/$LOCALAPPDATA pointent vers ProgramData),
+; les deux !if repassent en « current » pour la suppression puis restaurent « all » ; en currentUser,
+; ils ne produisent aucune instruction.
+;
+; Attention : les ANCIENS désinstallateurs perMachine (versions <= 0.1.11, dans Program Files) contiennent
+; ce même hook : lancés depuis Paramètres > Applications, ils effacent aussi ces données (partagées avec la
+; nouvelle installation). Le setup conseille donc de supprimer l'ancien dossier plutôt que de le désinstaller.
 
 !macro NSIS_HOOK_POSTUNINSTALL
   ${If} $UpdateMode <> 1
-    SetShellVarContext current
+    !if "${INSTALLMODE}" == "perMachine"
+      SetShellVarContext current
+    !endif
     RMDir /r "$APPDATA\${BUNDLEID}"
     RMDir /r "$LOCALAPPDATA\${BUNDLEID}"
-    SetShellVarContext all
+    !if "${INSTALLMODE}" == "perMachine"
+      SetShellVarContext all
+    !endif
   ${EndIf}
 !macroend
 

@@ -13,6 +13,12 @@
 ; LUCANIA: Lucania à deux choix), la « mise à jour propre » (désinstallation de l'ancien programme, nettoyage
 ; LUCANIA: manuel et ses garde-fous) et la migration depuis un ancien installateur WiX (Lucania n'a jamais
 ; LUCANIA: été distribué en MSI : bundle.targets = nsis seulement).
+; LUCANIA: Mode d'installation : currentUser (bundle.windows.nsis.installMode) depuis la 0.1.12. Installation
+; LUCANIA: pour l'utilisateur courant dans %LOCALAPPDATA%\Programs\${PRODUCTNAME}, sans droits administrateur
+; LUCANIA: (RequestExecutionLevel user, SetShellVarContext current, SHCTX = HKCU) : l'antivirus (Norton)
+; LUCANIA: bloquait l'écriture des exe non signés dans Program Files. Une ancienne installation
+; LUCANIA: perMachine (Program Files, HKLM) est seulement signalée par le setup (LucaniaDetectLegacyMachineInstall) :
+; LUCANIA: il n'a pas les droits pour y toucher et ne supprime rien.
 Unicode true
 ManifestDPIAware true
 ; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
@@ -106,9 +112,14 @@ Var LucaniaInstalled         ; 1 si Lucania est déjà installé (registre ou do
 Var LucaniaInstalledVersion  ; version installée (DisplayVersion, vide si inconnue)
 Var LucaniaInstalledDir      ; dossier d'installation existant (sans guillemets ni « \ » final)
 Var LucaniaTmp               ; brouillon
+!ifndef LUCANIA_UPDATER
+; LUCANIA: setup : dossier d'une ancienne installation perMachine (vide si aucune), voir
+; LUCANIA: LucaniaDetectLegacyMachineInstall. Déclarée seulement dans le setup (avertissement 6001 sinon).
+Var LucaniaLegacyDir
+!endif
 
 ; LUCANIA: retire les guillemets de début et de fin d'un chemin lu dans le registre (ex. InstallLocation
-; LUCANIA: est écrit "C:\Program Files\Lucania", AVEC guillemets). VAR ne doit pas être $LucaniaTmp.
+; LUCANIA: est écrit "%LOCALAPPDATA%\Programs\Lucania" développé, AVEC guillemets). VAR ne doit pas être $LucaniaTmp.
 ; LUCANIA: Défini ici (et non avec les autres fonctions LUCANIA) car utilisé dès RestorePreviousInstallLocation.
 !macro LUCANIA_UNQUOTE VAR
   StrCpy $LucaniaTmp ${VAR} 1
@@ -390,10 +401,15 @@ LangString ^FileError ${LANG_FRENCH} "Impossible d'écrire le fichier :$\r$\n$\r
 LangString ^FileError_NoIgnore ${LANG_FRENCH} "Impossible d'écrire le fichier :$\r$\n$\r$\n$0$\r$\n$\r$\nVotre antivirus bloque probablement l'installation de ${PRODUCTNAME} (le programme n'est pas encore signé). Ajoutez une exception pour ce programme d'installation et pour le dossier $INSTDIR, puis cliquez sur Recommencer.$\r$\n$\r$\nAnnuler arrête l'installation."
 !ifndef LUCANIA_UPDATER
 ; LUCANIA: setup lancé alors que Lucania est déjà installé
-LangString lucaniaAlreadyInstalledUseUpdate ${LANG_FRENCH} "${PRODUCTNAME} est déjà installé sur cet ordinateur.$\r$\n$\r$\nPour le mettre à jour, utilisez le fichier ${PRODUCTNAME}_${VERSION}_x64-update.exe (disponible sur la page des versions, à côté de ce programme d'installation)."
+LangString lucaniaAlreadyInstalledUseUpdate ${LANG_FRENCH} "${PRODUCTNAME} est déjà installé sur cet ordinateur.$\r$\n$\r$\nPour le mettre à jour, utilisez le fichier Lucania-Update.exe (disponible sur la page des versions, à côté de ce programme d'installation)."
+; LUCANIA: setup : ancienne installation « pour tous les utilisateurs » (Program Files) trouvée ; information
+; LUCANIA: seulement, l'installation continue. $LucaniaLegacyDir = dossier trouvé. On ne conseille PAS la
+; LUCANIA: désinstallation par Paramètres > Applications : les anciens désinstallateurs (perMachine)
+; LUCANIA: suppriment %APPDATA%\${BUNDLEID}, donc les conversations, partagées avec la nouvelle installation.
+LangString lucaniaLegacyMachineInstall ${LANG_FRENCH} "Une ancienne installation de ${PRODUCTNAME} pour tous les utilisateurs a été trouvée dans :$\r$\n$\r$\n$LucaniaLegacyDir$\r$\n$\r$\nElle n'est plus utilisée : ${PRODUCTNAME} va maintenant être installé pour votre compte uniquement. Vos conversations et vos réglages sont conservés.$\r$\n$\r$\nPour retirer l'ancienne version, supprimez ce dossier (Windows demandera une autorisation administrateur). Ne la désinstallez pas depuis Paramètres > Applications : son ancien programme de désinstallation effacerait aussi vos conversations."
 !else
 ; LUCANIA: update : refus (pas installé, version plus récente), titres des pages
-LangString lucaniaNotInstalledUseSetup ${LANG_FRENCH} "${PRODUCTNAME} n'est pas installé sur cet ordinateur.$\r$\n$\r$\nUtilisez d'abord le programme d'installation ${PRODUCTNAME}_${VERSION}_x64-setup.exe (disponible sur la page des versions)."
+LangString lucaniaNotInstalledUseSetup ${LANG_FRENCH} "${PRODUCTNAME} n'est pas installé sur cet ordinateur.$\r$\n$\r$\nUtilisez d'abord le programme d'installation Lucania-Setup.exe (disponible sur la page des versions).$\r$\n$\r$\nSi une ancienne version est installée pour tous les utilisateurs (dans Program Files), lancez une fois Lucania-Setup.exe : il installe ${PRODUCTNAME} à son nouvel emplacement, pour votre compte, en conservant vos conversations."
 LangString lucaniaNewerInstalled ${LANG_FRENCH} "Une version plus récente de ${PRODUCTNAME} ($LucaniaInstalledVersion) est déjà installée.$\r$\n$\r$\nCette mise à jour (version ${VERSION}) n'est pas nécessaire."
 LangString lucaniaUpdateTitle ${LANG_FRENCH} "Mise à jour de ${PRODUCTNAME}"
 LangString lucaniaUpdateSubtitle ${LANG_FRENCH} "Installation de la version ${VERSION}. Vos conversations et vos réglages sont conservés."
@@ -411,10 +427,12 @@ LangString ^FileError ${LANG_ENGLISH} "Unable to write the file:$\r$\n$\r$\n$0$\
 LangString ^FileError_NoIgnore ${LANG_ENGLISH} "Unable to write the file:$\r$\n$\r$\n$0$\r$\n$\r$\nYour antivirus is probably blocking the installation of ${PRODUCTNAME} (the program is not signed yet). Add an exception for this installer and for the folder $INSTDIR, then click Retry.$\r$\n$\r$\nCancel stops the installation."
 !ifndef LUCANIA_UPDATER
 ; LUCANIA: setup lancé alors que Lucania est déjà installé
-LangString lucaniaAlreadyInstalledUseUpdate ${LANG_ENGLISH} "${PRODUCTNAME} is already installed on this computer.$\r$\n$\r$\nTo update it, use the file ${PRODUCTNAME}_${VERSION}_x64-update.exe (available on the releases page, next to this installer)."
+LangString lucaniaAlreadyInstalledUseUpdate ${LANG_ENGLISH} "${PRODUCTNAME} is already installed on this computer.$\r$\n$\r$\nTo update it, use the file Lucania-Update.exe (available on the releases page, next to this installer)."
+; LUCANIA: setup : ancienne installation pour tous les utilisateurs (voir le bloc français ci-dessus)
+LangString lucaniaLegacyMachineInstall ${LANG_ENGLISH} "An old installation of ${PRODUCTNAME} for all users was found in:$\r$\n$\r$\n$LucaniaLegacyDir$\r$\n$\r$\nIt is no longer used: ${PRODUCTNAME} will now be installed for your account only. Your conversations and settings are kept.$\r$\n$\r$\nTo remove the old version, delete this folder (Windows will ask for administrator permission). Do not uninstall it from Settings > Apps: its old uninstaller would also erase your conversations."
 !else
 ; LUCANIA: update : refus (pas installé, version plus récente), titres des pages
-LangString lucaniaNotInstalledUseSetup ${LANG_ENGLISH} "${PRODUCTNAME} is not installed on this computer.$\r$\n$\r$\nPlease use the installer ${PRODUCTNAME}_${VERSION}_x64-setup.exe first (available on the releases page)."
+LangString lucaniaNotInstalledUseSetup ${LANG_ENGLISH} "${PRODUCTNAME} is not installed on this computer.$\r$\n$\r$\nPlease use the installer Lucania-Setup.exe first (available on the releases page).$\r$\n$\r$\nIf an old version is installed for all users (in Program Files), run Lucania-Setup.exe once: it installs ${PRODUCTNAME} in its new location, for your account, and keeps your conversations."
 LangString lucaniaNewerInstalled ${LANG_ENGLISH} "A newer version of ${PRODUCTNAME} ($LucaniaInstalledVersion) is already installed.$\r$\n$\r$\nThis update (version ${VERSION}) is not needed."
 LangString lucaniaUpdateTitle ${LANG_ENGLISH} "${PRODUCTNAME} Update"
 LangString lucaniaUpdateSubtitle ${LANG_ENGLISH} "Installing version ${VERSION}. Your conversations and settings are kept."
@@ -488,7 +506,10 @@ Function .onInit
         StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
       ${EndIf}
     !else if "${INSTALLMODE}" == "currentUser"
-      StrCpy $INSTDIR "$LOCALAPPDATA\${PRODUCTNAME}"
+      ; LUCANIA: %LOCALAPPDATA%\Programs\${PRODUCTNAME} (emplacement standard des applications installées
+      ; LUCANIA: pour l'utilisateur, comme VS Code ou Discord) au lieu de $LOCALAPPDATA\${PRODUCTNAME}.
+      ; LUCANIA: Distinct du dossier de données $LOCALAPPDATA\${BUNDLEID} (cache WebView2).
+      StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${PRODUCTNAME}"
     !endif
 
     Call RestorePreviousInstallLocation
@@ -501,6 +522,10 @@ Function .onInit
 
   ; LUCANIA: détection d'une installation existante, puis aiguillage setup / update.
   ; LUCANIA: Les Abort sont faits ici, directement dans .onInit (l'installateur quitte sans page).
+  ; LUCANIA: installMode currentUser : SetContext ci-dessus a fait SetShellVarContext current, donc
+  ; LUCANIA: LucaniaDetectInstall (SHCTX) ne voit QUE l'installation de l'utilisateur courant (HKCU).
+  ; LUCANIA: Une ancienne installation perMachine (HKLM) n'est pas « déjà installé » : le setup la
+  ; LUCANIA: signale (LucaniaDetectLegacyMachineInstall) et l'update l'ignore.
   Call LucaniaDetectInstall
   !ifdef LUCANIA_UPDATER
     ; LUCANIA: UPDATE : Lucania doit être installé
@@ -529,6 +554,13 @@ Function .onInit
     ${If} $LucaniaInstalled = 1
       MessageBox MB_ICONINFORMATION|MB_OK "$(lucaniaAlreadyInstalledUseUpdate)" /SD IDOK
       Abort
+    ${EndIf}
+    ; LUCANIA: ancienne installation pour tous les utilisateurs (Program Files) : information seulement,
+    ; LUCANIA: l'installation continue (pas d'Abort) et rien n'est supprimé. Placé après SetContext :
+    ; LUCANIA: SetRegView 64 est nécessaire pour lire la clé HKLM écrite par l'ancien installateur x64.
+    Call LucaniaDetectLegacyMachineInstall
+    ${If} $LucaniaLegacyDir != ""
+      MessageBox MB_ICONINFORMATION "$(lucaniaLegacyMachineInstall)" /SD IDOK
     ${EndIf}
   !endif
 FunctionEnd
@@ -1018,6 +1050,7 @@ FunctionEnd
 ; LUCANIA:                              ${UNINSTKEY}, sinon dossier de UninstallString ; sans guillemets
 ; LUCANIA:                              (LUCANIA_UNQUOTE) ni « \ » final.
 ; LUCANIA: Registres préservés ($0, $1).
+; LUCANIA: Lit SHCTX, c'est-à-dire HKCU en installMode currentUser (installation de l'utilisateur courant).
 Function LucaniaDetectInstall
   Push $0
   Push $1
@@ -1057,6 +1090,80 @@ Function LucaniaDetectInstall
   Pop $1
   Pop $0
 FunctionEnd
+
+!ifndef LUCANIA_UPDATER
+; LUCANIA: setup seulement (dans .onInit, après SetContext) : cherche une ancienne installation
+; LUCANIA: perMachine (versions <= 0.1.11, Program Files + HKLM). Lit HKLM EXPLICITEMENT (et non SHCTX,
+; LUCANIA: qui vaut HKCU en currentUser), en vue 64 bits (SetRegView 64 de SetContext). Ne modifie rien.
+; LUCANIA: Sortie : $LucaniaLegacyDir = dossier de l'ancienne installation, vide si aucune. Trouvée si :
+; LUCANIA:   - le dossier enregistré en HKLM (${MANUPRODUCTKEY}, sinon InstallLocation, sinon dossier de
+; LUCANIA:     UninstallString de ${UNINSTKEY}) contient un fichier de Lucania (${MAINBINARYNAME}.exe,
+; LUCANIA:     uninstall.exe, node.exe ou app\) ;
+; LUCANIA:   - sinon $PROGRAMFILES64\${PRODUCTNAME} contient un de ces fichiers ;
+; LUCANIA:   - sinon HKLM\${UNINSTKEY} a un UninstallString ou un DisplayVersion (entrée encore visible dans
+; LUCANIA:     Paramètres > Applications) : dossier enregistré, ou $PROGRAMFILES64\${PRODUCTNAME} par défaut.
+; LUCANIA: Une valeur HKLM\${MANUPRODUCTKEY} seule, dont le dossier est vide ou absent (reste d'une ancienne
+; LUCANIA: désinstallation, qui ne la supprime que si la case « données » est cochée), ne compte pas.
+; LUCANIA: Registres préservés ($0, $1, $2).
+Function LucaniaDetectLegacyMachineInstall
+  Push $0
+  Push $1
+  Push $2
+  StrCpy $LucaniaLegacyDir ""
+
+  ReadRegStr $0 HKLM "${UNINSTKEY}" "UninstallString"
+  ReadRegStr $1 HKLM "${UNINSTKEY}" "DisplayVersion"
+  StrCpy $2 0
+  ${If} $0 != ""
+  ${OrIf} $1 != ""
+    StrCpy $2 1
+  ${EndIf}
+
+  ReadRegStr $1 HKLM "${MANUPRODUCTKEY}" ""
+  !insertmacro LUCANIA_UNQUOTE $1
+  ${If} $1 == ""
+    ReadRegStr $1 HKLM "${UNINSTKEY}" "InstallLocation"
+    !insertmacro LUCANIA_UNQUOTE $1
+  ${EndIf}
+  ${If} $1 == ""
+  ${AndIf} $0 != ""
+    !insertmacro LUCANIA_UNQUOTE $0
+    ${GetParent} $0 $1
+  ${EndIf}
+  !insertmacro LUCANIA_STRIP_TRAILING_SLASH $1
+
+  ${If} $1 != ""
+    ${If} ${FileExists} "$1\${MAINBINARYNAME}.exe"
+    ${OrIf} ${FileExists} "$1\uninstall.exe"
+    ${OrIf} ${FileExists} "$1\node.exe"
+    ${OrIf} ${FileExists} "$1\app\*.*"
+      StrCpy $LucaniaLegacyDir $1
+    ${EndIf}
+  ${EndIf}
+
+  ${If} $LucaniaLegacyDir == ""
+    ${If} ${FileExists} "$PROGRAMFILES64\${PRODUCTNAME}\${MAINBINARYNAME}.exe"
+    ${OrIf} ${FileExists} "$PROGRAMFILES64\${PRODUCTNAME}\uninstall.exe"
+    ${OrIf} ${FileExists} "$PROGRAMFILES64\${PRODUCTNAME}\node.exe"
+    ${OrIf} ${FileExists} "$PROGRAMFILES64\${PRODUCTNAME}\app\*.*"
+      StrCpy $LucaniaLegacyDir "$PROGRAMFILES64\${PRODUCTNAME}"
+    ${EndIf}
+  ${EndIf}
+
+  ${If} $LucaniaLegacyDir == ""
+  ${AndIf} $2 = 1
+    ${If} $1 != ""
+      StrCpy $LucaniaLegacyDir $1
+    ${Else}
+      StrCpy $LucaniaLegacyDir "$PROGRAMFILES64\${PRODUCTNAME}"
+    ${EndIf}
+  ${EndIf}
+
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+!endif
 
 !ifdef LUCANIA_UPDATER
 ; LUCANIA: update : met à jour le raccourci Bureau (nouvelle cible, icône, AppUserModelId) seulement

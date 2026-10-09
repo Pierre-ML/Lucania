@@ -1,5 +1,5 @@
 <div align="center"><img src="src/assets/logo/loup.svg" alt="Lucania" width="96" /><h1>Lucania</h1><p>Une interface de chat locale, façon Claude.ai, pour vos modèles Ollama.<br/>A local, Claude.ai-style chat interface for your Ollama models.</p>
-<a href="https://github.com/Pierre-ML/Lucania/releases/latest"><b>⬇ Télécharger pour Windows · Download for Windows</b></a><br/><sub>setup pour installer · update pour mettre à jour / setup to install · update to update</sub></div>
+<a href="https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe"><b>⬇ Télécharger pour Windows · Download for Windows</b></a><br/><sub>setup pour installer · update pour mettre à jour / setup to install · update to update · <a href="https://github.com/Pierre-ML/Lucania/releases/latest">releases</a></sub></div>
 
 <p align="center">
 <a href="https://github.com/Pierre-ML/Lucania/releases/latest"><img src="https://img.shields.io/github/v/release/Pierre-ML/Lucania" alt="Dernière release" /></a>
@@ -40,12 +40,14 @@ Vos conversations restent sur votre machine. Rien n'est envoyé dans le cloud.
 ## Installation
 
 1. Installez [Ollama](https://ollama.com), ou ayez accès à un serveur Ollama.
-2. Pour une première installation, téléchargez `Lucania_<version>_x64-setup.exe` depuis la [dernière release](https://github.com/Pierre-ML/Lucania/releases/latest).
-3. Lancez l'installateur. Lucania s'installe dans Program Files.
+2. Pour une première installation, téléchargez [`Lucania-Setup.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe) (lien direct, dernière release).
+3. Lancez l'installateur. Lucania s'installe pour votre compte Windows, dans `%LOCALAPPDATA%\Programs\Lucania`. Aucune autorisation administrateur n'est demandée.
 
 Prérequis : Windows 10 ou 11 (64 bits).
 
 > **Antivirus.** L'exécutable n'est pas encore signé. Windows SmartScreen ou certains antivirus peuvent donc l'analyser ou afficher un avertissement.
+
+Le nom du fichier ne change jamais : une seule exception dans votre antivirus suffit pour toutes les versions.
 
 ## Premiers pas
 
@@ -59,9 +61,11 @@ Pour utiliser un serveur Ollama distant, connectez-vous à lui par un VPN WireGu
 
 ## Mise à jour
 
-Téléchargez `Lucania_<version>_x64-update.exe` depuis la [dernière release](https://github.com/Pierre-ML/Lucania/releases/latest) et lancez-le.
+Téléchargez [`Lucania-Update.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Update.exe) (lien direct, dernière release) et lancez-le.
 
 Vos conversations sont conservées. L'updater ferme Lucania si nécessaire.
+
+Ancienne version installée dans `C:\Program Files\Lucania` ? L'update ne la met pas à jour. Lancez le setup une fois : il vous prévient, puis installe au nouvel emplacement. Vos conversations sont conservées. Pour supprimer l'ancienne version, supprimez simplement le dossier `C:\Program Files\Lucania` (Windows demande une autorisation). ⚠️ Ne la désinstallez **pas** depuis Paramètres > Applications : l'ancien désinstallateur effacerait aussi vos conversations, partagées avec la nouvelle installation.
 
 Repartir de zéro : désinstallez Lucania depuis les Paramètres Windows (cela supprime aussi vos conversations), puis relancez le setup.
 
@@ -74,7 +78,7 @@ Prérequis : Node 24 (le projet utilise `node:sqlite` ; `engines` exige au minim
 | `npm install` | Installer les dépendances |
 | `npm run dev` | Serveur web de dev sur http://localhost:4748 |
 | `npm run tauri dev` | App de bureau en dev |
-| `npm run desktop:build` | Produire les deux exe Windows (setup et update) |
+| `npm run desktop:build` | Produire les deux exe Windows (`Lucania-Setup.exe` et `Lucania-Update.exe`, dans `bundle/release/`) |
 | `npm run check` | Vérifier les types |
 | `npm run version:set X.Y.Z` | Mettre à jour la version partout |
 
@@ -89,7 +93,7 @@ Astro 7 (SSR, adapter Node) · JavaScript vanilla · Tailwind CSS v4 · daisyUI 
 Tout est local. Les données sont dans une base SQLite :
 
 - en dev : `data/app.db` ;
-- dans l'app de bureau : `%APPDATA%\com.lucania.desktop\data\app.db`.
+- dans l'app de bureau : `%APPDATA%\com.lucania.desktop\data\app.db` (le cache est dans `%LOCALAPPDATA%\com.lucania.desktop`). Ces chemins ne changent pas.
 
 ## Licence
 
@@ -123,12 +127,14 @@ Coming soon: persistent memory per model (in development).
 ## Installation
 
 1. Install [Ollama](https://ollama.com), or have access to an Ollama server.
-2. For a first install, download `Lucania_<version>_x64-setup.exe` from the [latest release](https://github.com/Pierre-ML/Lucania/releases/latest).
-3. Run the installer. Lucania installs into Program Files.
+2. For a first install, download [`Lucania-Setup.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe) (direct link, latest release).
+3. Run the installer. Lucania installs for your Windows account, in `%LOCALAPPDATA%\Programs\Lucania`. No administrator permission is asked.
 
 Requirements: Windows 10 or 11 (64-bit).
 
 > **Antivirus.** The executable is not signed yet. Windows SmartScreen or some antivirus tools may scan it or show a warning.
+
+The file name never changes: a single exception in your antivirus is enough for all versions.
 
 ## Getting started
 
@@ -142,9 +148,11 @@ To use a remote Ollama server, connect to it through a WireGuard VPN that you ma
 
 ## Updating
 
-Download `Lucania_<version>_x64-update.exe` from the [latest release](https://github.com/Pierre-ML/Lucania/releases/latest) and run it.
+Download [`Lucania-Update.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Update.exe) (direct link, latest release) and run it.
 
 Your conversations are kept. The updater closes Lucania if needed.
+
+Old version installed in `C:\Program Files\Lucania`? The update does not touch it. Run the setup once: it warns you, then installs in the new location. Your conversations are kept. To remove the old version, simply delete the `C:\Program Files\Lucania` folder (Windows asks for permission). ⚠️ Do **not** uninstall it from Settings > Apps: the old uninstaller would also erase your conversations, which are shared with the new installation.
 
 Start from scratch: uninstall Lucania from Windows Settings (this also deletes your conversations), then run the setup again.
 
@@ -172,7 +180,7 @@ Astro 7 (SSR, Node adapter) · vanilla JavaScript · Tailwind CSS v4 · daisyUI 
 Everything is local. Data lives in a SQLite database:
 
 - in dev: `data/app.db`;
-- in the desktop app: `%APPDATA%\com.lucania.desktop\data\app.db`.
+- in the desktop app: `%APPDATA%\com.lucania.desktop\data\app.db` (the cache is in `%LOCALAPPDATA%\com.lucania.desktop`). These paths do not change.
 
 ## License
 
