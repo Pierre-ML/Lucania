@@ -46,7 +46,8 @@
     "description": "Each model has its own memory. Its facts are given to it at the start of every conversation. Everything stays on this computer.",
     "model": "Model",
     "chooseModel": "Choose a model",
-    "otherModels": "Other models with memory",    "noModelTitle": "No model",
+    "otherModels": "Other models with memory",
+    "noModelTitle": "No model",
     "noModelText": "Add an Ollama connection to pick a model and manage its memory.",
     "noModelLink": "Go to connections",
     "enabled": "Memory enabled",
@@ -199,6 +200,14 @@
     "dataDirDesktop": "This folder is kept across updates and deleted on uninstall.",
     "dataDirWeb": "Web version: data is stored in the project's data/ folder.",
     "source": "Source code",
-    "repo": "Project repository"
+    "repo": "Project repository",
+    "uninstall": {
+      "title": "Uninstall",
+      "description": "Removes Lucania from this computer, along with your conversations and settings.",
+      "button": "Uninstall Lucania",
+      "dialogTitle": "Uninstall Lucania?",
+      "dialogMessage": "Your conversations and settings will be permanently deleted. This action cannot be undone.",
+      "confirm": "Uninstall"
+    }
   }
 }

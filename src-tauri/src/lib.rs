@@ -120,6 +120,38 @@ mod sidecar {
   }
 }
 
+/// Lance le désinstallateur NSIS (processus détaché) puis ferme l'app. La fermeture passe par
+/// `app.exit(0)` : l'événement `RunEvent::Exit` tue ensuite le serveur node embarqué.
+#[tauri::command]
+fn uninstall_app(app: tauri::AppHandle) -> Result<(), String> {
+  const NOT_FOUND: &str = "Désinstallateur introuvable (app non installée ?)";
+  if cfg!(debug_assertions) {
+    return Err(NOT_FOUND.into());
+  }
+  let exe = std::env::current_exe().map_err(|_| NOT_FOUND.to_string())?;
+  let uninstaller = exe
+    .parent()
+    .map(|dir| dir.join("uninstall.exe"))
+    .filter(|p| p.is_file())
+    .ok_or_else(|| NOT_FOUND.to_string())?;
+
+  let mut cmd = std::process::Command::new(uninstaller);
+  #[cfg(windows)]
+  {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(0x0000_0008); // DETACHED_PROCESS
+  }
+  cmd
+    .spawn()
+    .map_err(|e| format!("Lancement du désinstallateur impossible : {e}"))?;
+
+  std::thread::spawn(move || {
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    app.exit(0);
+  });
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   let builder = tauri::Builder::default();
@@ -139,6 +171,7 @@ pub fn run() {
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_opener::init())
+    .invoke_handler(tauri::generate_handler![uninstall_app])
     .setup(|app| {
       // Dossier de travail de l'utilisateur : Documents\Lucania
       if let Ok(docs) = app.path().document_dir() {

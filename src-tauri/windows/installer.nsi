@@ -315,7 +315,11 @@ Var AppStartMenuFolder
 ; Use show readme button in the finish page as a button create a desktop shortcut
 !define MUI_FINISHPAGE_SHOWREADME
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "$(createDesktop)"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateOrUpdateDesktopShortcut
+; LUCANIA: fonction intermédiaire (au lieu de CreateOrUpdateDesktopShortcut) : ne fait rien si
+; LUCANIA: RunMainBinary a déjà créé le raccourci (voir $LucaniaDesktopDone ci-dessous)
+!define MUI_FINISHPAGE_SHOWREADME_FUNCTION LucaniaFinishDesktopShortcut
+; LUCANIA: 1 si le raccourci Bureau a déjà été créé par RunMainBinary sur la page de fin
+Var LucaniaDesktopDone
 !else
   !define MUI_FINISHPAGE_TITLE "$(lucaniaUpdateDoneTitle)"
   !define MUI_FINISHPAGE_TEXT "$(lucaniaUpdateDoneText)"
@@ -327,9 +331,38 @@ Var AppStartMenuFolder
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_FINISH
 
+; LUCANIA: ordre garanti « raccourci PUIS lancement ». Dans la fonction de sortie de la page de fin
+; LUCANIA: (Modern UI 2\Pages\Finish.nsh), MUI appelle MUI_FINISHPAGE_RUN_FUNCTION AVANT
+; LUCANIA: MUI_FINISHPAGE_SHOWREADME_FUNCTION : l'app était lancée avant la création du raccourci et
+; LUCANIA: plantait. Setup : si la case « raccourci Bureau » est cochée, RunMainBinary crée d'abord le
+; LUCANIA: raccourci, met $LucaniaDesktopDone à 1 (LucaniaFinishDesktopShortcut, appelée ensuite par MUI,
+; LUCANIA: ne refait rien), attend 300 ms, puis lance l'app. La fenêtre de la page existe encore ici
+; LUCANIA: (MUI lit lui-même l'état des cases à ce moment). Update : pas de case raccourci, lancement direct.
 Function RunMainBinary
+  !ifndef LUCANIA_UPDATER
+    ${If} $mui.FinishPage.ShowReadme <> 0
+      SendMessage $mui.FinishPage.ShowReadme ${BM_GETCHECK} 0 0 $LucaniaTmp
+      ${If} $LucaniaTmp = ${BST_CHECKED}
+        Call CreateOrUpdateDesktopShortcut
+        StrCpy $LucaniaDesktopDone 1
+        Sleep 300
+      ${EndIf}
+    ${EndIf}
+  !endif
   nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
 FunctionEnd
+
+!ifndef LUCANIA_UPDATER
+; LUCANIA: action de la case « raccourci Bureau » (appelée par MUI après RunMainBinary) : crée le
+; LUCANIA: raccourci, sauf s'il vient déjà d'être créé par RunMainBinary
+Function LucaniaFinishDesktopShortcut
+  ${If} $LucaniaDesktopDone = 1
+    Return
+  ${EndIf}
+  Call CreateOrUpdateDesktopShortcut
+  StrCpy $LucaniaDesktopDone 1
+FunctionEnd
+!endif
 
 ; Uninstaller Pages
 ; 1. Confirm uninstall page

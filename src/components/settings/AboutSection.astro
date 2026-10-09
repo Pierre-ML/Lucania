@@ -37,4 +37,10 @@ const lang = getLang(Astro);
 			<dd><a href="https://github.com/Pierre-ML/Lucania" target="_blank" rel="noopener noreferrer" class="text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg">{t(lang, 'settings.about.repo')}</a></dd>
 		</div>
 	</dl>
+	<div id="about-uninstall" hidden class="mt-8 border-t border-border pt-6">
+		<h3 class="text-sm font-medium">{t(lang, 'settings.about.uninstall.title')}</h3>
+		<p class="mt-1 text-sm text-muted">{t(lang, 'settings.about.uninstall.description')}</p>
+		<button type="button" id="about-uninstall-btn" class="mt-3 h-8 cursor-pointer rounded-md border border-danger/40 px-3 text-sm text-danger transition-colors duration-150 hover:border-fg/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-fg/40">{t(lang, 'settings.about.uninstall.button')}</button>
+		<p id="about-uninstall-status" role="status" aria-live="polite" hidden class="mt-2 text-xs text-danger"></p>
+	</div>
 </section>

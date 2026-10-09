@@ -6,6 +6,7 @@
   "remote": { "urls": ["http://localhost:4748", "http://127.0.0.1:4749"] },
   "permissions": [
     "core:default",
+    "allow-uninstall-app",
     { "identifier": "opener:allow-open-url", "allow": [{ "url": "https://*" }] },
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",

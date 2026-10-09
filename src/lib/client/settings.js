@@ -7,6 +7,7 @@ import {
   testConnectionUrl,
   testConnection,
 } from './connections.js';
+import { invoke } from '@tauri-apps/api/core';
 import { confirmDialog } from './dialog.js';
 import { t, getLang, setLang } from './i18n.js';
 import { THEMES, getTheme, setTheme } from './theme.js';
@@ -1027,11 +1028,38 @@ function buildShutdownCard(conn) {
 
 // ---------- À propos : dossier des données (GET /api/system) ----------
 
+// Bouton « Désinstaller » : app de bureau seulement (commande Tauri `uninstall_app`).
+function setupUninstall() {
+  const block = byId('about-uninstall');
+  const btn = /** @type {HTMLButtonElement|null} */ (byId('about-uninstall-btn'));
+  const status = byId('about-uninstall-status');
+  if (!block || !btn || !status) return;
+  block.hidden = false;
+  btn.addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: t('settings.about.uninstall.dialogTitle'),
+      message: t('settings.about.uninstall.dialogMessage'),
+      confirmLabel: t('settings.about.uninstall.confirm'),
+    });
+    if (!ok) return;
+    status.hidden = true;
+    btn.disabled = true;
+    try {
+      await invoke('uninstall_app');
+    } catch (e) {
+      status.textContent = typeof e === 'string' ? e : (e && e.message) || String(e);
+      status.hidden = false;
+      btn.disabled = false;
+    }
+  });
+}
+
 async function loadSystemInfo() {
   try {
     const res = await fetch('/api/system');
     if (!res.ok) return;
     const info = await res.json();
+    if (info && info.desktop === true) setupUninstall();
     if (info && typeof info.dataDir === 'string' && info.dataDir) {
       const row = byId('about-datadir-row');
       const pathEl = byId('about-datadir');
