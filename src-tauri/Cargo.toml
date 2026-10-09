@@ -1,6 +1,6 @@
 [package]
 name = "lucania"
-version = "0.1.9"
+version = "0.1.10"
 description = "Lucania - interface de chat pour modèles Ollama"
 authors = ["Pierre Mouilleseaux Lhuillier"]
 license = "MIT"
