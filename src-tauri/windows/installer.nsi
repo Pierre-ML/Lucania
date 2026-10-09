@@ -1,8 +1,18 @@
 ; LUCANIA: template NSIS personnalisé (bundle.windows.nsis.template), basé sur le template officiel
 ; LUCANIA: de tauri-bundler au tag tauri-cli-v2.12.1 (crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi).
-; LUCANIA: chaque modification est marquée « ; LUCANIA: ». Objet : si une installation existante est
-; LUCANIA: détectée, une seule page (Mettre à jour / Mettre à jour proprement), les données utilisateur
-; LUCANIA: (%APPDATA% et %LOCALAPPDATA%\${BUNDLEID}) n'étant JAMAIS supprimées par l'installateur.
+; LUCANIA: chaque modification est marquée « ; LUCANIA: ». Ce template produit DEUX exe :
+; LUCANIA:  - SETUP (rendu par tauri build, sans define) : première installation UNIQUEMENT. Si Lucania est
+; LUCANIA:    déjà installé, message (utiliser l'exe de mise à jour) puis sortie dans .onInit.
+; LUCANIA:  - UPDATE (même rendu recompilé par scripts/build-updater.mjs avec /DLUCANIA_UPDATER) : refuse si
+; LUCANIA:    Lucania n'est pas installé ou si une version plus récente l'est ; sinon installe par-dessus
+; LUCANIA:    l'installation existante (même dossier, pages Installation puis Fin seulement), ce qui répare
+; LUCANIA:    aussi une installation abîmée. Rien n'est désinstallé.
+; LUCANIA: Les données utilisateur (%APPDATA% et %LOCALAPPDATA%\${BUNDLEID}) ne sont JAMAIS touchées par
+; LUCANIA: l'un ou l'autre ; seule une vraie désinstallation les supprime (hook NSIS_HOOK_POSTUNINSTALL).
+; LUCANIA: Supprimés (code mort depuis ce découpage) : la page « déjà installé » (PageReinstall et la page
+; LUCANIA: Lucania à deux choix), la « mise à jour propre » (désinstallation de l'ancien programme, nettoyage
+; LUCANIA: manuel et ses garde-fous) et la migration depuis un ancien installateur WiX (Lucania n'a jamais
+; LUCANIA: été distribué en MSI : bundle.targets = nsis seulement).
 Unicode true
 ManifestDPIAware true
 ; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
@@ -34,8 +44,8 @@ ManifestDPIAwareness PerMonitorV2
 !include "Win\Propkey.nsh"
 !include "Win\RestartManager.nsh"
 !include "StrFunc.nsh"
-${StrCase}
-${StrLoc}
+; LUCANIA: ${StrCase} et ${StrLoc} retirés : ils ne servaient qu'à la détection WiX (supprimée) ;
+; LUCANIA: les déclarer sans les utiliser provoque l'avertissement 6010 de makensis.
 
 {{#if installer_hooks}}
 !include "{{installer_hooks}}"
@@ -59,7 +69,17 @@ ${StrLoc}
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
 !define BUNDLEID "{{bundle_id}}"
 !define COPYRIGHT "{{copyright}}"
-!define OUTFILE "{{out_file}}"
+; LUCANIA: l'exe de mise à jour (/DLUCANIA_UPDATER) est écrit dans le fichier passé par
+; LUCANIA: /DLUCANIA_UPDATE_OUT=<chemin> (scripts/build-updater.mjs), sinon à côté du setup rendu.
+!ifdef LUCANIA_UPDATER
+  !ifdef LUCANIA_UPDATE_OUT
+    !define OUTFILE "${LUCANIA_UPDATE_OUT}"
+  !else
+    !define OUTFILE "nsis-output-update.exe"
+  !endif
+!else
+  !define OUTFILE "{{out_file}}"
+!endif
 !define ARCH "{{arch}}"
 !define ADDITIONALPLUGINSPATH "{{additional_plugins_path}}"
 !define ALLOWDOWNGRADES "{{allow_downgrades}}"
@@ -79,25 +99,13 @@ ${StrLoc}
 Var PassiveMode
 Var UpdateMode
 Var NoShortcutMode
-Var WixMode
+Var WixMode ; LUCANIA: toujours 0 (migration WiX supprimée, voir .onInit)
 Var OldMainBinaryName
-; LUCANIA: variables de la page « déjà installé » et de la mise à jour propre
-Var LucaniaExisting          ; 1 si une installation NSIS existante (hors WiX) est détectée dans .onInit
-Var LucaniaInstalledVersion  ; version installée (affichée sur la page)
-Var LucaniaOldDir            ; ancien dossier d'installation (lu dans le registre)
-; LUCANIA: Var LucaniaOldDirHadExe supprimée : la purge n'exige plus ${MAINBINARYNAME}.exe (il peut avoir
-; LUCANIA: été mis en quarantaine par un antivirus) mais une preuve d'identité (voir LucaniaIsSafeToPurge).
-; LUCANIA: chemins lus dans le registre par LucaniaReadOldInstall (sans guillemets ni « \ » final),
-; LUCANIA: mémorisés AVANT toute suppression (le désinstallateur efface la clé ${UNINSTKEY})
-Var LucaniaRegInstDir        ; valeur par défaut de ${MANUPRODUCTKEY}
-Var LucaniaRegInstLoc        ; InstallLocation de ${UNINSTKEY}
-Var LucaniaOldUninst         ; exe de UninstallString (vide s'il n'est pas dans $LucaniaOldDir)
-Var LucaniaRestoreDesktopLnk ; 1 si un raccourci Bureau existait (il est recréé après réinstallation)
-Var LucaniaTmp
-; LUCANIA: choix « ... proprement » mémorisé par PageLeaveReinstall ; la désinstallation de l'ancien
-; LUCANIA: programme est faite au début de la section Install (voir LucaniaCleanUninstallOld)
-Var LucaniaCleanUpdate       ; 1 si la mise à jour propre a été choisie
-Var LucaniaCleanResult       ; 1 si l'ancien programme a bien été désinstallé puis nettoyé
+; LUCANIA: résultat de la détection d'une installation existante (LucaniaDetectInstall, dans .onInit)
+Var LucaniaInstalled         ; 1 si Lucania est déjà installé (registre ou dossier existant)
+Var LucaniaInstalledVersion  ; version installée (DisplayVersion, vide si inconnue)
+Var LucaniaInstalledDir      ; dossier d'installation existant (sans guillemets ni « \ » final)
+Var LucaniaTmp               ; brouillon
 
 ; LUCANIA: retire les guillemets de début et de fin d'un chemin lu dans le registre (ex. InstallLocation
 ; LUCANIA: est écrit "C:\Program Files\Lucania", AVEC guillemets). VAR ne doit pas être $LucaniaTmp.
@@ -113,9 +121,21 @@ Var LucaniaCleanResult       ; 1 si l'ancien programme a bien été désinstall�
   ${EndIf}
 !macroend
 
+; LUCANIA: retire le « \ » final éventuel d'un chemin (VAR ne doit pas être $LucaniaTmp)
+!macro LUCANIA_STRIP_TRAILING_SLASH VAR
+  StrCpy $LucaniaTmp ${VAR} "" -1
+  ${If} $LucaniaTmp == "\"
+    StrCpy ${VAR} ${VAR} -1
+  ${EndIf}
+!macroend
+
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
 OutFile "${OUTFILE}"
+; LUCANIA: titre de la fenêtre de l'exe de mise à jour (« Mise à jour de Lucania »)
+!ifdef LUCANIA_UPDATER
+  Caption "$(lucaniaUpdateTitle)"
+!endif
 
 ; We don't actually use this value as default install path,
 ; it's just for nsis to append the product name folder in the directory selector
@@ -202,15 +222,19 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
 ; Installer pages, must be ordered as they appear
+; LUCANIA: SETUP : pages d'origine (Bienvenue, Licence, Dossier, Menu démarrer, Installation, Fin), toutes
+; LUCANIA: sur SkipIfPassive comme dans le template officiel : le setup ne tourne plus jamais sur une
+; LUCANIA: installation existante (refus dans .onInit).
+; LUCANIA: UPDATE (/DLUCANIA_UPDATER) : seulement Installation puis Fin. Le dossier est imposé (celui de
+; LUCANIA: l'installation existante, fixé dans .onInit) et ne peut pas être changé.
+!ifndef LUCANIA_UPDATER
 ; 1. Welcome Page
-; LUCANIA: page sautée aussi si une installation existante est détectée
-!define MUI_PAGE_CUSTOMFUNCTION_PRE LucaniaSkipIfPassiveOrExisting
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_WELCOME
 
 ; 2. License Page (if defined)
 !if "${LICENSE}" != ""
-  ; LUCANIA: page sautée aussi si une installation existante est détectée
-  !define MUI_PAGE_CUSTOMFUNCTION_PRE LucaniaSkipIfPassiveOrExisting
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
   !insertmacro MUI_PAGE_LICENSE "${LICENSE}"
 !endif
 
@@ -222,261 +246,24 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 
 ; 4. Custom page to ask user if he wants to reinstall/uninstall
 ;    only if a previous installation was detected
-Var ReinstallPageCheck
-Page custom PageReinstall PageLeaveReinstall
-Function PageReinstall
-  ; Uninstall previous WiX installation if exists.
-  ;
-  ; A WiX installer stores the installation info in registry
-  ; using a UUID and so we have to loop through all keys under
-  ; `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`
-  ; and check if `DisplayName` and `Publisher` keys match ${PRODUCTNAME} and ${MANUFACTURER}
-  ;
-  ; This has a potential issue that there maybe another installation that matches
-  ; our ${PRODUCTNAME} and ${MANUFACTURER} but wasn't installed by our WiX installer,
-  ; however, this should be fine since the user will have to confirm the uninstallation
-  ; and they can chose to abort it if doesn't make sense.
-  StrCpy $0 0
-  wix_loop:
-    EnumRegKey $1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" $0
-    StrCmp $1 "" wix_loop_done ; Exit loop if there is no more keys to loop on
-    IntOp $0 $0 + 1
-    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
-    ReadRegStr $R1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "Publisher"
-    StrCmp "$R0$R1" "${PRODUCTNAME}${MANUFACTURER}" 0 wix_loop
-    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "UninstallString"
-    ${StrCase} $R1 $R0 "L"
-    ${StrLoc} $R0 $R1 "msiexec" ">"
-    StrCmp $R0 0 0 wix_loop_done
-    StrCpy $WixMode 1
-    StrCpy $R6 "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1"
-    Goto compare_version
-  wix_loop_done:
-
-  ; Check if there is an existing installation, if not, abort the reinstall page
-  ReadRegStr $R0 SHCTX "${UNINSTKEY}" ""
-  ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
-  ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
-
-  ; Compare this installar version with the existing installation
-  ; and modify the messages presented to the user accordingly
-  compare_version:
-  StrCpy $R4 "$(older)"
-  ${If} $WixMode = 1
-    ReadRegStr $R0 HKLM "$R6" "DisplayVersion"
-  ${Else}
-    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
-  ${EndIf}
-  ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
-  ; LUCANIA: mémorise la version installée pour l'afficher
-  StrCpy $LucaniaInstalledVersion $R0
-  ${IfThen} $LucaniaInstalledVersion == "" ${|} StrCpy $LucaniaInstalledVersion "$(lucaniaUnknownVersion)" ${|}
-
-  nsis_tauri_utils::SemverCompare "${VERSION}" $R0
-  Pop $R0
-
-  ; LUCANIA: hors WiX, page simplifiée à deux choix (voir LucaniaPageReinstall) au lieu de la page d'origine
-  ${If} $WixMode <> 1
-    Call LucaniaPageReinstall
-    Return
-  ${EndIf}
-  ; Reinstalling the same version
-  ${If} $R0 = 0
-    StrCpy $R1 "$(alreadyInstalledLong)"
-    StrCpy $R2 "$(addOrReinstall)"
-    StrCpy $R3 "$(uninstallApp)"
-    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(chooseMaintenanceOption)"
-  ; Upgrading
-  ${ElseIf} $R0 = 1
-    StrCpy $R1 "$(olderOrUnknownVersionInstalled)"
-    StrCpy $R2 "$(uninstallBeforeInstalling)"
-    StrCpy $R3 "$(dontUninstall)"
-    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(choowHowToInstall)"
-  ; Downgrading
-  ${ElseIf} $R0 = -1
-    StrCpy $R1 "$(newerVersionInstalled)"
-    StrCpy $R2 "$(uninstallBeforeInstalling)"
-    !if "${ALLOWDOWNGRADES}" == "true"
-      StrCpy $R3 "$(dontUninstall)"
-    !else
-      StrCpy $R3 "$(dontUninstallDowngrade)"
-    !endif
-    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(choowHowToInstall)"
-  ${Else}
-    Abort
-  ${EndIf}
-
-  ; Skip showing the page if passive
-  ;
-  ; Note that we don't call this earlier at the beginning
-  ; of this function because we need to populate some variables
-  ; related to current installed version if detected and whether
-  ; we are downgrading or not.
-  ${If} $PassiveMode = 1
-    Call PageLeaveReinstall
-  ${Else}
-    nsDialogs::Create 1018
-    Pop $R4
-    ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
-
-    ${NSD_CreateLabel} 0 0 100% 24u $R1
-    Pop $R1
-
-    ${NSD_CreateRadioButton} 30u 50u -30u 8u $R2
-    Pop $R2
-    ${NSD_OnClick} $R2 PageReinstallUpdateSelection
-
-    ${NSD_CreateRadioButton} 30u 70u -30u 8u $R3
-    Pop $R3
-    ; Disable this radio button if downgrading and downgrades are disabled
-    !if "${ALLOWDOWNGRADES}" == "false"
-      ${IfThen} $R0 = -1 ${|} EnableWindow $R3 0 ${|}
-    !endif
-    ${NSD_OnClick} $R3 PageReinstallUpdateSelection
-
-    ; Check the first radio button if this the first time
-    ; we enter this page or if the second button wasn't
-    ; selected the last time we were on this page
-    ${If} $ReinstallPageCheck <> 2
-      SendMessage $R2 ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${Else}
-      SendMessage $R3 ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${EndIf}
-
-    ${NSD_SetFocus} $R2
-    nsDialogs::Show
-  ${EndIf}
-FunctionEnd
-Function PageReinstallUpdateSelection
-  ${NSD_GetState} $R2 $R1
-  ${If} $R1 == ${BST_CHECKED}
-    StrCpy $ReinstallPageCheck 1
-  ${Else}
-    StrCpy $ReinstallPageCheck 2
-  ${EndIf}
-FunctionEnd
-Function PageLeaveReinstall
-  ${NSD_GetState} $R2 $R1
-  StrCpy $LucaniaCleanUpdate 0 ; LUCANIA: mise à jour propre non choisie par défaut
-
-  ; If migrating from Wix, always uninstall
-  ${If} $WixMode = 1
-    Goto reinst_uninstall
-  ${EndIf}
-
-  ; In update mode, always proceeds without uninstalling
-  ${If} $UpdateMode = 1
-    Goto reinst_done
-  ${EndIf}
-
-  ; LUCANIA: hors WiX (seul cas restant ici), quelle que soit la version installée :
-  ; LUCANIA: 1er choix ($R1 = 1) = « Mettre à jour / Réinstaller » : par-dessus, sans désinstaller ;
-  ; LUCANIA: 2e choix = « ... proprement » : désinstallation de l'ancien programme puis réinstallation.
-  ; LUCANIA: En mode passif (pas de page) : mise à jour simple, sauf retour arrière interdit.
-  ${If} $PassiveMode = 1
-    StrCpy $R1 1
-    !if "${ALLOWDOWNGRADES}" == "false"
-      ${IfThen} $R0 = -1 ${|} StrCpy $R1 0 ${|}
-    !endif
-  ${EndIf}
-  ${If} $R1 = 1
-    Goto reinst_done
-  ${EndIf}
-
-  ; LUCANIA: 2e choix : on ne désinstalle PLUS depuis ce callback de page. L'ancien code faisait ici
-  ; LUCANIA: HideWindow + ExecWait du désinstallateur + BringToFront : la fenêtre du setup disparaissait
-  ; LUCANIA: (et Windows ne la remettait pas au premier plan après la sortie du désinstallateur, autre
-  ; LUCANIA: processus), la suite de l'installation se déroulant de façon invisible. Le choix est
-  ; LUCANIA: seulement mémorisé ; la désinstallation est faite au début de la section Install, fenêtre
-  ; LUCANIA: visible, progression dans la page d'installation (voir LucaniaCleanUninstallOld).
-  ; LUCANIA: Validation anticipée (hors mode passif) : refus (message et retour à la page, l'utilisateur
-  ; LUCANIA: peut alors choisir la mise à jour simple) SEULEMENT si l'ancien dossier est introuvable
-  ; LUCANIA: (absent du registre ou du disque). Un désinstallateur absent (ex. mis en quarantaine par
-  ; LUCANIA: l'antivirus) n'est plus une raison de refuser : nettoyage manuel (LucaniaManualCleanOld).
-  ; LUCANIA: LucaniaReadOldInstall préserve $R0/$R1.
-  ${If} $PassiveMode <> 1
-    Call LucaniaReadOldInstall
-    ${If} $LucaniaOldDir == ""
-    ${OrIfNot} ${FileExists} "$LucaniaOldDir\*.*"
-      MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
-      Abort
-    ${EndIf}
-  ${EndIf}
-  StrCpy $LucaniaCleanUpdate 1
-  Goto reinst_done
-
-  ; $R0 holds whether same(0)/upgrading(1)/downgrading(-1) version
-  ; $R1 holds the radio buttons state:
-  ;   1 => first choice was selected
-  ;   0 => second choice was selected
-  ${If} $R0 = 0 ; Same version, proceed
-    ${If} $R1 = 1              ; User chose to add/reinstall
-      Goto reinst_done
-    ${Else}                    ; User chose to uninstall
-      Goto reinst_uninstall
-    ${EndIf}
-  ${ElseIf} $R0 = 1 ; Upgrading
-    ${If} $R1 = 1              ; User chose to uninstall
-      Goto reinst_uninstall
-    ${Else}
-      Goto reinst_done         ; User chose NOT to uninstall
-    ${EndIf}
-  ${ElseIf} $R0 = -1 ; Downgrading
-    ${If} $R1 = 1              ; User chose to uninstall
-      Goto reinst_uninstall
-    ${Else}
-      Goto reinst_done         ; User chose NOT to uninstall
-    ${EndIf}
-  ${EndIf}
-
-  reinst_uninstall:
-    HideWindow
-    ClearErrors
-
-    ; LUCANIA: seul le chemin WiX (d'origine) passe encore ici : la branche NSIS (mise à jour propre)
-    ; LUCANIA: est déplacée dans la section Install (LucaniaCleanUninstallOld), sans HideWindow.
-    ${If} $WixMode = 1
-      ReadRegStr $R1 HKLM "$R6" "UninstallString"
-      ExecWait '$R1' $0
-    ${EndIf}
-
-    BringToFront
-
-    ${IfThen} ${Errors} ${|} StrCpy $0 2 ${|} ; ExecWait failed, set fake exit code
-
-    ${If} $0 <> 0
-    ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
-      ; User cancelled wix uninstaller? return to select un/reinstall page
-      ${If} $WixMode = 1
-      ${AndIf} $0 = 1602
-        Abort
-      ${EndIf}
-
-      ; User cancelled NSIS uninstaller? return to select un/reinstall page
-      ${If} $0 = 1
-        Abort
-      ${EndIf}
-
-      ; Other errors? show generic error message and return to select un/reinstall page
-      MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
-      Abort
-    ${EndIf}
-    ; LUCANIA: le nettoyage après désinstallation propre (LucaniaAfterCleanUninstall) est désormais
-    ; LUCANIA: appelé depuis LucaniaCleanUninstallOld, dans la section Install.
-  reinst_done:
-FunctionEnd
+; LUCANIA: page supprimée : le setup refuse une installation existante dans .onInit,
+; LUCANIA: et l'update n'a aucune page de choix.
 
 ; 5. Choose install directory page
-; LUCANIA: page sautée aussi si une installation existante est détectée (on garde le dossier
-; LUCANIA: existant, restauré depuis le registre par RestorePreviousInstallLocation dans .onInit)
-!define MUI_PAGE_CUSTOMFUNCTION_PRE LucaniaSkipIfPassiveOrExisting
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_DIRECTORY
+!endif ; LUCANIA: fin des pages réservées au setup
 
 ; 6. Start menu shortcut page
+; LUCANIA: dans l'update, page déclarée mais toujours sautée (Skip) : les macros MUI_STARTMENU_*
+; LUCANIA: de la section Install et du désinstallateur en ont besoin (dossier par défaut).
 Var AppStartMenuFolder
 !if "${STARTMENUFOLDER}" != ""
-  ; LUCANIA: page sautée aussi si une installation existante est détectée
-  !define MUI_PAGE_CUSTOMFUNCTION_PRE LucaniaSkipIfPassiveOrExisting
+  !ifdef LUCANIA_UPDATER
+    !define MUI_PAGE_CUSTOMFUNCTION_PRE Skip
+  !else
+    !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+  !endif
   !define MUI_STARTMENUPAGE_DEFAULTFOLDER "${STARTMENUFOLDER}"
 !else
   !define MUI_PAGE_CUSTOMFUNCTION_PRE Skip
@@ -484,6 +271,13 @@ Var AppStartMenuFolder
 !insertmacro MUI_PAGE_STARTMENU Application $AppStartMenuFolder
 
 ; 7. Installation page
+; LUCANIA: en-têtes adaptés dans l'update (pendant puis après la copie des fichiers)
+!ifdef LUCANIA_UPDATER
+  !define MUI_PAGE_HEADER_TEXT "$(lucaniaUpdateTitle)"
+  !define MUI_PAGE_HEADER_SUBTEXT "$(lucaniaUpdateSubtitle)"
+  !define MUI_INSTFILESPAGE_FINISHHEADER_TEXT "$(lucaniaUpdateDoneTitle)"
+  !define MUI_INSTFILESPAGE_FINISHHEADER_SUBTEXT "$(lucaniaUpdateDoneSubtitle)"
+!endif
 !insertmacro MUI_PAGE_INSTFILES
 
 ; 8. Finish page
@@ -491,16 +285,23 @@ Var AppStartMenuFolder
 ; Don't auto jump to finish page after installation page,
 ; because the installation page has useful info that can be used debug any issues with the installer.
 !define MUI_FINISHPAGE_NOAUTOCLOSE
+; LUCANIA: case « raccourci Bureau » seulement dans le setup. L'update n'en a pas (elle n'est pas créée
+; LUCANIA: du tout, plutôt que masquée) : un raccourci Bureau existant est mis à jour par la section
+; LUCANIA: Install (LucaniaUpdateDesktopShortcut), et aucun n'est créé s'il n'existait pas.
+!ifndef LUCANIA_UPDATER
 ; Use show readme button in the finish page as a button create a desktop shortcut
 !define MUI_FINISHPAGE_SHOWREADME
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "$(createDesktop)"
 !define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateOrUpdateDesktopShortcut
+!else
+  !define MUI_FINISHPAGE_TITLE "$(lucaniaUpdateDoneTitle)"
+  !define MUI_FINISHPAGE_TEXT "$(lucaniaUpdateDoneText)"
+!endif
 ; Show run app after installation.
+; LUCANIA: case décochée par défaut dans les deux exe (MUI_FINISHPAGE_RUN_NOTCHECKED, hooks.nsh)
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-; LUCANIA: en mise à jour, la case « raccourci Bureau » est décochée puis masquée (voir LucaniaFinishShow)
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW LucaniaFinishShow
 !insertmacro MUI_PAGE_FINISH
 
 Function RunMainBinary
@@ -561,62 +362,53 @@ FunctionEnd
   !include "{{this}}"
 {{/each}}
 
-; LUCANIA: textes de la page « déjà installé » (bundle.windows.nsis.languages = French, English ;
-; LUCANIA: langue choisie automatiquement selon celle de Windows). $LucaniaInstalledVersion est
-; LUCANIA: remplacé à l'exécution par la version installée.
+; LUCANIA: textes Lucania (bundle.windows.nsis.languages = French, English ; langue choisie
+; LUCANIA: automatiquement selon celle de Windows). $LucaniaInstalledVersion est remplacé à l'exécution
+; LUCANIA: par la version installée. Chaque texte n'est compilé que dans l'exe qui l'utilise.
 !ifdef LANG_FRENCH
-LangString lucaniaUnknownVersion ${LANG_FRENCH} "version inconnue"
-LangString lucaniaHeaderTitle ${LANG_FRENCH} "${PRODUCTNAME} est déjà installé"
-LangString lucaniaHeaderUpdate ${LANG_FRENCH} "Choisissez comment mettre à jour ${PRODUCTNAME}."
-LangString lucaniaHeaderReinstall ${LANG_FRENCH} "Choisissez comment réinstaller ${PRODUCTNAME}."
-LangString lucaniaOlderInstalled ${LANG_FRENCH} "Une version antérieure de ${PRODUCTNAME} ($LucaniaInstalledVersion) est installée sur cet ordinateur. Choisissez comment installer la version ${VERSION}, puis cliquez sur Installer."
-LangString lucaniaSameInstalled ${LANG_FRENCH} "${PRODUCTNAME} $LucaniaInstalledVersion est déjà installé sur cet ordinateur (même version que celle-ci). Choisissez une option, puis cliquez sur Installer."
-LangString lucaniaNewerInstalled ${LANG_FRENCH} "Une version plus récente de ${PRODUCTNAME} ($LucaniaInstalledVersion) est installée sur cet ordinateur. Ce programme d'installation contient la version ${VERSION}. Choisissez une option, puis cliquez sur Installer."
-LangString lucaniaUpdate ${LANG_FRENCH} "Mettre à jour (recommandé)"
-LangString lucaniaUpdateClean ${LANG_FRENCH} "Mettre à jour proprement"
-LangString lucaniaReinstall ${LANG_FRENCH} "Réinstaller (recommandé)"
-LangString lucaniaReinstallClean ${LANG_FRENCH} "Réinstaller proprement"
-LangString lucaniaSimpleDesc ${LANG_FRENCH} "Installe la version ${VERSION} par-dessus celle déjà présente. Rapide, rien n'est supprimé."
-LangString lucaniaCleanDesc ${LANG_FRENCH} "Réinstalle le programme à neuf : l'ancien programme est d'abord supprimé. Vos conversations et vos réglages sont conservés. Utile si l'application fonctionne mal."
-; LUCANIA: double lancement du setup, et étapes de la mise à jour propre (page d'installation)
-LangString lucaniaSetupAlreadyRunning ${LANG_FRENCH} "L'installation de ${PRODUCTNAME} est déjà en cours."
-LangString lucaniaCleanUninstalling ${LANG_FRENCH} "Suppression de l'ancienne version (vos conversations sont conservées)…"
-LangString lucaniaCleanDone ${LANG_FRENCH} "Ancienne version supprimée."
-; LUCANIA: mise à jour propre sans ancien désinstallateur (installation abîmée), et échec de la purge
-LangString lucaniaCleanManual ${LANG_FRENCH} "Ancien désinstallateur introuvable : suppression manuelle de l'ancienne version (vos conversations sont conservées)…"
-LangString lucaniaCleanFailed ${LANG_FRENCH} "La mise à jour propre n'a pas pu supprimer l'ancienne version. Fermez ${PRODUCTNAME} et réessayez, ou choisissez « Mettre à jour » (ou « Réinstaller »)."
+; LUCANIA: double lancement (setup et update partagent le même mutex)
+LangString lucaniaSetupAlreadyRunning ${LANG_FRENCH} "Une installation ou une mise à jour de ${PRODUCTNAME} est déjà en cours."
+!ifndef LUCANIA_UPDATER
+; LUCANIA: setup lancé alors que Lucania est déjà installé
+LangString lucaniaAlreadyInstalledUseUpdate ${LANG_FRENCH} "${PRODUCTNAME} est déjà installé sur cet ordinateur.$\r$\n$\r$\nPour le mettre à jour, utilisez le fichier ${PRODUCTNAME}_${VERSION}_x64-update.exe (disponible sur la page des versions, à côté de ce programme d'installation)."
+!else
+; LUCANIA: update : refus (pas installé, version plus récente), titres des pages
+LangString lucaniaNotInstalledUseSetup ${LANG_FRENCH} "${PRODUCTNAME} n'est pas installé sur cet ordinateur.$\r$\n$\r$\nUtilisez d'abord le programme d'installation ${PRODUCTNAME}_${VERSION}_x64-setup.exe (disponible sur la page des versions)."
+LangString lucaniaNewerInstalled ${LANG_FRENCH} "Une version plus récente de ${PRODUCTNAME} ($LucaniaInstalledVersion) est déjà installée.$\r$\n$\r$\nCette mise à jour (version ${VERSION}) n'est pas nécessaire."
+LangString lucaniaUpdateTitle ${LANG_FRENCH} "Mise à jour de ${PRODUCTNAME}"
+LangString lucaniaUpdateSubtitle ${LANG_FRENCH} "Installation de la version ${VERSION}. Vos conversations et vos réglages sont conservés."
+LangString lucaniaUpdateDoneTitle ${LANG_FRENCH} "Mise à jour terminée"
+LangString lucaniaUpdateDoneSubtitle ${LANG_FRENCH} "${PRODUCTNAME} est à jour (version ${VERSION})."
+LangString lucaniaUpdateDoneText ${LANG_FRENCH} "${PRODUCTNAME} a été mis à jour vers la version ${VERSION}. Vos conversations et vos réglages ont été conservés.$\r$\n$\r$\nCliquez sur Fermer pour quitter."
+!endif
 !endif
 
 !ifdef LANG_ENGLISH
-LangString lucaniaUnknownVersion ${LANG_ENGLISH} "unknown version"
-LangString lucaniaHeaderTitle ${LANG_ENGLISH} "${PRODUCTNAME} is already installed"
-LangString lucaniaHeaderUpdate ${LANG_ENGLISH} "Choose how to update ${PRODUCTNAME}."
-LangString lucaniaHeaderReinstall ${LANG_ENGLISH} "Choose how to reinstall ${PRODUCTNAME}."
-LangString lucaniaOlderInstalled ${LANG_ENGLISH} "An older version of ${PRODUCTNAME} ($LucaniaInstalledVersion) is installed on this computer. Choose how to install version ${VERSION}, then click Install."
-LangString lucaniaSameInstalled ${LANG_ENGLISH} "${PRODUCTNAME} $LucaniaInstalledVersion is already installed on this computer (same version as this one). Choose an option, then click Install."
-LangString lucaniaNewerInstalled ${LANG_ENGLISH} "A newer version of ${PRODUCTNAME} ($LucaniaInstalledVersion) is installed on this computer. This installer contains version ${VERSION}. Choose an option, then click Install."
-LangString lucaniaUpdate ${LANG_ENGLISH} "Update (recommended)"
-LangString lucaniaUpdateClean ${LANG_ENGLISH} "Clean update"
-LangString lucaniaReinstall ${LANG_ENGLISH} "Reinstall (recommended)"
-LangString lucaniaReinstallClean ${LANG_ENGLISH} "Clean reinstall"
-LangString lucaniaSimpleDesc ${LANG_ENGLISH} "Installs version ${VERSION} over the existing one. Quick, nothing is removed."
-LangString lucaniaCleanDesc ${LANG_ENGLISH} "Reinstalls the program from scratch: the old program is removed first. Your conversations and settings are kept. Useful if the app is not working properly."
-; LUCANIA: double lancement du setup, et étapes de la mise à jour propre (page d'installation)
-LangString lucaniaSetupAlreadyRunning ${LANG_ENGLISH} "${PRODUCTNAME} setup is already running."
-LangString lucaniaCleanUninstalling ${LANG_ENGLISH} "Removing the previous version (your conversations are kept)…"
-LangString lucaniaCleanDone ${LANG_ENGLISH} "Previous version removed."
-; LUCANIA: mise à jour propre sans ancien désinstallateur (installation abîmée), et échec de la purge
-LangString lucaniaCleanManual ${LANG_ENGLISH} "Previous uninstaller not found: removing the previous version manually (your conversations are kept)…"
-LangString lucaniaCleanFailed ${LANG_ENGLISH} "The clean update could not remove the previous version. Close ${PRODUCTNAME} and try again, or choose $\"Update$\" (or $\"Reinstall$\")."
+; LUCANIA: double lancement (setup et update partagent le même mutex)
+LangString lucaniaSetupAlreadyRunning ${LANG_ENGLISH} "An installation or update of ${PRODUCTNAME} is already running."
+!ifndef LUCANIA_UPDATER
+; LUCANIA: setup lancé alors que Lucania est déjà installé
+LangString lucaniaAlreadyInstalledUseUpdate ${LANG_ENGLISH} "${PRODUCTNAME} is already installed on this computer.$\r$\n$\r$\nTo update it, use the file ${PRODUCTNAME}_${VERSION}_x64-update.exe (available on the releases page, next to this installer)."
+!else
+; LUCANIA: update : refus (pas installé, version plus récente), titres des pages
+LangString lucaniaNotInstalledUseSetup ${LANG_ENGLISH} "${PRODUCTNAME} is not installed on this computer.$\r$\n$\r$\nPlease use the installer ${PRODUCTNAME}_${VERSION}_x64-setup.exe first (available on the releases page)."
+LangString lucaniaNewerInstalled ${LANG_ENGLISH} "A newer version of ${PRODUCTNAME} ($LucaniaInstalledVersion) is already installed.$\r$\n$\r$\nThis update (version ${VERSION}) is not needed."
+LangString lucaniaUpdateTitle ${LANG_ENGLISH} "${PRODUCTNAME} Update"
+LangString lucaniaUpdateSubtitle ${LANG_ENGLISH} "Installing version ${VERSION}. Your conversations and settings are kept."
+LangString lucaniaUpdateDoneTitle ${LANG_ENGLISH} "Update complete"
+LangString lucaniaUpdateDoneSubtitle ${LANG_ENGLISH} "${PRODUCTNAME} is up to date (version ${VERSION})."
+LangString lucaniaUpdateDoneText ${LANG_ENGLISH} "${PRODUCTNAME} has been updated to version ${VERSION}. Your conversations and settings have been kept.$\r$\n$\r$\nClick Close to exit."
+!endif
 !endif
 
 Function .onInit
-  ; LUCANIA: un seul setup à la fois. Mutex nommé (espace Global : toutes sessions), libéré
-  ; LUCANIA: automatiquement à la fin du processus. « ?e » empile GetLastError après l'appel :
-  ; LUCANIA: 183 = ERROR_ALREADY_EXISTS (setup déjà lancé), 5 = ERROR_ACCESS_DENIED (mutex existant
-  ; LUCANIA: créé par une autre session). Le second setup quitte (Abort dans .onInit), y compris en
-  ; LUCANIA: silencieux (message ignoré grâce à /SD). Rien dans un.onInit : le désinstallateur lancé
-  ; LUCANIA: par l'installateur n'est pas concerné. $1/$R0 sont préservés.
+  ; LUCANIA: un seul setup OU update à la fois : les deux exe utilisent le MÊME nom de mutex (ne pas
+  ; LUCANIA: le changer). Mutex nommé (espace Global : toutes sessions), libéré automatiquement à la fin
+  ; LUCANIA: du processus. « ?e » empile GetLastError après l'appel :
+  ; LUCANIA: 183 = ERROR_ALREADY_EXISTS (setup/update déjà lancé), 5 = ERROR_ACCESS_DENIED (mutex existant
+  ; LUCANIA: créé par une autre session). Le second exe quitte (Abort dans .onInit), y compris en
+  ; LUCANIA: silencieux (message ignoré grâce à /SD). Rien dans un.onInit : le désinstallateur n'est
+  ; LUCANIA: pas concerné. $1/$R0 sont préservés.
   Push $1
   Push $R0
   System::Call 'kernel32::CreateMutex(p 0, i 1, t "Global\${BUNDLEID}.SetupMutex") p .r1 ?e'
@@ -628,6 +420,8 @@ Function .onInit
   ${EndIf}
   Pop $R0
   Pop $1
+
+  StrCpy $WixMode 0 ; LUCANIA: migration WiX supprimée (évite aussi l'avertissement 6001 de makensis)
 
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
@@ -676,8 +470,38 @@ Function .onInit
     !insertmacro MULTIUSER_INIT
   !endif
 
-  ; LUCANIA: détection précoce d'une installation existante (pour sauter les pages)
-  Call LucaniaDetectExisting
+  ; LUCANIA: détection d'une installation existante, puis aiguillage setup / update.
+  ; LUCANIA: Les Abort sont faits ici, directement dans .onInit (l'installateur quitte sans page).
+  Call LucaniaDetectInstall
+  !ifdef LUCANIA_UPDATER
+    ; LUCANIA: UPDATE : Lucania doit être installé
+    ${If} $LucaniaInstalled <> 1
+      MessageBox MB_ICONINFORMATION|MB_OK "$(lucaniaNotInstalledUseSetup)" /SD IDOK
+      Abort
+    ${EndIf}
+    ; LUCANIA: refus si la version installée est plus récente (SemverCompare : -1 = ${VERSION} plus
+    ; LUCANIA: ancienne). Même version : autorisé (répare). Version inconnue (DisplayVersion absent,
+    ; LUCANIA: installation abîmée) : autorisé (répare).
+    ${If} $LucaniaInstalledVersion != ""
+      nsis_tauri_utils::SemverCompare "${VERSION}" $LucaniaInstalledVersion
+      Pop $LucaniaTmp
+      ${If} $LucaniaTmp = -1
+        MessageBox MB_ICONINFORMATION|MB_OK "$(lucaniaNewerInstalled)" /SD IDOK
+        Abort
+      ${EndIf}
+    ${EndIf}
+    ; LUCANIA: dossier imposé = dossier existant (ignore /D= ; pas de page Dossier). S'il est inconnu
+    ; LUCANIA: (registre très abîmé), on garde le dossier par défaut calculé ci-dessus.
+    ${If} $LucaniaInstalledDir != ""
+      StrCpy $INSTDIR $LucaniaInstalledDir
+    ${EndIf}
+  !else
+    ; LUCANIA: SETUP : première installation uniquement
+    ${If} $LucaniaInstalled = 1
+      MessageBox MB_ICONINFORMATION|MB_OK "$(lucaniaAlreadyInstalledUseUpdate)" /SD IDOK
+      Abort
+    ${EndIf}
+  !endif
 FunctionEnd
 
 
@@ -793,20 +617,8 @@ Section WebView2
 SectionEnd
 
 Section Install
-  ; LUCANIA: mise à jour propre (choix mémorisé par PageLeaveReinstall) : désinstallation de l'ancien
-  ; LUCANIA: programme AVANT SetOutPath (qui fait de $INSTDIR le dossier courant du processus et
-  ; LUCANIA: empêcherait sa suppression), avant le hook PREINSTALL et toute copie de fichiers.
-  ; LUCANIA: L'ancien dossier, qui est aussi $INSTDIR, peut être supprimé ici : SetOutPath le recrée.
-  ; LUCANIA: En cas d'échec : message puis Abort, l'installation s'arrête sans rien supprimer de plus.
-  ; LUCANIA: Message explicite lucaniaCleanFailed (FR/EN) au lieu de « Impossible de désinstaller ».
-  ${If} $LucaniaCleanUpdate = 1
-    Call LucaniaCleanUninstallOld
-    ${If} $LucaniaCleanResult <> 1
-      MessageBox MB_ICONEXCLAMATION|MB_OK "$(lucaniaCleanFailed)" /SD IDOK
-      Abort "$(lucaniaCleanFailed)"
-    ${EndIf}
-  ${EndIf}
-
+  ; LUCANIA: section commune au setup et à l'update : copie par-dessus, réécrit uninstall.exe et les
+  ; LUCANIA: clés du registre (répare une installation abîmée), ne désinstalle rien.
   SetOutPath $INSTDIR
 
   !ifmacrodef NSIS_HOOK_PREINSTALL
@@ -814,6 +626,12 @@ Section Install
   !endif
 
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  ; LUCANIA: serveur embarqué node.exe : normalement arrêté avec l'app (RunEvent::Exit), mais il peut
+  ; LUCANIA: survivre si l'app a été tuée de force ; il verrouillerait node.exe et app\. Vérifié par son
+  ; LUCANIA: CHEMIN COMPLET (Restart Manager) : les autres node.exe de la machine ne sont pas touchés.
+  ${If} ${FileExists} "$INSTDIR\node.exe"
+    !insertmacro CheckIfAppIsRunning "$INSTDIR\node.exe" "${PRODUCTNAME}"
+  ${EndIf}
 
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
@@ -894,17 +712,18 @@ Section Install
     Call CreateOrUpdateStartMenuShortcut
   !insertmacro MUI_STARTMENU_WRITE_END
 
-  ; LUCANIA: mise à jour propre : recrée le raccourci Bureau s'il existait avant la désinstallation
-  ${If} $LucaniaRestoreDesktopLnk = 1
-    Call CreateOrUpdateDesktopShortcut
-  ${EndIf}
-
+  !ifdef LUCANIA_UPDATER
+    ; LUCANIA: update : raccourci Bureau mis à jour s'il existe (et pointe vers Lucania), jamais créé,
+    ; LUCANIA: quel que soit le mode (pas de case sur la page de fin)
+    Call LucaniaUpdateDesktopShortcut
+  !else
   ; Create desktop shortcut for silent and passive installers
   ; because finish page will be skipped
   ${If} $PassiveMode = 1
   ${OrIf} ${Silent}
     Call CreateOrUpdateDesktopShortcut
   ${EndIf}
+  !endif
 
   !ifmacrodef NSIS_HOOK_POSTINSTALL
     !insertmacro NSIS_HOOK_POSTINSTALL
@@ -1154,550 +973,77 @@ Function CreateOrUpdateDesktopShortcut
 FunctionEnd
 
 ; ---------------------------------------------------------------------------------------------
-; LUCANIA: fonctions ajoutées (page « déjà installé », mise à jour propre, garde-fous)
+; LUCANIA: fonctions ajoutées (détection d'une installation existante, raccourci Bureau de l'update)
 ; ---------------------------------------------------------------------------------------------
 
-; LUCANIA: comme SkipIfPassive, mais saute aussi la page si une installation existante est détectée
-Function LucaniaSkipIfPassiveOrExisting
-  ${IfThen} $PassiveMode = 1 ${|} Abort ${|}
-  ${IfThen} $LucaniaExisting = 1 ${|} Abort ${|}
-FunctionEnd
-
-; LUCANIA: page de fin : en mise à jour ($LucaniaExisting = 1), la case « raccourci Bureau » est
-; LUCANIA: décochée (la fonction SHOWREADME n'est alors pas appelée à la sortie de la page) puis masquée.
-Function LucaniaFinishShow
-  ${If} $LucaniaExisting = 1
-    ${NSD_Uncheck} $mui.FinishPage.ShowReadme
-    ShowWindow $mui.FinishPage.ShowReadme ${SW_HIDE}
-  ${EndIf}
-FunctionEnd
-
-; LUCANIA: détection (dans .onInit) d'une installation NSIS existante, avec les mêmes critères que
-; LUCANIA: PageReinstall. Une installation WiX détectée garde le parcours d'origine ($LucaniaExisting = 0).
-Function LucaniaDetectExisting
+; LUCANIA: détection (dans .onInit, après SetContext) d'une installation existante. Sorties :
+; LUCANIA:   $LucaniaInstalled        = 1 si ${UNINSTKEY} a un UninstallString ou un DisplayVersion, OU si
+; LUCANIA:                              le dossier enregistré existe et contient un fichier de Lucania
+; LUCANIA:                              (${MAINBINARYNAME}.exe, uninstall.exe, node.exe ou app\) ; sinon 0.
+; LUCANIA:                              Un dossier enregistré mais vide ou absent (reste d'une ancienne
+; LUCANIA:                              désinstallation, qui ne supprime pas toujours ${MANUPRODUCTKEY})
+; LUCANIA:                              ne compte pas : le setup reste alors utilisable.
+; LUCANIA:   $LucaniaInstalledVersion = DisplayVersion (vide si inconnue) ;
+; LUCANIA:   $LucaniaInstalledDir     = valeur par défaut de ${MANUPRODUCTKEY} (comme
+; LUCANIA:                              RestorePreviousInstallLocation), sinon InstallLocation de
+; LUCANIA:                              ${UNINSTKEY}, sinon dossier de UninstallString ; sans guillemets
+; LUCANIA:                              (LUCANIA_UNQUOTE) ni « \ » final.
+; LUCANIA: Registres préservés ($0, $1).
+Function LucaniaDetectInstall
   Push $0
   Push $1
-  Push $R0
-  Push $R1
-  StrCpy $LucaniaExisting 0
-  StrCpy $0 0
-  lucania_wix_loop:
-    EnumRegKey $1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" $0
-    StrCmp $1 "" lucania_wix_loop_done
-    IntOp $0 $0 + 1
-    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
-    ReadRegStr $R1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "Publisher"
-    StrCmp "$R0$R1" "${PRODUCTNAME}${MANUFACTURER}" 0 lucania_wix_loop
-    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "UninstallString"
-    ${StrCase} $R1 $R0 "L"
-    ${StrLoc} $R0 $R1 "msiexec" ">"
-    StrCmp $R0 0 lucania_detect_done lucania_wix_loop_done ; WiX : parcours d'origine
-  lucania_wix_loop_done:
-  ReadRegStr $R0 SHCTX "${UNINSTKEY}" ""
-  ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
-  ${IfThen} "$R0$R1" != "" ${|} StrCpy $LucaniaExisting 1 ${|}
-  lucania_detect_done:
-  Pop $R1
-  Pop $R0
+  StrCpy $LucaniaInstalled 0
+
+  ReadRegStr $LucaniaInstalledVersion SHCTX "${UNINSTKEY}" "DisplayVersion"
+  ReadRegStr $0 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} $0 != ""
+  ${OrIf} $LucaniaInstalledVersion != ""
+    StrCpy $LucaniaInstalled 1
+  ${EndIf}
+
+  ReadRegStr $1 SHCTX "${MANUPRODUCTKEY}" ""
+  !insertmacro LUCANIA_UNQUOTE $1
+  ${If} $1 == ""
+    ReadRegStr $1 SHCTX "${UNINSTKEY}" "InstallLocation"
+    !insertmacro LUCANIA_UNQUOTE $1
+  ${EndIf}
+  ${If} $1 == ""
+  ${AndIf} $0 != ""
+    ; UninstallString est écrit "C:\...\uninstall.exe" (avec guillemets)
+    !insertmacro LUCANIA_UNQUOTE $0
+    ${GetParent} $0 $1
+  ${EndIf}
+  !insertmacro LUCANIA_STRIP_TRAILING_SLASH $1
+  StrCpy $LucaniaInstalledDir $1
+
+  ${If} $1 != ""
+    ${If} ${FileExists} "$1\${MAINBINARYNAME}.exe"
+    ${OrIf} ${FileExists} "$1\uninstall.exe"
+    ${OrIf} ${FileExists} "$1\node.exe"
+    ${OrIf} ${FileExists} "$1\app\*.*"
+      StrCpy $LucaniaInstalled 1
+    ${EndIf}
+  ${EndIf}
+
   Pop $1
   Pop $0
 FunctionEnd
 
-; LUCANIA: page « déjà installé » (hors WiX), appelée par PageReinstall avec
-; LUCANIA: $R0 = 1 (version installée plus ancienne ou inconnue), 0 (même version), -1 (plus récente).
-; LUCANIA: Utilise les mêmes registres que la page d'origine ($R2/$R3 = boutons radio) pour que
-; LUCANIA: PageLeaveReinstall et PageReinstallUpdateSelection fonctionnent sans changement.
-Function LucaniaPageReinstall
-  ${If} $R0 = 0
-    StrCpy $R1 "$(lucaniaSameInstalled)"
-    StrCpy $R2 "$(lucaniaReinstall)"
-    StrCpy $R3 "$(lucaniaReinstallClean)"
-    !insertmacro MUI_HEADER_TEXT "$(lucaniaHeaderTitle)" "$(lucaniaHeaderReinstall)"
-  ${ElseIf} $R0 = -1
-    StrCpy $R1 "$(lucaniaNewerInstalled)"
-    StrCpy $R2 "$(lucaniaReinstall)"
-    StrCpy $R3 "$(lucaniaReinstallClean)"
-    !insertmacro MUI_HEADER_TEXT "$(lucaniaHeaderTitle)" "$(lucaniaHeaderReinstall)"
-  ${Else}
-    StrCpy $R1 "$(lucaniaOlderInstalled)"
-    StrCpy $R2 "$(lucaniaUpdate)"
-    StrCpy $R3 "$(lucaniaUpdateClean)"
-    !insertmacro MUI_HEADER_TEXT "$(lucaniaHeaderTitle)" "$(lucaniaHeaderUpdate)"
-  ${EndIf}
-
-  ; Mode passif, ou /UPDATE (le choix serait de toute façon ignoré) : pas de page
-  ${If} $PassiveMode = 1
-  ${OrIf} $UpdateMode = 1
-    Call PageLeaveReinstall
-    Return
-  ${EndIf}
-
-  nsDialogs::Create 1018
-  Pop $R4
-  ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
-
-  ${NSD_CreateLabel} 0 0 100% 30u $R1
-  Pop $R1
-
-  ${NSD_CreateRadioButton} 10u 38u -10u 10u $R2
-  Pop $R2
-  ${NSD_OnClick} $R2 PageReinstallUpdateSelection
-  ${NSD_CreateLabel} 23u 50u -23u 18u "$(lucaniaSimpleDesc)"
-  Pop $R5
-
-  ${NSD_CreateRadioButton} 10u 74u -10u 10u $R3
-  Pop $R3
-  ${NSD_OnClick} $R3 PageReinstallUpdateSelection
-  ${NSD_CreateLabel} 23u 86u -23u 28u "$(lucaniaCleanDesc)"
-  Pop $R5
-
-  ; Retour arrière interdit : seule la réinstallation propre est possible
-  !if "${ALLOWDOWNGRADES}" == "false"
-    ${If} $R0 = -1
-      EnableWindow $R2 0
-      StrCpy $ReinstallPageCheck 2
-    ${EndIf}
-  !endif
-
-  ; 1er choix coché par défaut (ou le dernier choix si on revient sur la page après une erreur)
-  ${If} $ReinstallPageCheck <> 2
-    SendMessage $R2 ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${NSD_SetFocus} $R2
-  ${Else}
-    SendMessage $R3 ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${NSD_SetFocus} $R3
-  ${EndIf}
-
-  ; Bouton « Installer » au lieu de « Suivant » (c'est la seule page avant l'installation)
-  GetDlgItem $LucaniaTmp $HWNDPARENT 1
-  SendMessage $LucaniaTmp ${WM_SETTEXT} 0 "STR:$(^InstallBtn)"
-  ; Pas de bouton « Précédent » : les pages précédentes sont sautées
-  !if "${INSTALLMODE}" != "both"
-    ${If} $LucaniaExisting = 1
-      GetDlgItem $LucaniaTmp $HWNDPARENT 3
-      EnableWindow $LucaniaTmp 0
-    ${EndIf}
-  !endif
-
-  nsDialogs::Show
-FunctionEnd
-
-; LUCANIA: retire le « \ » final éventuel d'un chemin (VAR ne doit pas être $LucaniaTmp)
-!macro LUCANIA_STRIP_TRAILING_SLASH VAR
-  StrCpy $LucaniaTmp ${VAR} "" -1
-  ${If} $LucaniaTmp == "\"
-    StrCpy ${VAR} ${VAR} -1
-  ${EndIf}
-!macroend
-
-; LUCANIA: lit l'installation existante dans le registre. Tous les chemins sont débarrassés de leurs
-; LUCANIA: guillemets (LUCANIA_UNQUOTE) et de leur « \ » final. Sorties (variables globales) :
-; LUCANIA:   $LucaniaRegInstDir = valeur par défaut de ${MANUPRODUCTKEY} ;
-; LUCANIA:   $LucaniaRegInstLoc = InstallLocation de ${UNINSTKEY} ;
-; LUCANIA:   $LucaniaOldDir     = le premier non vide des deux, sinon le dossier de UninstallString ;
-; LUCANIA:   $LucaniaOldUninst  = exe de UninstallString (texte entre guillemets s'il y en a, sinon la
-; LUCANIA:                        valeur entière), vidé s'il n'est pas dans $LucaniaOldDir.
-; LUCANIA: Registres préservés ($R0, $R1) ; $LucaniaTmp sert de brouillon.
-Function LucaniaReadOldInstall
-  Push $R0
-  Push $R1
-
-  ReadRegStr $LucaniaRegInstDir SHCTX "${MANUPRODUCTKEY}" ""
-  !insertmacro LUCANIA_UNQUOTE $LucaniaRegInstDir
-  !insertmacro LUCANIA_STRIP_TRAILING_SLASH $LucaniaRegInstDir
-
-  ReadRegStr $LucaniaRegInstLoc SHCTX "${UNINSTKEY}" "InstallLocation"
-  !insertmacro LUCANIA_UNQUOTE $LucaniaRegInstLoc
-  !insertmacro LUCANIA_STRIP_TRAILING_SLASH $LucaniaRegInstLoc
-
-  ; UninstallString : "C:\...\uninstall.exe" (guillemets) -> texte entre les guillemets
-  ReadRegStr $R0 SHCTX "${UNINSTKEY}" "UninstallString"
-  StrCpy $R1 $R0 1
-  ${If} $R1 == "$\""
-    StrCpy $R0 $R0 "" 1
-    ${StrLoc} $R1 $R0 "$\"" ">"
-    ${IfThen} $R1 != "" ${|} StrCpy $R0 $R0 $R1 ${|}
-  ${EndIf}
-  !insertmacro LUCANIA_UNQUOTE $R0
-  StrCpy $LucaniaOldUninst $R0
-  ; $R1 = dossier du désinstallateur
-  StrCpy $R1 ""
-  ${If} $R0 != ""
-    ${GetParent} $R0 $R1
-    !insertmacro LUCANIA_STRIP_TRAILING_SLASH $R1
-  ${EndIf}
-
-  StrCpy $LucaniaOldDir $LucaniaRegInstDir
-  ${IfThen} $LucaniaOldDir == "" ${|} StrCpy $LucaniaOldDir $LucaniaRegInstLoc ${|}
-  ${IfThen} $LucaniaOldDir == "" ${|} StrCpy $LucaniaOldDir $R1 ${|}
-
-  ; Désinstallateur utilisé seulement s'il est dans l'ancien dossier (comparaison insensible à la casse)
-  ${If} $R1 == ""
-  ${OrIf} $R1 != $LucaniaOldDir
-    StrCpy $LucaniaOldUninst ""
-  ${EndIf}
-
-  Pop $R1
-  Pop $R0
-FunctionEnd
-
-; LUCANIA: avant la désinstallation propre : lit l'ancienne installation (LucaniaReadOldInstall) et
-; LUCANIA: mémorise si un raccourci Bureau pointe vers l'ancien exe (même si cet exe n'existe plus :
-; LUCANIA: IsShortcutTarget lit le chemin brut du .lnk, SLGP_RAWPATH, sans résoudre la cible).
-; LUCANIA: Registres préservés ($0-$3, modifiés par IsShortcutTarget).
-Function LucaniaBeforeCleanUninstall
-  Push $0
-  Push $1
-  Push $2
-  Push $3
-  Call LucaniaReadOldInstall
-  StrCpy $LucaniaRestoreDesktopLnk 0
-  ${If} $LucaniaOldDir != ""
-    !insertmacro IsShortcutTarget "$DESKTOP\${PRODUCTNAME}.lnk" "$LucaniaOldDir\${MAINBINARYNAME}.exe"
+!ifdef LUCANIA_UPDATER
+; LUCANIA: update : met à jour le raccourci Bureau (nouvelle cible, icône, AppUserModelId) seulement
+; LUCANIA: s'il existe et pointe vers ${MAINBINARYNAME}.exe (ou vers l'ancien nom d'exe) de $INSTDIR.
+; LUCANIA: N'en crée jamais. CreateOrUpdateDesktopShortcut (template) migre l'ancien nom d'exe, sinon
+; LUCANIA: réécrit le raccourci (sauf /UPDATE ou /NS). $0-$3 modifiés (IsShortcutTarget), comme le template.
+Function LucaniaUpdateDesktopShortcut
+  !insertmacro IsShortcutTarget "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  Pop $0
+  ${If} $0 <> 1
+  ${AndIf} $OldMainBinaryName != ""
+    !insertmacro IsShortcutTarget "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\$OldMainBinaryName"
     Pop $0
-    ${IfThen} $0 = 1 ${|} StrCpy $LucaniaRestoreDesktopLnk 1 ${|}
   ${EndIf}
-  Pop $3
-  Pop $2
-  Pop $1
-  Pop $0
+  ${If} $0 = 1
+    Call CreateOrUpdateDesktopShortcut
+  ${EndIf}
 FunctionEnd
-
-; LUCANIA: mise à jour propre, appelée au début de la section Install (fenêtre visible, étapes affichées
-; LUCANIA: dans la page d'installation). Remplace l'ancienne désinstallation faite depuis PageLeaveReinstall
-; LUCANIA: avec HideWindow/BringToFront. Deux cas :
-; LUCANIA:  - ancien uninstall.exe présent : il est lancé (TOUJOURS /UPDATE, qui protège les données),
-; LUCANIA:    puis LucaniaAfterCleanUninstall ;
-; LUCANIA:  - ancien uninstall.exe absent (ex. mis en quarantaine par l'antivirus), ou disparu au moment
-; LUCANIA:    du lancement : nettoyage manuel (LucaniaManualCleanOld).
-; LUCANIA: Sortie : $LucaniaCleanResult = 1 si l'ancienne version a été supprimée ; 0 sinon (l'appelant
-; LUCANIA: affiche lucaniaCleanFailed et fait Abort). Registres préservés ($0, $R1, $R2).
-Function LucaniaCleanUninstallOld
-  Push $0
-  Push $R1
-  Push $R2
-  StrCpy $LucaniaCleanResult 0
-  DetailPrint "$(lucaniaCleanUninstalling)"
-
-  ; Dossier courant hors de l'ancien dossier (un dossier courant ne peut pas être supprimé) ;
-  ; $TEMP n'est jamais supprimé (refusé par LucaniaIsSafeToPurge). Hérité par le désinstallateur.
-  System::Call 'kernel32::SetCurrentDirectory(t "$TEMP")'
-
-  ; Ancien dossier, désinstallateur, chemins du registre et raccourci Bureau, AVANT toute suppression
-  Call LucaniaBeforeCleanUninstall
-
-  ${If} $LucaniaOldDir != ""
-    StrCpy $R1 $LucaniaOldUninst
-    StrCpy $R2 1 ; 1 = nettoyage manuel (désinstallateur absent)
-    ${If} $R1 != ""
-    ${AndIf} ${FileExists} "$R1"
-      StrCpy $R2 0
-      ; TOUJOURS /UPDATE et /P (le template d'origine ne mettait /UPDATE que si l'installateur avait
-      ; lui-même été lancé avec /UPDATE). /UPDATE est le seul drapeau que les anciens désinstallateurs
-      ; connaissent : ils sautent alors la suppression des données (case du template et hook
-      ; NSIS_HOOK_POSTUNINSTALL) mais suppriment bien les fichiers du programme et la clé de
-      ; désinstallation. /P = mode passif (pas de confirmation, fermeture automatique).
-      ; _?= : le désinstallateur s'exécute sur place (pas de copie dans %TEMP%), donc ExecWait attend
-      ; vraiment sa fin, et il ne peut pas supprimer son propre uninstall.exe pendant qu'il tourne
-      ; (fichier résiduel supprimé ensuite par LucaniaAfterCleanUninstall).
-      ; Guillemetage : exe entre guillemets ($R1 est déjà sans guillemets), _?= en DERNIER et SANS
-      ; guillemets même si le chemin contient des espaces (exigence de NSIS).
-      ClearErrors
-      ExecWait '"$R1" /UPDATE /P _?=$LucaniaOldDir' $0
-      ${If} ${Errors}
-        StrCpy $0 2 ; ExecWait en échec : faux code de sortie
-        ; exe disparu entre la vérification et le lancement (antivirus) : nettoyage manuel
-        ${IfNot} ${FileExists} "$R1"
-          StrCpy $R2 1
-        ${EndIf}
-      ${EndIf}
-      ${If} $R2 = 0
-      ${AndIf} $0 = 0
-      ${AndIfNot} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
-      ${AndIfNot} ${FileExists} "$LucaniaOldDir\${MAINBINARYNAME}.exe"
-        ; Raccourcis, clé du dossier d'installation et fichiers résiduels (garde-fous stricts)
-        Call LucaniaAfterCleanUninstall
-        DetailPrint "$(lucaniaCleanDone)"
-        StrCpy $LucaniaCleanResult 1
-      ${EndIf}
-    ${EndIf}
-    ${If} $R2 = 1
-      Call LucaniaManualCleanOld
-    ${EndIf}
-  ${EndIf}
-
-  Pop $R2
-  Pop $R1
-  Pop $0
-FunctionEnd
-
-; LUCANIA: raccourcis de l'ancienne installation (mêmes raccourcis que la section Uninstall du template ;
-; LUCANIA: les épinglages de la barre des tâches ne sont pas retirés, ils pointent vers le même exe
-; LUCANIA: réinstallé). Supprimés seulement s'ils pointent vers $LucaniaOldDir\${MAINBINARYNAME}.exe ;
-; LUCANIA: IsShortcutTarget compare le chemin brut lu dans le .lnk, donc fonctionne même si l'exe a
-; LUCANIA: disparu. Registres préservés ($0-$3 modifiés par IsShortcutTarget, $R8, $R9).
-Function LucaniaDeleteOldShortcuts
-  Push $0
-  Push $1
-  Push $2
-  Push $3
-  Push $R8
-  Push $R9
-
-  ${If} $LucaniaOldDir != ""
-    StrCpy $R8 "$LucaniaOldDir\${MAINBINARYNAME}.exe"
-
-    ; Raccourcis du menu Démarrer (dossier éventuel puis racine)
-    !insertmacro MUI_STARTMENU_GETFOLDER Application $R9
-    ${If} $R9 != ""
-      !insertmacro IsShortcutTarget "$SMPROGRAMS\$R9\${PRODUCTNAME}.lnk" "$R8"
-      Pop $0
-      ${If} $0 = 1
-        Delete "$SMPROGRAMS\$R9\${PRODUCTNAME}.lnk"
-        RMDir "$SMPROGRAMS\$R9"
-      ${EndIf}
-    ${EndIf}
-    !insertmacro IsShortcutTarget "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$R8"
-    Pop $0
-    ${If} $0 = 1
-      Delete "$SMPROGRAMS\${PRODUCTNAME}.lnk"
-    ${EndIf}
-
-    ; Raccourci du Bureau (recréé après réinstallation s'il existait, cf. $LucaniaRestoreDesktopLnk)
-    !insertmacro IsShortcutTarget "$DESKTOP\${PRODUCTNAME}.lnk" "$R8"
-    Pop $0
-    ${If} $0 = 1
-      Delete "$DESKTOP\${PRODUCTNAME}.lnk"
-    ${EndIf}
-  ${EndIf}
-
-  Pop $R9
-  Pop $R8
-  Pop $3
-  Pop $2
-  Pop $1
-  Pop $0
-FunctionEnd
-
-; LUCANIA: après la désinstallation propre réussie (ancien désinstallateur lancé avec /UPDATE /P).
-; LUCANIA: /UPDATE fait sauter côté désinstallateur la suppression des raccourcis : on la fait ici
-; LUCANIA: (LucaniaDeleteOldShortcuts). Puis suppression de la clé du dossier d'installation et des
-; LUCANIA: fichiers résiduels (garde-fous stricts ; au mieux : un refus laisse les résidus en place,
-; LUCANIA: l'ancien programme étant déjà désinstallé et la réinstallation écrasant ses fichiers).
-; LUCANIA: Les dossiers de données (%APPDATA% / %LOCALAPPDATA%\${BUNDLEID}) ne sont JAMAIS touchés.
-; LUCANIA: Registres préservés ($R7, $R8).
-Function LucaniaAfterCleanUninstall
-  Push $R7
-  Push $R8
-
-  Call LucaniaDeleteOldShortcuts
-
-  ; Clé du dossier d'installation (réécrite par la section Install)
-  DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
-  DeleteRegKey /ifempty SHCTX "${MANUKEY}"
-
-  ; Fichiers résiduels de l'ancien dossier (ex. uninstall.exe, verrouillé pendant la désinstallation).
-  ; Garde-fous : preuve d'identité (chemins du registre mémorisés AVANT la désinstallation) et marqueur.
-  ${If} $LucaniaOldDir != ""
-    StrCpy $R8 $LucaniaOldDir
-    Call LucaniaIsSafeToPurge
-    ${If} $R7 = 1
-      RMDir /r "$R8"
-    ${EndIf}
-  ${EndIf}
-
-  Pop $R8
-  Pop $R7
-FunctionEnd
-
-; LUCANIA: nettoyage manuel quand l'ancien uninstall.exe est absent (installation abîmée, ex. exe mis en
-; LUCANIA: quarantaine par l'antivirus). Ordre : garde-fous AVANT toute action ; fermeture de l'app ;
-; LUCANIA: RMDir /r de l'ancien dossier ; vérification ; puis seulement raccourcis et clés du registre
-; LUCANIA: (réécrites par la section Install). Si les garde-fous refusent ou si le dossier existe encore
-; LUCANIA: après RMDir (fichier verrouillé) : $LucaniaCleanResult reste 0, raccourcis et registre sont
-; LUCANIA: conservés (l'utilisateur peut relancer le setup et choisir « Mettre à jour »).
-; LUCANIA: Les dossiers de données (%APPDATA% / %LOCALAPPDATA%\${BUNDLEID}) ne sont JAMAIS touchés.
-; LUCANIA: Registres préservés ($0-$3 et $R0-$R3 modifiés par CheckIfAppIsRunning, $R7, $R8). Si
-; LUCANIA: CheckIfAppIsRunning fait Abort (app non fermée), l'installation s'arrête : la pile n'importe plus.
-Function LucaniaManualCleanOld
-  Push $0
-  Push $1
-  Push $2
-  Push $3
-  Push $R0
-  Push $R1
-  Push $R2
-  Push $R3
-  Push $R7
-  Push $R8
-
-  DetailPrint "$(lucaniaCleanManual)"
-  StrCpy $R8 $LucaniaOldDir
-  Call LucaniaIsSafeToPurge
-  ${If} $R7 = 1
-    ; Fermeture de l'app si elle tourne (comme la section Install), puis du serveur embarqué node.exe
-    ; lancé depuis l'ancien dossier (il verrouillerait le dossier)
-    !insertmacro CheckIfAppIsRunning "$LucaniaOldDir\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
-    ${If} ${FileExists} "$LucaniaOldDir\node.exe"
-      !insertmacro CheckIfAppIsRunning "$LucaniaOldDir\node.exe" "${PRODUCTNAME}"
-    ${EndIf}
-
-    RMDir /r "$LucaniaOldDir"
-    ${If} ${FileExists} "$LucaniaOldDir\*.*"
-      DetailPrint "$(lucaniaCleanFailed)"
-    ${Else}
-      Call LucaniaDeleteOldShortcuts
-      DeleteRegKey SHCTX "${UNINSTKEY}"
-      DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
-      DeleteRegKey /ifempty SHCTX "${MANUKEY}"
-      DetailPrint "$(lucaniaCleanDone)"
-      StrCpy $LucaniaCleanResult 1
-    ${EndIf}
-  ${EndIf}
-
-  Pop $R8
-  Pop $R7
-  Pop $R3
-  Pop $R2
-  Pop $R1
-  Pop $R0
-  Pop $3
-  Pop $2
-  Pop $1
-  Pop $0
-FunctionEnd
-
-; LUCANIA: $R8 = candidat, $R9 = autre chemin ; $R6 = 1 si $R8 est égal à $R9 ou en est un parent.
-; LUCANIA: (comparaisons insensibles à la casse ; modifie $R8/$R9 en retirant le « \ » final)
-Function LucaniaIsSameOrParent
-  Push $R4
-  Push $R5
-  StrCpy $R6 0
-  !insertmacro LUCANIA_STRIP_TRAILING_SLASH $R8
-  !insertmacro LUCANIA_STRIP_TRAILING_SLASH $R9
-  ${If} $R8 != ""
-  ${AndIf} $R9 != ""
-    ${If} $R8 == $R9
-      StrCpy $R6 1
-    ${Else}
-      StrLen $R4 "$R8\"
-      StrCpy $R5 $R9 $R4
-      ${IfThen} $R5 == "$R8\" ${|} StrCpy $R6 1 ${|}
-    ${EndIf}
-  ${EndIf}
-  Pop $R5
-  Pop $R4
-FunctionEnd
-
-; LUCANIA: refuse ($R7 = 0) si le candidat $R8 est égal à PROTECTED ou en est un parent
-!macro LUCANIA_REFUSE_SAME_OR_PARENT PROTECTED
-  StrCpy $R9 "${PROTECTED}"
-  Call LucaniaIsSameOrParent
-  ${IfThen} $R6 = 1 ${|} StrCpy $R7 0 ${|}
-!macroend
-
-; LUCANIA: refuse ($R7 = 0) si le candidat $R8 est égal à PROTECTED ou se trouve à l'intérieur
-!macro LUCANIA_REFUSE_INSIDE PROTECTED
-  Push $R8
-  StrCpy $R9 $R8
-  StrCpy $R8 "${PROTECTED}"
-  Call LucaniaIsSameOrParent
-  Pop $R8
-  ${IfThen} $R6 = 1 ${|} StrCpy $R7 0 ${|}
-!macroend
-
-; LUCANIA: garde-fous avant RMDir /r de l'ancien dossier d'installation.
-; LUCANIA: Entrée $R8 (dossier, sans « \ » final), sortie $R7 = 1 si la suppression est autorisée.
-; LUCANIA: Preuve d'identité (remplace l'ancienne exigence « ${MAINBINARYNAME}.exe présent », qui
-; LUCANIA: bloquait une installation abîmée) : nom exact ${PRODUCTNAME}, égal au dossier enregistré
-; LUCANIA: ($LucaniaRegInstDir ou $LucaniaRegInstLoc, lus par LucaniaReadOldInstall AVANT toute
-; LUCANIA: suppression) et au moins un marqueur de ${PRODUCTNAME} (exe, uninstall.exe, node.exe ou app\).
-; LUCANIA: Registres préservés ($R5, $R6, $R9) ; $R8 peut perdre son « \ » final ; $LucaniaTmp brouillon.
-Function LucaniaIsSafeToPurge
-  Push $R5
-  Push $R6
-  Push $R9
-  StrCpy $R7 1
-  !insertmacro LUCANIA_STRIP_TRAILING_SLASH $R8 ; LUCANIA: « \ » final retiré (nom et comparaisons fiables)
-
-  ; Chemin local absolu « X:\... » (pas de racine de disque, pas de chemin réseau)
-  StrLen $R5 $R8
-  ${IfThen} $R5 <= 3 ${|} StrCpy $R7 0 ${|}
-  StrCpy $R5 $R8 2 1
-  ${IfThen} $R5 != ":\" ${|} StrCpy $R7 0 ${|}
-  ; Pas de « .. », de nom court (~) ni de « / » (comparaisons de chemins fiables)
-  ${StrLoc} $R5 $R8 ".." ">"
-  ${IfThen} $R5 != "" ${|} StrCpy $R7 0 ${|}
-  ${StrLoc} $R5 $R8 "~" ">"
-  ${IfThen} $R5 != "" ${|} StrCpy $R7 0 ${|}
-  ${StrLoc} $R5 $R8 "/" ">"
-  ${IfThen} $R5 != "" ${|} StrCpy $R7 0 ${|}
-  ; Le dossier doit porter le nom du produit (jamais un dossier partagé choisi à la main, ex. D:\Apps)
-  ${GetFileName} $R8 $R5
-  ${IfThen} $R5 != "${PRODUCTNAME}" ${|} StrCpy $R7 0 ${|}
-  ; Le dossier doit exister
-  ${IfNot} ${FileExists} "$R8\*.*"
-    StrCpy $R7 0
-  ${EndIf}
-  ; LUCANIA: égal (insensible à la casse : StrCmp) à un dossier enregistré dans le registre ; si les deux
-  ; LUCANIA: chemins du registre sont vides, $R8 (non vide) ne peut pas leur être égal : refus.
-  ${If} $R8 != $LucaniaRegInstDir
-  ${AndIf} $R8 != $LucaniaRegInstLoc
-    StrCpy $R7 0
-  ${EndIf}
-  ; LUCANIA: au moins un marqueur de ${PRODUCTNAME} (« app\*.* » existe si app est un dossier)
-  ${IfNot} ${FileExists} "$R8\${MAINBINARYNAME}.exe"
-  ${AndIfNot} ${FileExists} "$R8\uninstall.exe"
-  ${AndIfNot} ${FileExists} "$R8\node.exe"
-  ${AndIfNot} ${FileExists} "$R8\app\*.*"
-    StrCpy $R7 0
-  ${EndIf}
-
-  ${If} $R7 = 1
-    ; Ni égal ni parent d'un dossier système ou utilisateur
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$WINDIR"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$SYSDIR"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$PROGRAMFILES"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$PROGRAMFILES32"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$PROGRAMFILES64"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$COMMONFILES"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$COMMONFILES32"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$COMMONFILES64"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$TEMP"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$EXEDIR"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$PROFILE"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$DESKTOP"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$DOCUMENTS"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$SMPROGRAMS"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$APPDATA"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$LOCALAPPDATA"
-    ReadEnvStr $LucaniaTmp "ProgramW6432"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$LucaniaTmp"
-    ReadEnvStr $LucaniaTmp "ProgramData"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$LucaniaTmp"
-    ReadEnvStr $LucaniaTmp "PUBLIC"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$LucaniaTmp"
-    ReadEnvStr $LucaniaTmp "USERPROFILE"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$LucaniaTmp"
-    ; Dossiers de données de l'utilisateur courant : ni parent, ni égal, ni à l'intérieur
-    ReadEnvStr $LucaniaTmp "APPDATA"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$LucaniaTmp\${BUNDLEID}"
-    ReadEnvStr $LucaniaTmp "APPDATA"
-    !insertmacro LUCANIA_REFUSE_INSIDE "$LucaniaTmp\${BUNDLEID}"
-    ReadEnvStr $LucaniaTmp "LOCALAPPDATA"
-    !insertmacro LUCANIA_REFUSE_SAME_OR_PARENT "$LucaniaTmp\${BUNDLEID}"
-    ReadEnvStr $LucaniaTmp "LOCALAPPDATA"
-    !insertmacro LUCANIA_REFUSE_INSIDE "$LucaniaTmp\${BUNDLEID}"
-    ; Jamais à l'intérieur de Windows ni des profils utilisateurs (C:\Users\...)
-    !insertmacro LUCANIA_REFUSE_INSIDE "$WINDIR"
-    ReadEnvStr $LucaniaTmp "USERPROFILE"
-    ${If} $LucaniaTmp != ""
-      ${GetParent} $LucaniaTmp $LucaniaTmp
-      !insertmacro LUCANIA_REFUSE_INSIDE "$LucaniaTmp"
-    ${EndIf}
-  ${EndIf}
-
-  Pop $R9
-  Pop $R6
-  Pop $R5
-FunctionEnd
+!endif

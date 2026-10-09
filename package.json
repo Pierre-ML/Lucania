@@ -13,7 +13,7 @@
   ],
   "private": true,
   "type": "module",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -27,7 +27,8 @@
     "build:desktop": "node scripts/build-desktop.mjs",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build && node scripts/build-updater.mjs",
+    "build:updater": "node scripts/build-updater.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.7",

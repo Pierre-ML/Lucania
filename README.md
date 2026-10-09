@@ -1,5 +1,5 @@
 <div align="center"><img src="src/assets/logo/loup.svg" alt="Lucania" width="96" /><h1>Lucania</h1><p>Une interface de chat locale, façon Claude.ai, pour vos modèles Ollama.<br/>A local, Claude.ai-style chat interface for your Ollama models.</p>
-<a href="https://github.com/Pierre-ML/Lucania/releases/latest"><b>⬇ Télécharger pour Windows · Download for Windows</b></a></div>
+<a href="https://github.com/Pierre-ML/Lucania/releases/latest"><b>⬇ Télécharger pour Windows · Download for Windows</b></a><br/><sub>setup pour installer · update pour mettre à jour / setup to install · update to update</sub></div>
 
 <p align="center">
 <a href="https://github.com/Pierre-ML/Lucania/releases/latest"><img src="https://img.shields.io/github/v/release/Pierre-ML/Lucania" alt="Dernière release" /></a>
@@ -40,7 +40,7 @@ Vos conversations restent sur votre machine. Rien n'est envoyé dans le cloud.
 ## Installation
 
 1. Installez [Ollama](https://ollama.com), ou ayez accès à un serveur Ollama.
-2. Téléchargez `Lucania_<version>_x64-setup.exe` depuis la [dernière release](https://github.com/Pierre-ML/Lucania/releases/latest).
+2. Pour une première installation, téléchargez `Lucania_<version>_x64-setup.exe` depuis la [dernière release](https://github.com/Pierre-ML/Lucania/releases/latest).
 3. Lancez l'installateur. Lucania s'installe dans Program Files.
 
 Prérequis : Windows 10 ou 11 (64 bits).
@@ -59,12 +59,11 @@ Pour utiliser un serveur Ollama distant, connectez-vous à lui par un VPN WireGu
 
 ## Mise à jour
 
-Lancez un installateur plus récent et choisissez :
+Téléchargez `Lucania_<version>_x64-update.exe` depuis la [dernière release](https://github.com/Pierre-ML/Lucania/releases/latest) et lancez-le.
 
-- **Mettre à jour** (par défaut) ;
-- **Mettre à jour proprement**.
+Vos conversations sont conservées. L'updater ferme Lucania si nécessaire.
 
-Vos conversations sont conservées.
+Repartir de zéro : désinstallez Lucania depuis les Paramètres Windows (cela supprime aussi vos conversations), puis relancez le setup.
 
 ## Développement
 
@@ -75,7 +74,7 @@ Prérequis : Node 24 (le projet utilise `node:sqlite` ; `engines` exige au minim
 | `npm install` | Installer les dépendances |
 | `npm run dev` | Serveur web de dev sur http://localhost:4748 |
 | `npm run tauri dev` | App de bureau en dev |
-| `npm run tauri build` | Produire l'installateur Windows |
+| `npm run desktop:build` | Produire les deux exe Windows (setup et update) |
 | `npm run check` | Vérifier les types |
 | `npm run version:set X.Y.Z` | Mettre à jour la version partout |
 
@@ -124,7 +123,7 @@ Coming soon: persistent memory per model (in development).
 ## Installation
 
 1. Install [Ollama](https://ollama.com), or have access to an Ollama server.
-2. Download `Lucania_<version>_x64-setup.exe` from the [latest release](https://github.com/Pierre-ML/Lucania/releases/latest).
+2. For a first install, download `Lucania_<version>_x64-setup.exe` from the [latest release](https://github.com/Pierre-ML/Lucania/releases/latest).
 3. Run the installer. Lucania installs into Program Files.
 
 Requirements: Windows 10 or 11 (64-bit).
@@ -143,12 +142,11 @@ To use a remote Ollama server, connect to it through a WireGuard VPN that you ma
 
 ## Updating
 
-Run a newer installer and choose:
+Download `Lucania_<version>_x64-update.exe` from the [latest release](https://github.com/Pierre-ML/Lucania/releases/latest) and run it.
 
-- **Update** (default);
-- **Clean update**.
+Your conversations are kept. The updater closes Lucania if needed.
 
-Your conversations are kept.
+Start from scratch: uninstall Lucania from Windows Settings (this also deletes your conversations), then run the setup again.
 
 ## Development
 
@@ -159,7 +157,7 @@ Requirements: Node 24 (the project uses `node:sqlite`; `engines` requires 22.12 
 | `npm install` | Install dependencies |
 | `npm run dev` | Dev web server on http://localhost:4748 |
 | `npm run tauri dev` | Desktop app in dev |
-| `npm run tauri build` | Build the Windows installer |
+| `npm run desktop:build` | Build both Windows exes (setup and update) |
 | `npm run check` | Type check |
 | `npm run version:set X.Y.Z` | Set the version everywhere |
 

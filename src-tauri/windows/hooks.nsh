@@ -11,14 +11,13 @@
 ; DESINSTALLATION AVEC /UPDATE ($UpdateMode = 1) : le hook ne fait RIEN, les données sont conservées
 ;   (la case du template est elle aussi ignorée avec /UPDATE).
 ;
-; Qui passe /UPDATE ? Le template par défaut de Tauri NE le passe PAS quand on choisit
-; « Désinstaller avant d'installer » (seulement si l'installateur a lui-même été lancé avec /UPDATE) :
-; c'est ce qui effaçait les conversations lors d'une mise à jour. Notre template
-; (windows/installer.nsi, « Mettre à jour proprement ») lance TOUJOURS l'ancien désinstallateur
-; avec « /UPDATE /P » : les données sont conservées, y compris avec l'ancien désinstallateur 0.0.1.
-; « Mettre à jour » (choix par défaut) ne lance aucun désinstallateur.
+; Mises à jour : notre template (windows/installer.nsi) ne lance plus AUCUN désinstallateur. Le setup
+; (…-setup.exe) refuse de s'exécuter si Lucania est déjà installé ; l'exe de mise à jour
+; (…-update.exe, compilé avec /DLUCANIA_UPDATER par scripts/build-updater.mjs) copie les fichiers
+; par-dessus l'installation existante. Les données ne sont donc jamais touchées par une mise à jour.
 ;
-; Ne pas renommer /UPDATE : c'est le seul drapeau que les désinstallateurs déjà installés connaissent.
+; Ne pas renommer /UPDATE : c'est le seul drapeau que les désinstallateurs déjà installés connaissent
+; (un ancien installateur ou un outil externe peut encore lancer « uninstall.exe /UPDATE »).
 ;
 ; Contexte : installMode perMachine => l'installateur est en « SetShellVarContext all », où
 ; $APPDATA/$LOCALAPPDATA pointent vers ProgramData. On repasse donc en contexte « current »
@@ -41,4 +40,5 @@
 
 ; Case « Créer un raccourci sur le Bureau » décochée par défaut (évite un blocage sur
 ; « Terminer » pendant la création du raccourci/analyse antivirus) ; l'utilisateur peut la cocher.
+; Cette case n'existe que dans le setup ; l'exe de mise à jour n'en a pas (sans effet pour lui).
 !define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED

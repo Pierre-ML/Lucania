@@ -61,7 +61,21 @@ jobs:
           workspaces: src-tauri
 
       - run: npm ci
-      - run: npm run tauri build
+      - run: npm run desktop:build
+
+      - name: Vérifier les deux installateurs
+        shell: bash
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          d="src-tauri/target/release/bundle/nsis"
+          missing=0
+          for f in "Lucania_${v}_x64-setup.exe" "Lucania_${v}_x64-update.exe"; do
+            if [ ! -f "$d/$f" ]; then
+              echo "::error::Fichier manquant : $d/$f"
+              missing=1
+            fi
+          done
+          exit $missing
 
       - uses: softprops/action-gh-release@v2
         if: steps.tag.outputs.exists == 'false'
