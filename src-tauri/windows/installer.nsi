@@ -88,6 +88,10 @@ Var LucaniaOldDir            ; ancien dossier d'installation (lu dans le registr
 Var LucaniaOldDirHadExe      ; 1 si l'ancien dossier contenait ${MAINBINARYNAME}.exe avant désinstallation
 Var LucaniaRestoreDesktopLnk ; 1 si un raccourci Bureau existait (il est recréé après réinstallation)
 Var LucaniaTmp
+; LUCANIA: choix « ... proprement » mémorisé par PageLeaveReinstall ; la désinstallation de l'ancien
+; LUCANIA: programme est faite au début de la section Install (voir LucaniaCleanUninstallOld)
+Var LucaniaCleanUpdate       ; 1 si la mise à jour propre a été choisie
+Var LucaniaCleanResult       ; 1 si l'ancien programme a bien été désinstallé puis nettoyé
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -333,6 +337,7 @@ Function PageReinstallUpdateSelection
 FunctionEnd
 Function PageLeaveReinstall
   ${NSD_GetState} $R2 $R1
+  StrCpy $LucaniaCleanUpdate 0 ; LUCANIA: mise à jour propre non choisie par défaut
 
   ; If migrating from Wix, always uninstall
   ${If} $WixMode = 1
@@ -356,9 +361,28 @@ Function PageLeaveReinstall
   ${EndIf}
   ${If} $R1 = 1
     Goto reinst_done
-  ${Else}
-    Goto reinst_uninstall
   ${EndIf}
+
+  ; LUCANIA: 2e choix : on ne désinstalle PLUS depuis ce callback de page. L'ancien code faisait ici
+  ; LUCANIA: HideWindow + ExecWait du désinstallateur + BringToFront : la fenêtre du setup disparaissait
+  ; LUCANIA: (et Windows ne la remettait pas au premier plan après la sortie du désinstallateur, autre
+  ; LUCANIA: processus), la suite de l'installation se déroulant de façon invisible. Le choix est
+  ; LUCANIA: seulement mémorisé ; la désinstallation est faite au début de la section Install, fenêtre
+  ; LUCANIA: visible, progression dans la page d'installation (voir LucaniaCleanUninstallOld).
+  ; LUCANIA: Validation anticipée (hors mode passif) : désinstallateur et dossier connus, sinon message
+  ; LUCANIA: et retour à la page (l'utilisateur peut alors choisir la mise à jour simple).
+  ${If} $PassiveMode <> 1
+    ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+    ReadRegStr $LucaniaTmp SHCTX "${MANUPRODUCTKEY}" ""
+    ${If} $R1 == ""
+    ${OrIf} $LucaniaTmp == ""
+    ${OrIfNot} ${FileExists} "$LucaniaTmp\uninstall.exe"
+      MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
+      Abort
+    ${EndIf}
+  ${EndIf}
+  StrCpy $LucaniaCleanUpdate 1
+  Goto reinst_done
 
   ; $R0 holds whether same(0)/upgrading(1)/downgrading(-1) version
   ; $R1 holds the radio buttons state:
@@ -388,22 +412,10 @@ Function PageLeaveReinstall
     HideWindow
     ClearErrors
 
+    ; LUCANIA: seul le chemin WiX (d'origine) passe encore ici : la branche NSIS (mise à jour propre)
+    ; LUCANIA: est déplacée dans la section Install (LucaniaCleanUninstallOld), sans HideWindow.
     ${If} $WixMode = 1
       ReadRegStr $R1 HKLM "$R6" "UninstallString"
-      ExecWait '$R1' $0
-    ${Else}
-      ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-      ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
-      ; LUCANIA: mémorise l'ancien dossier, la présence de l'exe et du raccourci Bureau AVANT désinstallation
-      Call LucaniaBeforeCleanUninstall
-      ClearErrors ; LUCANIA: l'appel ci-dessus ne doit pas fausser le test d'erreur après ExecWait
-      ; LUCANIA: TOUJOURS /UPDATE et /P (le template d'origine ne mettait /UPDATE que si l'installateur
-      ; LUCANIA: avait lui-même été lancé avec /UPDATE). /UPDATE est le seul drapeau que l'ancien
-      ; LUCANIA: désinstallateur déjà installé (0.0.1) connaît : il saute alors la suppression des données
-      ; LUCANIA: (case du template et hook NSIS_HOOK_POSTUNINSTALL) mais supprime bien les fichiers du
-      ; LUCANIA: programme et la clé de désinstallation. /P = mode passif (pas de confirmation).
-      StrCpy $R1 "$R1 /UPDATE /P"
-      StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
       ExecWait '$R1' $0
     ${EndIf}
 
@@ -428,12 +440,8 @@ Function PageLeaveReinstall
       MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
       Abort
     ${EndIf}
-
-    ; LUCANIA: après la désinstallation propre : suppression des raccourcis (sautée par /UPDATE côté
-    ; LUCANIA: désinstallateur), de la clé du dossier d'installation et des fichiers résiduels.
-    ${If} $WixMode <> 1
-      Call LucaniaAfterCleanUninstall
-    ${EndIf}
+    ; LUCANIA: le nettoyage après désinstallation propre (LucaniaAfterCleanUninstall) est désormais
+    ; LUCANIA: appelé depuis LucaniaCleanUninstallOld, dans la section Install.
   reinst_done:
 FunctionEnd
 
@@ -549,6 +557,10 @@ LangString lucaniaReinstall ${LANG_FRENCH} "Réinstaller (recommandé)"
 LangString lucaniaReinstallClean ${LANG_FRENCH} "Réinstaller proprement"
 LangString lucaniaSimpleDesc ${LANG_FRENCH} "Installe la version ${VERSION} par-dessus celle déjà présente. Rapide, rien n'est supprimé."
 LangString lucaniaCleanDesc ${LANG_FRENCH} "Réinstalle le programme à neuf : l'ancien programme est d'abord supprimé. Vos conversations et vos réglages sont conservés. Utile si l'application fonctionne mal."
+; LUCANIA: double lancement du setup, et étapes de la mise à jour propre (page d'installation)
+LangString lucaniaSetupAlreadyRunning ${LANG_FRENCH} "L'installation de ${PRODUCTNAME} est déjà en cours."
+LangString lucaniaCleanUninstalling ${LANG_FRENCH} "Suppression de l'ancienne version (vos conversations sont conservées)…"
+LangString lucaniaCleanDone ${LANG_FRENCH} "Ancienne version supprimée."
 !endif
 
 !ifdef LANG_ENGLISH
@@ -565,9 +577,31 @@ LangString lucaniaReinstall ${LANG_ENGLISH} "Reinstall (recommended)"
 LangString lucaniaReinstallClean ${LANG_ENGLISH} "Clean reinstall"
 LangString lucaniaSimpleDesc ${LANG_ENGLISH} "Installs version ${VERSION} over the existing one. Quick, nothing is removed."
 LangString lucaniaCleanDesc ${LANG_ENGLISH} "Reinstalls the program from scratch: the old program is removed first. Your conversations and settings are kept. Useful if the app is not working properly."
+; LUCANIA: double lancement du setup, et étapes de la mise à jour propre (page d'installation)
+LangString lucaniaSetupAlreadyRunning ${LANG_ENGLISH} "${PRODUCTNAME} setup is already running."
+LangString lucaniaCleanUninstalling ${LANG_ENGLISH} "Removing the previous version (your conversations are kept)…"
+LangString lucaniaCleanDone ${LANG_ENGLISH} "Previous version removed."
 !endif
 
 Function .onInit
+  ; LUCANIA: un seul setup à la fois. Mutex nommé (espace Global : toutes sessions), libéré
+  ; LUCANIA: automatiquement à la fin du processus. « ?e » empile GetLastError après l'appel :
+  ; LUCANIA: 183 = ERROR_ALREADY_EXISTS (setup déjà lancé), 5 = ERROR_ACCESS_DENIED (mutex existant
+  ; LUCANIA: créé par une autre session). Le second setup quitte (Abort dans .onInit), y compris en
+  ; LUCANIA: silencieux (message ignoré grâce à /SD). Rien dans un.onInit : le désinstallateur lancé
+  ; LUCANIA: par l'installateur n'est pas concerné. $1/$R0 sont préservés.
+  Push $1
+  Push $R0
+  System::Call 'kernel32::CreateMutex(p 0, i 1, t "Global\${BUNDLEID}.SetupMutex") p .r1 ?e'
+  Pop $R0
+  ${If} $R0 = 183
+  ${OrIf} $R0 = 5
+    MessageBox MB_ICONINFORMATION|MB_OK "$(lucaniaSetupAlreadyRunning)" /SD IDOK
+    Abort
+  ${EndIf}
+  Pop $R0
+  Pop $1
+
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1
@@ -732,6 +766,19 @@ Section WebView2
 SectionEnd
 
 Section Install
+  ; LUCANIA: mise à jour propre (choix mémorisé par PageLeaveReinstall) : désinstallation de l'ancien
+  ; LUCANIA: programme AVANT SetOutPath (qui fait de $INSTDIR le dossier courant du processus et
+  ; LUCANIA: empêcherait sa suppression), avant le hook PREINSTALL et toute copie de fichiers.
+  ; LUCANIA: L'ancien dossier, qui est aussi $INSTDIR, peut être supprimé ici : SetOutPath le recrée.
+  ; LUCANIA: En cas d'échec : message puis Abort, l'installation s'arrête sans rien supprimer de plus.
+  ${If} $LucaniaCleanUpdate = 1
+    Call LucaniaCleanUninstallOld
+    ${If} $LucaniaCleanResult <> 1
+      MessageBox MB_ICONEXCLAMATION|MB_OK "$(unableToUninstall)" /SD IDOK
+      Abort "$(unableToUninstall)"
+    ${EndIf}
+  ${EndIf}
+
   SetOutPath $INSTDIR
 
   !ifmacrodef NSIS_HOOK_PREINSTALL
@@ -1236,6 +1283,55 @@ Function LucaniaBeforeCleanUninstall
   Pop $3
   Pop $2
   Pop $1
+  Pop $0
+FunctionEnd
+
+; LUCANIA: mise à jour propre, appelée au début de la section Install (fenêtre visible, étapes affichées
+; LUCANIA: dans la page d'installation). Remplace l'ancienne désinstallation faite depuis PageLeaveReinstall
+; LUCANIA: avec HideWindow/BringToFront. Sortie : $LucaniaCleanResult = 1 si l'ancien programme a été
+; LUCANIA: désinstallé puis nettoyé ; 0 sinon (LucaniaAfterCleanUninstall n'est alors PAS appelée).
+; LUCANIA: Registres préservés ($0, $4, $R1).
+Function LucaniaCleanUninstallOld
+  Push $0
+  Push $4
+  Push $R1
+  StrCpy $LucaniaCleanResult 0
+  DetailPrint "$(lucaniaCleanUninstalling)"
+
+  ; Dossier courant hors de l'ancien dossier (un dossier courant ne peut pas être supprimé) ;
+  ; $TEMP n'est jamais supprimé (refusé par LucaniaIsSafeToPurge). Hérité par le désinstallateur.
+  System::Call 'kernel32::SetCurrentDirectory(t "$TEMP")'
+
+  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+  ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+  ; Mémorise l'ancien dossier, la présence de l'exe et du raccourci Bureau AVANT désinstallation
+  Call LucaniaBeforeCleanUninstall
+
+  ${If} $4 != ""
+  ${AndIf} $R1 != ""
+    ; TOUJOURS /UPDATE et /P (le template d'origine ne mettait /UPDATE que si l'installateur avait
+    ; lui-même été lancé avec /UPDATE). /UPDATE est le seul drapeau que les anciens désinstallateurs
+    ; connaissent : ils sautent alors la suppression des données (case du template et hook
+    ; NSIS_HOOK_POSTUNINSTALL) mais suppriment bien les fichiers du programme et la clé de
+    ; désinstallation. /P = mode passif (pas de confirmation, fermeture automatique).
+    ; _?= : le désinstallateur s'exécute sur place (pas de copie dans %TEMP%), donc ExecWait attend
+    ; vraiment sa fin, et il ne peut pas supprimer son propre uninstall.exe pendant qu'il tourne
+    ; (fichier résiduel supprimé ensuite par LucaniaAfterCleanUninstall).
+    ClearErrors
+    ExecWait '$R1 /UPDATE /P _?=$4' $0
+    ${IfThen} ${Errors} ${|} StrCpy $0 2 ${|} ; ExecWait en échec : faux code de sortie
+    ${If} $0 = 0
+    ${AndIfNot} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+    ${AndIfNot} ${FileExists} "$LucaniaOldDir\${MAINBINARYNAME}.exe"
+      ; Raccourcis, clé du dossier d'installation et fichiers résiduels (garde-fous stricts)
+      Call LucaniaAfterCleanUninstall
+      DetailPrint "$(lucaniaCleanDone)"
+      StrCpy $LucaniaCleanResult 1
+    ${EndIf}
+  ${EndIf}
+
+  Pop $R1
+  Pop $4
   Pop $0
 FunctionEnd
 
