@@ -20,6 +20,8 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     messages?: any[];
     folderId?: string | null;
     think?: boolean;
+    useMemory?: boolean;
+    learnMemory?: boolean;
     pinned?: boolean;
     connectionId?: string | null;
   } = {};
@@ -50,6 +52,14 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   if (body.think !== undefined) {
     if (typeof body.think !== 'boolean') return json({ error: 'think invalide' }, 400);
     patch.think = body.think;
+  }
+  if (body.useMemory !== undefined) {
+    if (typeof body.useMemory !== 'boolean') return json({ error: 'useMemory invalide' }, 400);
+    patch.useMemory = body.useMemory;
+  }
+  if (body.learnMemory !== undefined) {
+    if (typeof body.learnMemory !== 'boolean') return json({ error: 'learnMemory invalide' }, 400);
+    patch.learnMemory = body.learnMemory;
   }
   if (body.pinned !== undefined) {
     if (typeof body.pinned !== 'boolean') return json({ error: 'pinned invalide' }, 400);

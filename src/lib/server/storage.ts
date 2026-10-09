@@ -16,6 +16,8 @@ export interface Conversation {
   updatedAt: string;
   folderId: string | null;
   think: boolean;
+  useMemory: boolean;
+  learnMemory: boolean;
   pinned: boolean;
   connectionId: string | null;
   messages: Message[];
@@ -28,6 +30,8 @@ export interface ConversationSummary {
   updatedAt: string;
   folderId: string | null;
   think: boolean;
+  useMemory: boolean;
+  learnMemory: boolean;
   pinned: boolean;
   connectionId: string | null;
   messageCount: number;
@@ -38,7 +42,20 @@ export interface Folder {
   createdAt: string;
   updatedAt: string;
   conversationCount: number;
+  color: string;
+  icon: string;
 }
+
+/** Couleurs de dossier autorisées (jamais de rouge : réservé aux alertes). */
+export const FOLDER_COLORS = ['default', 'sky', 'emerald', 'amber', 'violet', 'pink', 'orange', 'teal', 'slate'] as const;
+/** Icônes de dossier autorisées. */
+export const FOLDER_ICONS = [
+  'folder', 'star', 'heart', 'code', 'book', 'briefcase', 'lightbulb', 'flask', 'music', 'image', 'globe', 'gamepad',
+] as const;
+export const isFolderColor = (v: unknown): v is string =>
+  typeof v === 'string' && (FOLDER_COLORS as readonly string[]).includes(v);
+export const isFolderIcon = (v: unknown): v is string =>
+  typeof v === 'string' && (FOLDER_ICONS as readonly string[]).includes(v);
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 export const isValidId = (id: unknown): id is string => typeof id === 'string' && ID_RE.test(id);
@@ -51,6 +68,8 @@ interface ConvRow {
   updated_at: string;
   folder_id: string | null;
   think: number;
+  use_memory: number;
+  learn_memory: number;
   pinned: number;
   connection_id: string | null;
 }
@@ -66,7 +85,7 @@ function loadConversation(id: string): Conversation | null {
   if (!isValidId(id)) return null;
   const db = getDb();
   const c = db
-    .prepare('SELECT id, title, model, created_at, updated_at, folder_id, think, pinned, connection_id FROM conversations WHERE id = ?')
+    .prepare('SELECT id, title, model, created_at, updated_at, folder_id, think, use_memory, learn_memory, pinned, connection_id FROM conversations WHERE id = ?')
     .get(id) as unknown as ConvRow | undefined;
   if (!c) return null;
   const rows = db
@@ -82,6 +101,8 @@ function loadConversation(id: string): Conversation | null {
     updatedAt: c.updated_at,
     folderId: c.folder_id ?? null,
     think: Number(c.think) !== 0,
+    useMemory: Number(c.use_memory) !== 0,
+    learnMemory: Number(c.learn_memory) !== 0,
     pinned: Number(c.pinned) !== 0,
     connectionId: c.connection_id ?? null,
     messages: rows.map((m) => ({
@@ -97,7 +118,7 @@ function loadConversation(id: string): Conversation | null {
 export async function listConversations(): Promise<ConversationSummary[]> {
   const rows = getDb()
     .prepare(
-      `SELECT c.id, c.title, c.model, c.created_at, c.updated_at, c.folder_id, c.think, c.pinned, c.connection_id,
+      `SELECT c.id, c.title, c.model, c.created_at, c.updated_at, c.folder_id, c.think, c.use_memory, c.learn_memory, c.pinned, c.connection_id,
               (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS message_count
        FROM conversations c
        ORDER BY c.updated_at DESC`,
@@ -111,6 +132,8 @@ export async function listConversations(): Promise<ConversationSummary[]> {
     updatedAt: r.updated_at,
     folderId: r.folder_id ?? null,
     think: Number(r.think) !== 0,
+    useMemory: Number(r.use_memory) !== 0,
+    learnMemory: Number(r.learn_memory) !== 0,
     pinned: Number(r.pinned) !== 0,
     connectionId: r.connection_id ?? null,
     messageCount: Number(r.message_count),
@@ -126,6 +149,8 @@ export async function createConversation(input: {
   title?: string;
   folderId?: string | null;
   think?: boolean;
+  useMemory?: boolean;
+  learnMemory?: boolean;
   connectionId?: string | null;
 }): Promise<Conversation> {
   const id = crypto.randomUUID();
@@ -133,12 +158,14 @@ export async function createConversation(input: {
   const title = input.title ?? 'Nouvelle conversation';
   const folderId = input.folderId ?? null;
   const think = input.think ?? true;
+  const useMemory = input.useMemory ?? true;
+  const learnMemory = input.learnMemory ?? false;
   const connectionId = input.connectionId ?? null;
   getDb()
     .prepare(
-      'INSERT INTO conversations (id, title, model, created_at, updated_at, folder_id, think, connection_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO conversations (id, title, model, created_at, updated_at, folder_id, think, use_memory, learn_memory, connection_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(id, title, input.model, now, now, folderId, think ? 1 : 0, connectionId);
+    .run(id, title, input.model, now, now, folderId, think ? 1 : 0, useMemory ? 1 : 0, learnMemory ? 1 : 0, connectionId);
   return {
     id,
     title,
@@ -147,6 +174,8 @@ export async function createConversation(input: {
     updatedAt: now,
     folderId,
     think,
+    useMemory,
+    learnMemory,
     pinned: false,
     connectionId,
     messages: [],
@@ -161,6 +190,8 @@ export async function updateConversation(
     messages?: Message[];
     folderId?: string | null;
     think?: boolean;
+    useMemory?: boolean;
+    learnMemory?: boolean;
     pinned?: boolean;
     connectionId?: string | null;
   },
@@ -178,10 +209,12 @@ export async function updateConversation(
         ins.run(id, i, m.role, m.content, m.thinking ?? null, m.model, m.createdAt);
       });
     }
-    // Un PATCH ne contenant que des réglages (folderId, think, pinned, connectionId) ne touche pas updated_at.
+    // Un PATCH ne contenant que des réglages (folderId, think, useMemory, learnMemory, pinned, connectionId) ne touche pas updated_at.
     const folderOnly =
       (patch.folderId !== undefined ||
         patch.think !== undefined ||
+        patch.useMemory !== undefined ||
+        patch.learnMemory !== undefined ||
         patch.pinned !== undefined ||
         patch.connectionId !== undefined) &&
       patch.title === undefined &&
@@ -197,6 +230,12 @@ export async function updateConversation(
     }
     if (patch.think !== undefined) {
       db.prepare('UPDATE conversations SET think = ? WHERE id = ?').run(patch.think ? 1 : 0, id);
+    }
+    if (patch.useMemory !== undefined) {
+      db.prepare('UPDATE conversations SET use_memory = ? WHERE id = ?').run(patch.useMemory ? 1 : 0, id);
+    }
+    if (patch.learnMemory !== undefined) {
+      db.prepare('UPDATE conversations SET learn_memory = ? WHERE id = ?').run(patch.learnMemory ? 1 : 0, id);
     }
     if (patch.pinned !== undefined) {
       db.prepare('UPDATE conversations SET pinned = ? WHERE id = ?').run(patch.pinned ? 1 : 0, id);
@@ -223,6 +262,8 @@ interface FolderRow {
   created_at: string;
   updated_at: string;
   conversation_count: number;
+  color: string | null;
+  icon: string | null;
 }
 const toFolder = (r: FolderRow): Folder => ({
   id: r.id,
@@ -230,8 +271,10 @@ const toFolder = (r: FolderRow): Folder => ({
   createdAt: r.created_at,
   updatedAt: r.updated_at,
   conversationCount: Number(r.conversation_count ?? 0),
+  color: isFolderColor(r.color) ? r.color : 'default',
+  icon: isFolderIcon(r.icon) ? r.icon : 'folder',
 });
-const FOLDER_SELECT = `SELECT f.id, f.name, f.created_at, f.updated_at,
+const FOLDER_SELECT = `SELECT f.id, f.name, f.color, f.icon, f.created_at, f.updated_at,
   (SELECT COUNT(*) FROM conversations c WHERE c.folder_id = f.id) AS conversation_count
   FROM folders f`;
 
@@ -257,14 +300,39 @@ export async function createFolder(name: string): Promise<Folder> {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   getDb().prepare('INSERT INTO folders (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)').run(id, name, now, now);
-  return { id, name, createdAt: now, updatedAt: now, conversationCount: 0 };
+  return { id, name, createdAt: now, updatedAt: now, conversationCount: 0, color: 'default', icon: 'folder' };
 }
 
 export async function renameFolder(id: string, name: string): Promise<Folder | null> {
+  return updateFolder(id, { name });
+}
+
+/** Met à jour les champs fournis (nom, couleur, icône) ; les valeurs doivent être déjà validées. */
+export async function updateFolder(
+  id: string,
+  patch: { name?: string; color?: string; icon?: string },
+): Promise<Folder | null> {
   if (!isValidId(id)) return null;
+  const sets: string[] = [];
+  const args: string[] = [];
+  if (patch.name !== undefined) {
+    sets.push('name = ?');
+    args.push(patch.name);
+  }
+  if (patch.color !== undefined) {
+    sets.push('color = ?');
+    args.push(patch.color);
+  }
+  if (patch.icon !== undefined) {
+    sets.push('icon = ?');
+    args.push(patch.icon);
+  }
+  if (sets.length === 0) return getFolder(id);
+  sets.push('updated_at = ?');
+  args.push(new Date().toISOString());
   const r = getDb()
-    .prepare('UPDATE folders SET name = ?, updated_at = ? WHERE id = ?')
-    .run(name, new Date().toISOString(), id);
+    .prepare(`UPDATE folders SET ${sets.join(', ')} WHERE id = ?`)
+    .run(...args, id);
   return Number(r.changes) > 0 ? getFolder(id) : null;
 }
 

@@ -21,11 +21,17 @@ export const POST: APIRoute = async ({ request }) => {
     connectionId = body.connectionId;
   }
   if (body.think !== undefined && typeof body.think !== 'boolean') return json({ error: 'think invalide' }, 400);
+  if (body.useMemory !== undefined && typeof body.useMemory !== 'boolean')
+    return json({ error: 'useMemory invalide' }, 400);
+  if (body.learnMemory !== undefined && typeof body.learnMemory !== 'boolean')
+    return json({ error: 'learnMemory invalide' }, 400);
   const conv = await createConversation({
     model: body.model.trim(),
     title: body.title?.trim(),
     folderId,
     think: body.think,
+    useMemory: body.useMemory,
+    learnMemory: body.learnMemory,
     connectionId,
   });
   return json(conv, 201);

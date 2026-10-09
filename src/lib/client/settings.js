@@ -1025,17 +1025,13 @@ function buildShutdownCard(conn) {
   return card;
 }
 
-// ---------- À propos : version et dossier des données (GET /api/system) ----------
+// ---------- À propos : dossier des données (GET /api/system) ----------
 
 async function loadSystemInfo() {
   try {
     const res = await fetch('/api/system');
     if (!res.ok) return;
     const info = await res.json();
-    if (info && typeof info.appVersion === 'string' && info.appVersion) {
-      const v = byId('about-version');
-      if (v) v.textContent = info.appVersion;
-    }
     if (info && typeof info.dataDir === 'string' && info.dataDir) {
       const row = byId('about-datadir-row');
       const pathEl = byId('about-datadir');

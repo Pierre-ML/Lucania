@@ -1,0 +1,82 @@
+---
+import PencilIcon from '../../assets/icons/pencil.svg';
+import TrashSimpleIcon from '../../assets/icons/trash-simple.svg';
+import { getLang, t } from '../../i18n/index';
+import Switch from './Switch.astro';
+
+const primaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger/60';
+const iconBtn = 'grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg transition-[background-color,color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.95] motion-reduce:transition-none';
+const label = 'mb-1.5 block text-sm font-medium';
+const lang = getLang(Astro);
+---
+<section aria-labelledby="memory-title">
+	<h2 id="memory-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.memory.title')}</h2>
+	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.memory.description')}</p>
+
+	<p id="memory-loading" class="mt-6 text-sm text-muted">{t(lang, 'settings.connections.loading')}</p>
+
+	<div id="memory-empty" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+		<p class="text-sm font-medium">{t(lang, 'settings.memory.noModelTitle')}</p>
+		<p class="mt-1 text-sm text-muted">{t(lang, 'settings.memory.noModelText')}</p>
+		<a href="#connexions" class="mt-2 inline-block text-sm text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg">{t(lang, 'settings.memory.noModelLink')}</a>
+	</div>
+
+	<p id="memory-error" role="status" aria-live="polite" hidden class="mt-4 rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+
+	<div id="memory-main" hidden class="mt-6 space-y-6">
+		<div>
+			<span id="memory-model-label" class={label}>{t(lang, 'settings.memory.model')}</span>
+			<div id="memory-model-picker" class="relative">
+				<button type="button" id="memory-model-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="memory-model-menu" aria-labelledby="memory-model-label memory-model-name" class="group flex h-10 w-full cursor-pointer items-center gap-2 rounded-lg border border-border bg-transparent px-3 text-left text-sm text-fg transition-colors duration-150 hover:border-fg/20 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-expanded:border-fg/40 motion-reduce:transition-none">
+					<span id="memory-model-name" class="min-w-0 flex-1 truncate" data-placeholder={t(lang, 'settings.memory.chooseModel')}></span>
+					<span id="memory-model-count" class="shrink-0 text-xs text-muted"></span>
+					<span id="memory-model-chevron" class="shrink-0 text-muted transition-transform duration-150 group-aria-expanded:rotate-180 motion-reduce:transition-none"></span>
+				</button>
+				<ul id="memory-model-menu" role="listbox" tabindex="-1" aria-labelledby="memory-model-label" class="hidden animate-pop-in motion-reduce:animate-none absolute left-0 top-full z-20 mt-1.5 max-h-72 w-full overflow-auto rounded-xl border border-border bg-surface p-1 shadow-xl shadow-black/20 focus:outline-none"></ul>
+			</div>
+		</div>
+
+		<div class="divide-y divide-border rounded-xl border border-border">
+			<div class="flex items-center justify-between gap-4 px-4 py-3.5">
+				<div class="min-w-0">
+					<p id="memory-enabled-label" class="text-sm font-medium">{t(lang, 'settings.memory.enabled')}</p>
+					<p class="mt-0.5 text-xs text-muted">{t(lang, 'settings.memory.enabledHelp')}</p>
+				</div>
+				<Switch id="memory-enabled" labelledby="memory-enabled-label" />
+			</div>
+			<div id="memory-auto-row" class="flex items-center justify-between gap-4 px-4 py-3.5 transition-opacity duration-150 motion-reduce:transition-none">
+				<div class="min-w-0">
+					<p id="memory-auto-label" class="text-sm font-medium">{t(lang, 'settings.memory.autoExtract')}</p>
+					<p class="mt-0.5 text-xs text-muted">{t(lang, 'settings.memory.autoExtractHelp')}</p>
+				</div>
+				<Switch id="memory-auto" labelledby="memory-auto-label" />
+			</div>
+		</div>
+
+		<div>
+			<h3 class="text-sm font-medium">{t(lang, 'settings.memory.facts')}</h3>
+			<form id="memory-add-form" class="mt-3 flex gap-2">
+				<label for="memory-add-input" class="sr-only">{t(lang, 'settings.memory.addLabel')}</label>
+				<input id="memory-add-input" type="text" maxlength="500" autocomplete="off" placeholder={t(lang, 'settings.memory.addPlaceholder')} class={input} />
+				<button type="submit" id="memory-add-btn" class={primaryBtn}>{t(lang, 'settings.memory.add')}</button>
+			</form>
+
+			<ul id="memory-facts" hidden class="mt-4 divide-y divide-border rounded-xl border border-border"></ul>
+			<p id="memory-facts-empty" hidden class="mt-4 rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">{t(lang, 'settings.memory.emptyFacts')}</p>
+		</div>
+	</div>
+
+	<template id="tpl-fact">
+		<li data-fact class="flex items-center gap-2 px-4 py-2.5">
+			<button type="button" data-fact-text class="min-w-0 flex-1 cursor-text rounded px-1 py-1 text-left text-sm [overflow-wrap:anywhere] focus-visible:outline-fg/40"></button>
+			<input data-fact-input type="text" maxlength="500" hidden autocomplete="off" class={input} />
+			<button type="button" data-fact-edit class={`${iconBtn} text-muted hover:text-fg`}>
+				<PencilIcon aria-hidden="true" class="size-4" />
+			</button>
+			<button type="button" data-fact-delete class={`${iconBtn} text-danger`}>
+				<TrashSimpleIcon aria-hidden="true" class="size-4" />
+			</button>
+		</li>
+	</template>
+</section>

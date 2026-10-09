@@ -1,15 +1,22 @@
 ---
+import Loup from '../../assets/logo/loup.svg';
+import Pml from '../../assets/logo/pml.svg';
 import { getLang, t } from '../../i18n/index';
 const row = 'grid gap-1 py-3 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4';
 const lang = getLang(Astro);
 ---
 <section aria-labelledby="about-title">
+	<div class="mb-6 flex items-center gap-4 text-fg">
+		<Loup class="h-10 w-auto" aria-label="Lucania" role="img" />
+		<span aria-hidden="true" class="h-8 w-px bg-border"></span>
+		<Pml class="h-8 w-auto text-fg" aria-label="PML" role="img" />
+	</div>
 	<h2 id="about-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.about.title')}</h2>
 	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.about.description')}</p>
 	<dl class="mt-6 divide-y divide-border border-y border-border text-sm">
 		<div class={row}>
 			<dt class="text-muted">{t(lang, 'settings.about.version')}</dt>
-			<dd id="about-version">0.1.0</dd>
+			<dd id="about-version">{import.meta.env.LUCANIA_VERSION}</dd>
 		</div>
 		<div id="about-datadir-row" hidden class={row}>
 			<dt class="text-muted">{t(lang, 'settings.about.dataDir')}</dt>
@@ -27,7 +34,7 @@ const lang = getLang(Astro);
 		</div>
 		<div class={row}>
 			<dt class="text-muted">{t(lang, 'settings.about.source')}</dt>
-			<dd><a href="https://github.com/Pierre-ML/ia-local-interface" target="_blank" rel="noopener noreferrer" class="text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg">{t(lang, 'settings.about.repo')}</a></dd>
+			<dd><a href="https://github.com/Pierre-ML/Lucania" target="_blank" rel="noopener noreferrer" class="text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg">{t(lang, 'settings.about.repo')}</a></dd>
 		</div>
 	</dl>
 </section>

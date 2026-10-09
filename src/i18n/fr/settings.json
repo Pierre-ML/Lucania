@@ -1,10 +1,11 @@
 {
   "docTitle": "Paramètres — Lucania",
   "title": "Paramètres",
-  "back": "← Retour",
+  "back": "Retour au chat",
   "navLabel": "Sections des paramètres",
   "nav": {
     "connections": "Connexions",
+    "memory": "Mémoire",
     "shutdown": "Extinction à distance",
     "appearance": "Apparence",
     "wireguard": "Guide WireGuard",
@@ -40,10 +41,33 @@
       "message": "« {name} » sera retirée. Tes conversations ne sont pas affectées."
     }
   },
+  "memory": {
+    "title": "Mémoire",
+    "description": "Chaque modèle a sa propre mémoire. Ses faits lui sont donnés au début de chaque conversation. Tout reste sur cet ordinateur.",
+    "model": "Modèle",
+    "chooseModel": "Choisir un modèle",
+    "otherModels": "Autres modèles avec mémoire",    "noModelTitle": "Aucun modèle",
+    "noModelText": "Ajoute une connexion Ollama pour choisir un modèle et gérer sa mémoire.",
+    "noModelLink": "Aller aux connexions",
+    "enabled": "Mémoire activée",
+    "enabledHelp": "Les faits mémorisés sont donnés au modèle au début de chaque conversation.",
+    "autoExtract": "Extraction automatique",
+    "autoExtractHelp": "Le modèle propose de retenir des faits à partir de tes conversations.",
+    "facts": "Faits mémorisés",
+    "addLabel": "Nouveau fait",
+    "addPlaceholder": "Ajouter un fait (500 caractères max)",
+    "add": "Ajouter",
+    "emptyFacts": "Aucun fait mémorisé pour ce modèle",
+    "edit": "Modifier le fait",
+    "editLabel": "Contenu du fait",
+    "delete": "Supprimer le fait",
+    "emptyContent": "Un fait ne peut pas être vide.",
+    "tooLong": "Un fait ne peut pas dépasser {max} caractères."
+  },
   "form": {
     "titleAdd": "Ajouter une connexion",
     "titleEdit": "Modifier la connexion",
-    "back": "← Retour",
+    "back": "Retour",
     "cancel": "Annuler",
     "save": "Enregistrer",
     "add": "Ajouter",

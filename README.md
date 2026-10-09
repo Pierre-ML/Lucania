@@ -1,185 +1,181 @@
-<img src="src/assets/logo/loup-blanc.svg" width="72" alt="Lucania">
+<div align="center"><img src="src/assets/logo/loup.svg" alt="Lucania" width="96" /><h1>Lucania</h1><p>Une interface de chat locale, façon Claude.ai, pour vos modèles Ollama.<br/>A local, Claude.ai-style chat interface for your Ollama models.</p>
+<a href="https://github.com/Pierre-ML/Lucania/releases/latest"><b>⬇ Télécharger pour Windows · Download for Windows</b></a></div>
 
-## App Windows
+<p align="center">
+<a href="https://github.com/Pierre-ML/Lucania/releases/latest"><img src="https://img.shields.io/github/v/release/Pierre-ML/Lucania" alt="Dernière release" /></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-green" alt="MIT" /></a>
+<img src="https://img.shields.io/badge/plateforme-Windows-blue" alt="Windows" />
+<a href="https://github.com/Pierre-ML/Lucania/releases"><img src="https://img.shields.io/github/downloads/Pierre-ML/Lucania/total" alt="Téléchargements" /></a>
+</p>
 
-Téléchargez l'installeur `.exe` dans les [Releases](https://github.com/Pierre-ML/Lucania/releases/latest), puis lancez-le.
+<p align="center"><a href="#français">Français</a> · <a href="#english">English</a></p>
 
-## Windows app
-
-Download the `.exe` installer from the [Releases](https://github.com/Pierre-ML/Lucania/releases/latest) page and run it.
-
-# Lucania
-
-Interface de chat web locale, dans le style de Claude.ai, pour vos modèles Ollama.
-
-[Français](#français) · [English](#english)
+<!-- TODO: capture d'écran -->
 
 ---
 
-## Français
+# Français
 
-Lucania est une interface de chat qui tourne sur votre machine et dialogue avec un ou plusieurs serveurs Ollama, en local ou à distance via un VPN WireGuard.
+## Présentation
 
-### Fonctionnalités
+Lucania est une interface de chat **locale** pour les modèles [Ollama](https://ollama.com). Elle existe en application de bureau Windows (installateur `.exe`) et en version web.
 
-- Streaming des réponses en direct
-- Mode réflexion (think) activable
-- Conversations persistantes (SQLite), dossiers, épinglage, renommage
-- Rendu Markdown
-- Plusieurs connexions : Ollama sur cet ordinateur ou serveur distant via WireGuard
-- Page Paramètres : test de connexion, détection automatique des modèles installés, ajout manuel de modèles
-- Extinction à distance d'un serveur (optionnelle, désactivée par défaut)
-- Thèmes (Lucania, clair, sombre, Nord, Dracula, etc., ou suivi du système) et langues français / anglais
+Vos conversations restent sur votre machine. Rien n'est envoyé dans le cloud.
 
-### Prérequis
+## Fonctionnalités
 
-- Node.js 22.12 ou plus (24 recommandé)
-- Ollama installé localement, OU un serveur Ollama joignable via un VPN
+- ⚡ Réponses en streaming
+- 📝 Rendu Markdown
+- 🧠 Mode réflexion (`think`), activable par conversation
+- 📁 Conversations : dossiers (glisser-déposer), épinglage, renommage, groupes par date
+- 🔌 Plusieurs connexions Ollama : machine locale ou serveur distant
+- 🔒 Serveur distant via un VPN WireGuard que vous gérez
+- ⏻ Extinction à distance d'un serveur
+- 🎨 13 thèmes
+- 🌍 Interface en français et en anglais
+- 💾 Données stockées localement (SQLite)
 
-### Installation
+À venir : une mémoire persistante par modèle (en cours de développement).
 
-```sh
-git clone <url-du-depot> lucania
-cd lucania
-npm install
-npm run dev
-```
+## Installation
 
-Ouvrez ensuite http://localhost:4748.
+1. Installez [Ollama](https://ollama.com), ou ayez accès à un serveur Ollama.
+2. Téléchargez `Lucania_<version>_x64-setup.exe` depuis la [dernière release](https://github.com/Pierre-ML/Lucania/releases/latest).
+3. Lancez l'installateur. Lucania s'installe dans Program Files.
 
-### Premier lancement
+Prérequis : Windows 10 ou 11 (64 bits).
 
-Une connexion « Ollama sur cet ordinateur » est créée automatiquement. Allez dans **Paramètres** pour ajouter, modifier ou tester d'autres serveurs.
+> **Antivirus.** L'exécutable n'est pas encore signé. Windows SmartScreen ou certains antivirus peuvent donc l'analyser ou afficher un avertissement.
 
-### Serveur distant via WireGuard
+## Premiers pas
 
-Installez le client WireGuard officiel sur les deux machines, créez le tunnel, configurez Ollama pour écouter sur le réseau du tunnel, puis ajoutez dans Paramètres une connexion « Serveur distant via WireGuard » avec l'URL du serveur (par exemple `http://10.0.0.2:11434`). Guide détaillé : [docs/wireguard.md](docs/wireguard.md).
+1. Ouvrez **Paramètres**.
+2. Ajoutez une **connexion** Ollama (la machine locale ou l'adresse d'un serveur).
+3. Revenez au chat, choisissez un modèle et écrivez.
 
-### Configuration avancée (.env)
+## Serveur distant (WireGuard)
 
-Optionnelle. Le fichier `.env` sert uniquement à pré-remplir la première connexion au premier lancement ; ensuite, tout se règle dans Paramètres. Copiez `.env.example` en `.env` et adaptez-le.
+Pour utiliser un serveur Ollama distant, connectez-vous à lui par un VPN WireGuard que vous gérez, puis ajoutez-le comme connexion. Voir [docs/wireguard.md](docs/wireguard.md).
 
-### Données et confidentialité
+## Mise à jour
 
-Tout reste local : les conversations sont stockées dans `data/app.db` (SQLite), rien n'est envoyé dans le cloud. N'exposez ni l'application ni Ollama sur Internet.
+Lancez un installateur plus récent et choisissez :
 
-### Extinction à distance
+- **Mettre à jour** (par défaut) ;
+- **Mettre à jour proprement**.
 
-Fonction optionnelle, à activer dans les paramètres. Le serveur distant fait tourner un petit listener HTTP protégé par un token ; Lucania lui envoie une requête pour l'éteindre. Désactivée par défaut.
+Vos conversations sont conservées.
 
-### Lancement rapide sous Windows
+## Développement
 
-Double-cliquez sur `scripts/start-windows.vbs` : il lance le serveur de développement en arrière-plan puis ouvre http://localhost:4748.
-
-### Scripts npm
+Prérequis : Node 24 (le projet utilise `node:sqlite` ; `engines` exige au minimum 22.12). Pour l'app de bureau : Rust (MSVC) et les Visual Studio Build Tools.
 
 | Commande | Rôle |
 | --- | --- |
-| `npm run dev` | Serveur de développement (port 4748) |
-| `npm run build` | Build de production |
-| `npm run preview` | Prévisualiser le build |
-| `npm run check` | Vérification des types |
+| `npm install` | Installer les dépendances |
+| `npm run dev` | Serveur web de dev sur http://localhost:4748 |
+| `npm run tauri dev` | App de bureau en dev |
+| `npm run tauri build` | Produire l'installateur Windows |
+| `npm run check` | Vérifier les types |
+| `npm run version:set X.Y.Z` | Mettre à jour la version partout |
 
-### Structure du projet
+En développement, un fichier `.env` facultatif (non versionné) peut préremplir la première connexion avec `OLLAMA_URL`, `OLLAMA_MODELS`, `SHUTDOWN_URL`, `SHUTDOWN_METHOD` et `SHUTDOWN_TOKEN`. L'app distribuée démarre vierge et se configure dans Paramètres.
 
-```
-src/
-  pages/          Pages de l'application
-    api/          Routes d'API
-  components/     Composants
-  lib/
-    client/       Code côté navigateur
-    server/       Code côté serveur (SQLite, Ollama)
-data/             Base SQLite locale (ignorée par git)
-docs/             Documentation
-scripts/          Scripts utilitaires
-```
+## Stack
 
-### Licence
+Astro 7 (SSR, adapter Node) · JavaScript vanilla · Tailwind CSS v4 · daisyUI 5 · SQLite (`node:sqlite`) · Tauri v2.
 
-MIT, voir [LICENSE](LICENSE).
+## Confidentialité
+
+Tout est local. Les données sont dans une base SQLite :
+
+- en dev : `data/app.db` ;
+- dans l'app de bureau : `%APPDATA%\com.lucania.desktop\data\app.db`.
+
+## Licence
+
+[MIT](LICENSE). Dépôt : https://github.com/Pierre-ML/Lucania
 
 ---
 
-## English
+# English
 
-Lucania is a local web chat interface, Claude.ai-style, for Ollama models. It runs on your machine and talks to one or more Ollama servers, local or remote through a WireGuard VPN.
+## Overview
 
-### Features
+Lucania is a **local** chat interface for [Ollama](https://ollama.com) models. It comes as a Windows desktop app (`.exe` installer) and as a web version.
 
-- Live response streaming
-- Optional reasoning (think) mode
-- Persistent conversations (SQLite), folders, pinning, renaming
-- Markdown rendering
-- Multiple connections: Ollama on this computer or a remote server over WireGuard
-- Settings page: connection test, automatic detection of installed models, manual model entry
-- Optional remote shutdown of a server (disabled by default)
-- Themes (Lucania, light, dark, Nord, Dracula, etc., or follow the system) and French / English languages
+Your conversations stay on your machine. Nothing is sent to the cloud.
 
-### Requirements
+## Features
 
-- Node.js 22.12 or newer (24 recommended)
-- Ollama installed locally, OR an Ollama server reachable through a VPN
+- ⚡ Streaming responses
+- 📝 Markdown rendering
+- 🧠 Thinking mode (`think`), toggled per conversation
+- 📁 Conversations: folders (drag and drop), pinning, renaming, date groups
+- 🔌 Multiple Ollama connections: local machine or remote server
+- 🔒 Remote server through a WireGuard VPN that you manage
+- ⏻ Remote shutdown of a server
+- 🎨 13 themes
+- 🌍 French and English interface
+- 💾 Data stored locally (SQLite)
 
-### Installation
+Coming soon: persistent memory per model (in development).
 
-```sh
-git clone <repository-url> lucania
-cd lucania
-npm install
-npm run dev
-```
+## Installation
 
-Then open http://localhost:4748.
+1. Install [Ollama](https://ollama.com), or have access to an Ollama server.
+2. Download `Lucania_<version>_x64-setup.exe` from the [latest release](https://github.com/Pierre-ML/Lucania/releases/latest).
+3. Run the installer. Lucania installs into Program Files.
 
-### First launch
+Requirements: Windows 10 or 11 (64-bit).
 
-An "Ollama on this computer" connection is created automatically. Go to **Settings** (Paramètres) to add, edit or test other servers.
+> **Antivirus.** The executable is not signed yet. Windows SmartScreen or some antivirus tools may scan it or show a warning.
 
-### Remote server over WireGuard
+## Getting started
 
-Install the official WireGuard client on both machines, create the tunnel, set Ollama to listen on the tunnel network, then add a "Remote server via WireGuard" connection in Settings with the server URL (for example `http://10.0.0.2:11434`). Detailed guide: [docs/wireguard.md](docs/wireguard.md).
+1. Open **Settings**.
+2. Add an Ollama **connection** (the local machine or a server address).
+3. Go back to the chat, pick a model and start typing.
 
-### Advanced configuration (.env)
+## Remote server (WireGuard)
 
-Optional. The `.env` file only pre-fills the first connection on first launch; everything else is configured in Settings. Copy `.env.example` to `.env` and adjust it.
+To use a remote Ollama server, connect to it through a WireGuard VPN that you manage, then add it as a connection. See [docs/wireguard.md](docs/wireguard.md).
 
-### Data and privacy
+## Updating
 
-Everything stays local: conversations are stored in `data/app.db` (SQLite), nothing is sent to the cloud. Do not expose the app or Ollama to the Internet.
+Run a newer installer and choose:
 
-### Remote shutdown
+- **Update** (default);
+- **Clean update**.
 
-Optional feature, enabled in the settings. The remote server runs a small HTTP listener protected by a token; Lucania sends it a request to shut it down. Disabled by default.
+Your conversations are kept.
 
-### Quick start on Windows
+## Development
 
-Double-click `scripts/start-windows.vbs`: it starts the dev server in the background and opens http://localhost:4748.
-
-### npm scripts
+Requirements: Node 24 (the project uses `node:sqlite`; `engines` requires 22.12 at minimum). For the desktop app: Rust (MSVC) and Visual Studio Build Tools.
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Development server (port 4748) |
-| `npm run build` | Production build |
-| `npm run preview` | Preview the build |
-| `npm run check` | Type checking |
+| `npm install` | Install dependencies |
+| `npm run dev` | Dev web server on http://localhost:4748 |
+| `npm run tauri dev` | Desktop app in dev |
+| `npm run tauri build` | Build the Windows installer |
+| `npm run check` | Type check |
+| `npm run version:set X.Y.Z` | Set the version everywhere |
 
-### Project structure
+In development, an optional `.env` file (not versioned) can prefill the first connection with `OLLAMA_URL`, `OLLAMA_MODELS`, `SHUTDOWN_URL`, `SHUTDOWN_METHOD` and `SHUTDOWN_TOKEN`. The distributed app starts blank and is configured in Settings.
 
-```
-src/
-  pages/          App pages
-    api/          API routes
-  components/     Components
-  lib/
-    client/       Browser-side code
-    server/       Server-side code (SQLite, Ollama)
-data/             Local SQLite database (git-ignored)
-docs/             Documentation
-scripts/          Helper scripts
-```
+## Stack
 
-### License
+Astro 7 (SSR, Node adapter) · vanilla JavaScript · Tailwind CSS v4 · daisyUI 5 · SQLite (`node:sqlite`) · Tauri v2.
 
-MIT, see [LICENSE](LICENSE).
+## Privacy
+
+Everything is local. Data lives in a SQLite database:
+
+- in dev: `data/app.db`;
+- in the desktop app: `%APPDATA%\com.lucania.desktop\data\app.db`.
+
+## License
+
+[MIT](LICENSE). Repository: https://github.com/Pierre-ML/Lucania

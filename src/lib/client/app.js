@@ -10,17 +10,83 @@ import {
   listFolders,
   createFolder,
   renameFolder,
+  updateFolder,
   deleteFolder,
   moveConversation,
   setConversationThink,
+  setConversationUseMemory,
+  setConversationLearnMemory,
   setConversationPinned,
 } from './conversations.js';
+import { getMemory, addFact, extractFacts } from './memory.js';
 import { renderMarkdown } from './markdown.js';
 import { initShutdown } from './shutdown.js';
 import { initSidebar, closeSidebarMobile } from './sidebar.js';
 import { initModelPicker, syncModelPicker, setModelPickerData, parseModelRef, makeModelRef } from './model-picker.js';
 import { confirmDialog } from './dialog.js';
 import { t, getLang } from './i18n.js';
+import { svgIcon } from './icons.js';
+import chevronRightRaw from '../../assets/icons/chevron-right.svg?raw';
+import folderRaw from '../../assets/icons/folder.svg?raw';
+import folderMoveRaw from '../../assets/icons/folder-move.svg?raw';
+import pencilLineRaw from '../../assets/icons/pencil-line.svg?raw';
+import pinRaw from '../../assets/icons/pin.svg?raw';
+import trashRaw from '../../assets/icons/trash.svg?raw';
+import checkRaw from '../../assets/icons/check.svg?raw';
+import xRaw from '../../assets/icons/x.svg?raw';
+import paletteRaw from '../../assets/icons/palette.svg?raw';
+import folderStarRaw from '../../assets/icons/folder-star.svg?raw';
+import folderHeartRaw from '../../assets/icons/folder-heart.svg?raw';
+import folderCodeRaw from '../../assets/icons/folder-code.svg?raw';
+import folderBookRaw from '../../assets/icons/folder-book.svg?raw';
+import folderBriefcaseRaw from '../../assets/icons/folder-briefcase.svg?raw';
+import folderLightbulbRaw from '../../assets/icons/folder-lightbulb.svg?raw';
+import folderFlaskRaw from '../../assets/icons/folder-flask.svg?raw';
+import folderMusicRaw from '../../assets/icons/folder-music.svg?raw';
+import folderImageRaw from '../../assets/icons/folder-image.svg?raw';
+import folderGlobeRaw from '../../assets/icons/folder-globe.svg?raw';
+import folderGamepadRaw from '../../assets/icons/folder-gamepad.svg?raw';
+
+/* Icônes et couleurs des dossiers (clés = valeurs acceptées par l'API ; jamais de rouge). */
+const FOLDER_ICON_RAW = {
+  folder: folderRaw,
+  star: folderStarRaw,
+  heart: folderHeartRaw,
+  code: folderCodeRaw,
+  book: folderBookRaw,
+  briefcase: folderBriefcaseRaw,
+  lightbulb: folderLightbulbRaw,
+  flask: folderFlaskRaw,
+  music: folderMusicRaw,
+  image: folderImageRaw,
+  globe: folderGlobeRaw,
+  gamepad: folderGamepadRaw,
+};
+// Classes complètes et écrites en dur (Tailwind les détecte) ; nuances 500, lisibles sur thèmes clairs et sombres.
+const FOLDER_COLOR_TEXT = {
+  default: 'text-muted',
+  sky: 'text-sky-500',
+  emerald: 'text-emerald-500',
+  amber: 'text-amber-500',
+  violet: 'text-violet-500',
+  pink: 'text-pink-500',
+  orange: 'text-orange-500',
+  teal: 'text-teal-500',
+  slate: 'text-slate-500',
+};
+const FOLDER_COLOR_BG = {
+  default: 'bg-muted',
+  sky: 'bg-sky-500',
+  emerald: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  violet: 'bg-violet-500',
+  pink: 'bg-pink-500',
+  orange: 'bg-orange-500',
+  teal: 'bg-teal-500',
+  slate: 'bg-slate-500',
+};
+const folderColorKey = (f) => (f && f.color in FOLDER_COLOR_TEXT ? f.color : 'default');
+const folderIconKey = (f) => (f && f.icon in FOLDER_ICON_RAW ? f.icon : 'folder');
 
 /**
  * @typedef {import('./conversations.js').Conversation} Conversation
@@ -99,6 +165,9 @@ const input = /** @type {HTMLTextAreaElement} */ ($('composer-input'));
 const sendBtn = /** @type {HTMLButtonElement} */ ($('send-btn'));
 const stopBtn = /** @type {HTMLButtonElement} */ ($('stop-btn'));
 const thinkToggle = /** @type {HTMLButtonElement|null} */ ($('think-toggle'));
+const memoryUseToggle = /** @type {HTMLButtonElement|null} */ ($('memory-use-toggle'));
+const memoryLearnToggle = /** @type {HTMLButtonElement|null} */ ($('memory-learn-toggle'));
+const memoryCard = $('memory-proposal');
 
 const defaultTitle = () => t('chat.header.defaultTitle');
 const defaultFolderName = () => t('chat.list.defaultFolderName');
@@ -125,20 +194,24 @@ let statusLoaded = false;
 let modelList = [];
 let modelsLoaded = false;
 
-const SVG_CHEVRON =
-  '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
-const SVG_FOLDER =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
-const SVG_MOVE =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M8.5 13h7M13 10.5l2.5 2.5-2.5 2.5"/></svg>';
-const SVG_EDIT =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
-const SVG_PIN =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 3h6l-1 6.5 3.5 3.5V15h-11v-2L10 9.5Z"/></svg>';
-const SVG_PIN_SMALL =
-  '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 3h6l-1 6.5 3.5 3.5V15h-11v-2L10 9.5Z"/></svg>';
-const SVG_TRASH =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M8 6V4h8v2"/></svg>';
+/**
+ * Crée un bouton d'icône d'action (liste des conversations et dossiers).
+ * @param {string} action valeur de data-action
+ * @param {string} label titre et aria-label
+ * @param {string} raw contenu brut du fichier d'icône
+ * @param {Record<string, string>} [attrs] attributs supplémentaires
+ */
+function makeIconBtn(action, label, raw, attrs = {}) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = CLS.iconBtn;
+  b.dataset.action = action;
+  b.title = label;
+  b.setAttribute('aria-label', label);
+  for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v);
+  b.replaceChildren(svgIcon(raw, '', 16));
+  return b;
+}
 
 /* ---------- Classes Tailwind (noms complets et statiques, scannés comme du texte) ---------- */
 
@@ -191,8 +264,7 @@ const CLS = {
   folderHeader: `peer group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors select-none hover:bg-white/4 hover:text-fg motion-reduce:transition-none ${DROP}`,
   folderChevron:
     'inline-flex size-3.5 flex-none items-center justify-center transition-transform duration-200 group-aria-expanded:rotate-90 motion-reduce:transition-none [&>svg]:size-3',
-  folderIcon:
-    'inline-flex flex-none text-muted transition-colors group-data-[has-active=true]/folder:text-accent/75 [&>svg]:size-[17px]',
+  folderIcon: 'inline-flex flex-none transition-colors [&>svg]:size-[17px]',
   folderName: 'min-w-0 flex-1 truncate text-sm',
   folderCount:
     'flex-none text-xs leading-4 text-muted tabular-nums group-hover:hidden group-focus-within:hidden',
@@ -204,6 +276,18 @@ const CLS = {
     'fixed z-50 max-h-[min(20rem,calc(100vh_-_16px))] max-w-[min(18rem,calc(100vw_-_16px))] min-w-48 origin-top-left animate-pop-in overflow-y-auto rounded-xl border border-border bg-surface p-1 shadow-[0_12px_32px_rgb(0_0_0/0.55),0_2px_8px_rgb(0_0_0/0.4)] motion-reduce:animate-none',
   moveItem:
     'relative block w-full cursor-pointer truncate rounded-md py-1.5 pr-7 pl-2.5 text-left text-sm leading-5 text-fg transition-colors hover:bg-white/6 focus-visible:bg-white/6 focus-visible:outline-none after:absolute after:top-1/2 after:right-2.5 after:-translate-y-1/2 after:text-accent-hover data-[checked=true]:after:content-["✓"]',
+  // Popover « Personnaliser » (dossier)
+  customizePop:
+    'fixed z-50 w-64 max-w-[calc(100vw_-_16px)] origin-top-left animate-pop-in rounded-xl border border-border bg-surface p-3 shadow-[0_12px_32px_rgb(0_0_0/0.55),0_2px_8px_rgb(0_0_0/0.4)] motion-reduce:animate-none',
+  customizeTitle: 'mb-1.5 text-xs font-medium text-muted',
+  customizeColors: 'mb-3 flex flex-wrap gap-2',
+  customizeIcons: 'mb-3 grid grid-cols-6 gap-1',
+  customizeSwatch:
+    'inline-flex size-5 cursor-pointer items-center justify-center rounded-full text-white outline-offset-2 transition-shadow hover:ring-2 hover:ring-fg/30 data-[active=true]:ring-2 data-[active=true]:ring-fg/60 motion-reduce:transition-none [&>svg]:size-3',
+  customizeIcon:
+    'inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-white/6 hover:text-fg aria-pressed:bg-white/10 aria-pressed:text-fg aria-pressed:ring-1 aria-pressed:ring-fg/40 [&>svg]:size-4',
+  customizeDone:
+    'inline-flex w-full cursor-pointer items-center justify-center rounded-md bg-fg px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90',
   moveSep: 'mx-0.5 my-1 h-px border-0 bg-border',
 };
 
@@ -425,9 +509,11 @@ function updateModelSelect() {
   }
   syncModelPicker();
   renderStatus();
+  refreshMemoryAvailability();
 }
 
 select.addEventListener('change', () => {
+  refreshMemoryAvailability();
   if (select.value && !select.disabled) {
     try {
       localStorage.setItem('lastModel', select.value);
@@ -460,6 +546,8 @@ function renderThinkToggle() {
 
 if (thinkToggle) {
   thinkToggle.addEventListener('click', async () => {
+    // La boule ne s'anime qu'après un clic réel (pas au chargement ni au changement de conversation).
+    thinkToggle.dataset.animate = 'true';
     const previous = thinkEnabled;
     thinkEnabled = !previous;
     try {
@@ -484,6 +572,321 @@ if (thinkToggle) {
       showError(t('chat.composer.thinkError', { message: err.message }));
     }
   });
+}
+
+/* ---------- Mémoire (utiliser / améliorer) ---------- */
+
+function loadLastUseMemory() {
+  try {
+    return localStorage.getItem('lastUseMemory') !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function loadLastLearnMemory() {
+  try {
+    return localStorage.getItem('lastLearnMemory') === '1';
+  } catch {
+    return false;
+  }
+}
+
+let useMemoryEnabled = loadLastUseMemory();
+let learnMemoryEnabled = loadLastLearnMemory();
+
+/** Réglages mémoire du modèle sélectionné ; en cas d'échec, les boutons restent actifs. */
+let memoryAvail = { enabled: true, autoExtract: true };
+const MEMORY_CACHE_MS = 30000;
+/** @type {Map<string, { at: number, enabled: boolean, autoExtract: boolean }>} */
+const memoryCache = new Map();
+let memoryAvailToken = 0;
+
+/** Réglages mémoire d'un modèle (petit cache). Ne lève jamais : valeurs permissives par défaut. */
+async function getMemoryAvailability(model) {
+  const hit = memoryCache.get(model);
+  if (hit && Date.now() - hit.at < MEMORY_CACHE_MS) return hit;
+  try {
+    const m = await getMemory(model);
+    const entry = { at: Date.now(), enabled: m.enabled !== false, autoExtract: m.autoExtract !== false };
+    memoryCache.set(model, entry);
+    return entry;
+  } catch (err) {
+    console.warn(err);
+    return { at: 0, enabled: true, autoExtract: true };
+  }
+}
+
+function renderMemoryToggles() {
+  if (memoryUseToggle) {
+    const off = !memoryAvail.enabled;
+    memoryUseToggle.setAttribute('aria-pressed', String(useMemoryEnabled));
+    memoryUseToggle.setAttribute('aria-disabled', String(off));
+    memoryUseToggle.title = off
+      ? t('chat.composer.memoryDisabled')
+      : useMemoryEnabled
+        ? t('chat.composer.memoryUseOn')
+        : t('chat.composer.memoryUseOff');
+  }
+  if (memoryLearnToggle) {
+    const noModel = !memoryAvail.enabled;
+    const noExtract = memoryAvail.enabled && !memoryAvail.autoExtract;
+    memoryLearnToggle.setAttribute('aria-pressed', String(learnMemoryEnabled));
+    memoryLearnToggle.setAttribute('aria-disabled', String(noModel || noExtract));
+    memoryLearnToggle.title = noModel
+      ? t('chat.composer.memoryDisabled')
+      : noExtract
+        ? t('chat.composer.memoryExtractDisabled')
+        : learnMemoryEnabled
+          ? t('chat.composer.memoryLearnOn')
+          : t('chat.composer.memoryLearnOff');
+  }
+}
+
+async function refreshMemoryAvailability() {
+  const token = ++memoryAvailToken;
+  const { model } = parseModelRef(select.value);
+  if (!model) {
+    memoryAvail = { enabled: true, autoExtract: true };
+    renderMemoryToggles();
+    return;
+  }
+  const avail = await getMemoryAvailability(model);
+  if (token !== memoryAvailToken) return;
+  memoryAvail = { enabled: avail.enabled, autoExtract: avail.autoExtract };
+  renderMemoryToggles();
+}
+
+/**
+ * Branche un interrupteur mémoire par conversation (même logique que la réflexion).
+ * @param {HTMLButtonElement|null} btn
+ * @param {{ field: 'useMemory'|'learnMemory', storageKey: string, get: () => boolean, set: (v: boolean) => void, save: (id: string, v: boolean) => Promise<unknown> }} cfg
+ */
+function bindMemoryToggle(btn, cfg) {
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (btn.getAttribute('aria-disabled') === 'true') return;
+    // Anime la boule seulement après un clic réel.
+    btn.dataset.animate = 'true';
+    const previous = cfg.get();
+    const next = !previous;
+    cfg.set(next);
+    try {
+      localStorage.setItem(cfg.storageKey, next ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+    renderMemoryToggles();
+    const conv = current;
+    if (!conv) return;
+    conv[cfg.field] = next;
+    try {
+      await cfg.save(conv.id, next);
+      const summary = conversations.find((c) => c.id === conv.id);
+      if (summary) summary[cfg.field] = next;
+    } catch (err) {
+      conv[cfg.field] = previous;
+      if (current === conv) {
+        cfg.set(previous);
+        renderMemoryToggles();
+      }
+      showError(t('chat.composer.memoryError', { message: err.message }));
+    }
+  });
+}
+
+bindMemoryToggle(memoryUseToggle, {
+  field: 'useMemory',
+  storageKey: 'lastUseMemory',
+  get: () => useMemoryEnabled,
+  set: (v) => {
+    useMemoryEnabled = v;
+  },
+  save: setConversationUseMemory,
+});
+bindMemoryToggle(memoryLearnToggle, {
+  field: 'learnMemory',
+  storageKey: 'lastLearnMemory',
+  get: () => learnMemoryEnabled,
+  set: (v) => {
+    learnMemoryEnabled = v;
+  },
+  save: setConversationLearnMemory,
+});
+
+/* ---------- Proposition de mémoire (carte flottante) ---------- */
+
+const MEM_CLS = {
+  row: 'flex items-start gap-1 rounded-lg px-1 py-1 text-sm',
+  text: 'min-w-0 flex-1 py-1 leading-5 text-fg [overflow-wrap:anywhere]',
+  btn: 'inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-muted transition-colors hover:bg-white/5 hover:text-fg focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-50',
+};
+
+/** @type {{ model: string, facts: string[] }} */
+const proposal = { model: '', facts: [] };
+/** @type {ReturnType<typeof setTimeout>|undefined} */
+let memoryAddedTimer;
+/** @type {ReturnType<typeof setTimeout>|undefined} */
+let memoryCloseTimer;
+let memoryBusy = false;
+
+const memTitleEl = memoryCard && memoryCard.querySelector('[data-role="memory-title"]');
+const memListEl = memoryCard && memoryCard.querySelector('[data-role="memory-list"]');
+const memAddedEl = memoryCard && memoryCard.querySelector('[data-role="memory-added"]');
+
+function closeMemoryProposal() {
+  clearTimeout(memoryAddedTimer);
+  clearTimeout(memoryCloseTimer);
+  proposal.facts = [];
+  if (!memoryCard) return;
+  memoryCard.classList.add('hidden');
+  if (memListEl) memListEl.replaceChildren();
+  if (memAddedEl) memAddedEl.classList.add('hidden');
+}
+
+function flashAdded() {
+  if (!memAddedEl) return;
+  memAddedEl.textContent = t('chat.memory.added');
+  memAddedEl.classList.remove('hidden');
+  clearTimeout(memoryAddedTimer);
+  memoryAddedTimer = setTimeout(() => memAddedEl.classList.add('hidden'), 1500);
+}
+
+function renderMemoryProposal() {
+  if (!memoryCard || !memListEl || !memTitleEl) return;
+  if (proposal.facts.length === 0) return;
+  clearTimeout(memoryCloseTimer);
+  memTitleEl.textContent = t('chat.memory.proposalTitle', { model: proposal.model });
+  const rows = proposal.facts.map((fact) => {
+    const li = document.createElement('li');
+    li.className = MEM_CLS.row;
+    const text = document.createElement('span');
+    text.className = MEM_CLS.text;
+    text.textContent = fact;
+    const acceptBtn = document.createElement('button');
+    acceptBtn.type = 'button';
+    acceptBtn.className = MEM_CLS.btn;
+    acceptBtn.dataset.action = 'memory-accept';
+    acceptBtn.setAttribute('aria-label', t('chat.memory.accept'));
+    acceptBtn.title = t('chat.memory.accept');
+    acceptBtn.replaceChildren(svgIcon(checkRaw, '', 16));
+    const rejectBtn = document.createElement('button');
+    rejectBtn.type = 'button';
+    rejectBtn.className = MEM_CLS.btn;
+    rejectBtn.dataset.action = 'memory-reject';
+    rejectBtn.setAttribute('aria-label', t('chat.memory.reject'));
+    rejectBtn.title = t('chat.memory.reject');
+    rejectBtn.replaceChildren(svgIcon(xRaw, '', 16));
+    acceptBtn.addEventListener('click', () => acceptFact(fact, acceptBtn));
+    rejectBtn.addEventListener('click', () => {
+      removeProposalFact(fact);
+      if (proposal.facts.length === 0) closeMemoryProposal();
+    });
+    li.append(text, acceptBtn, rejectBtn);
+    return li;
+  });
+  memListEl.replaceChildren(...rows);
+  memoryCard.classList.remove('hidden');
+}
+
+function removeProposalFact(fact) {
+  proposal.facts = proposal.facts.filter((f) => f !== fact);
+  renderMemoryProposal();
+}
+
+/** Ferme la carte peu après, sauf si de nouveaux faits sont arrivés entre-temps. */
+function closeWhenEmptySoon() {
+  clearTimeout(memoryCloseTimer);
+  memoryCloseTimer = setTimeout(() => {
+    if (proposal.facts.length === 0) closeMemoryProposal();
+  }, 1200);
+}
+
+async function acceptFact(fact, btn) {
+  btn.disabled = true;
+  try {
+    await addFact(proposal.model, fact);
+  } catch (err) {
+    console.warn(err);
+    btn.disabled = false;
+    return;
+  }
+  proposal.facts = proposal.facts.filter((f) => f !== fact);
+  if (proposal.facts.length === 0) {
+    if (memListEl) memListEl.replaceChildren();
+    closeWhenEmptySoon();
+  } else {
+    renderMemoryProposal();
+  }
+  flashAdded();
+}
+
+async function acceptAllFacts() {
+  if (memoryBusy) return;
+  memoryBusy = true;
+  try {
+    for (const fact of [...proposal.facts]) {
+      try {
+        await addFact(proposal.model, fact);
+        proposal.facts = proposal.facts.filter((f) => f !== fact);
+      } catch (err) {
+        console.warn(err);
+        break;
+      }
+    }
+  } finally {
+    memoryBusy = false;
+  }
+  if (proposal.facts.length === 0) {
+    if (memListEl) memListEl.replaceChildren();
+    flashAdded();
+    closeWhenEmptySoon();
+  } else {
+    renderMemoryProposal();
+  }
+}
+
+/** Affiche la carte (ou y ajoute les faits, sans doublons). @param {string} model @param {string[]} facts */
+function showMemoryProposal(model, facts) {
+  if (!memoryCard) return;
+  const open = !memoryCard.classList.contains('hidden');
+  if (!open || proposal.model !== model) {
+    proposal.model = model;
+    proposal.facts = [];
+  }
+  for (const f of facts) {
+    if (typeof f === 'string' && f.trim() && !proposal.facts.includes(f)) proposal.facts.push(f);
+  }
+  renderMemoryProposal();
+}
+
+if (memoryCard) {
+  const dismissBtn = memoryCard.querySelector('[data-action="memory-dismiss"]');
+  const allBtn = memoryCard.querySelector('[data-action="memory-accept-all"]');
+  if (dismissBtn) dismissBtn.addEventListener('click', closeMemoryProposal);
+  if (allBtn) allBtn.addEventListener('click', acceptAllFacts);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !e.defaultPrevented && !memoryCard.classList.contains('hidden')) closeMemoryProposal();
+  });
+}
+
+/** Extraction en arrière-plan : ne bloque rien, aucune popup d'erreur. */
+async function learnFromExchange(conv, connectionId, model, userText, answer) {
+  try {
+    const avail = await getMemoryAvailability(model);
+    if (!avail.enabled || !avail.autoExtract) return;
+    const facts = await extractFacts({
+      connectionId,
+      model,
+      messages: [
+        { role: 'user', content: userText },
+        { role: 'assistant', content: answer },
+      ],
+    });
+    if (Array.isArray(facts) && facts.length > 0) showMemoryProposal(model, facts);
+  } catch (err) {
+    console.warn(err);
+  }
 }
 
 /* ---------- Liste des conversations ---------- */
@@ -545,7 +948,9 @@ function createConvItem(c) {
     pinIcon = document.createElement('span');
     pinIcon.className = CLS.convPin;
     pinIcon.setAttribute('aria-hidden', 'true');
-    pinIcon.innerHTML = SVG_PIN_SMALL;
+    const pinSmall = svgIcon(pinRaw, '', 12);
+    pinSmall.setAttribute('fill', 'currentColor');
+    pinIcon.replaceChildren(pinSmall);
   }
   const title = document.createElement('span');
   title.className = CLS.convTitle;
@@ -557,11 +962,12 @@ function createConvItem(c) {
   const moveLabel = t('chat.list.moveToFolder');
   const renameLabel = t('chat.list.rename');
   const deleteLabel = t('chat.list.delete');
-  actions.innerHTML =
-    `<button type="button" class="${CLS.iconBtn}" data-action="pin" title="${pinLabel}" aria-label="${pinLabel}" aria-pressed="${c.pinned ? 'true' : 'false'}">${SVG_PIN}</button>` +
-    `<button type="button" class="${CLS.iconBtn}" data-action="move" title="${moveLabel}" aria-label="${moveLabel}" aria-haspopup="menu">${SVG_MOVE}</button>` +
-    `<button type="button" class="${CLS.iconBtn}" data-action="rename" title="${renameLabel}" aria-label="${renameLabel}">${SVG_EDIT}</button>` +
-    `<button type="button" class="${CLS.iconBtn}" data-action="delete" title="${deleteLabel}" aria-label="${deleteLabel}">${SVG_TRASH}</button>`;
+  actions.append(
+    makeIconBtn('pin', pinLabel, pinRaw, { 'aria-pressed': c.pinned ? 'true' : 'false' }),
+    makeIconBtn('move', moveLabel, folderMoveRaw, { 'aria-haspopup': 'menu' }),
+    makeIconBtn('rename', renameLabel, pencilLineRaw),
+    makeIconBtn('delete', deleteLabel, trashRaw),
+  );
   if (pinIcon) li.append(bar, pinIcon, title, actions);
   else li.append(bar, title, actions);
   return li;
@@ -583,10 +989,11 @@ function createFolderEl(f, items) {
   header.setAttribute('aria-expanded', String(open));
   const chevron = document.createElement('span');
   chevron.className = CLS.folderChevron;
-  chevron.innerHTML = SVG_CHEVRON;
+  chevron.replaceChildren(svgIcon(chevronRightRaw, '', 12));
   const icon = document.createElement('span');
-  icon.className = CLS.folderIcon;
-  icon.innerHTML = SVG_FOLDER;
+  icon.className = `${CLS.folderIcon} ${FOLDER_COLOR_TEXT[folderColorKey(f)]}`;
+  icon.dataset.role = 'folder-icon';
+  icon.replaceChildren(svgIcon(FOLDER_ICON_RAW[folderIconKey(f)], '', 16));
   const name = document.createElement('span');
   name.className = CLS.folderName;
   name.dataset.role = 'folder-name';
@@ -599,9 +1006,11 @@ function createFolderEl(f, items) {
   count.textContent = String(items.length);
   const actions = document.createElement('div');
   actions.className = CLS.folderActions;
-  actions.innerHTML =
-    `<button type="button" class="${CLS.iconBtn}" data-action="rename-folder" title="${renameFolderLabel}" aria-label="${renameFolderLabel}">${SVG_EDIT}</button>` +
-    `<button type="button" class="${CLS.iconBtn}" data-action="delete-folder" title="${deleteFolderLabel}" aria-label="${deleteFolderLabel}">${SVG_TRASH}</button>`;
+  actions.append(
+    makeIconBtn('customize-folder', t('chat.folders.customize'), paletteRaw, { 'aria-haspopup': 'dialog' }),
+    makeIconBtn('rename-folder', renameFolderLabel, pencilLineRaw),
+    makeIconBtn('delete-folder', deleteFolderLabel, trashRaw),
+  );
   header.append(chevron, icon, name, count, actions);
 
   const children = document.createElement('ul');
@@ -967,6 +1376,187 @@ function openMoveMenu(btn, convId) {
   if (first) first.focus();
 }
 
+/* Popover « Personnaliser » d'un dossier (couleur + icône) */
+
+/** @type {{ el: HTMLElement, folderId: string, btn: HTMLElement, cleanup: () => void }|null} */
+let customizePop = null;
+
+function closeCustomize(restoreFocus = false) {
+  if (!customizePop) return;
+  const { el, btn, cleanup } = customizePop;
+  customizePop = null;
+  cleanup();
+  el.remove();
+  if (restoreFocus && btn.isConnected) btn.focus();
+}
+
+/** Met à jour l'icône du dossier dans la liste sans tout re-rendre. */
+function refreshFolderIcon(f) {
+  const el = findFolderEl(f.id);
+  const span = el && el.querySelector('[data-role="folder-icon"]');
+  if (!span) return;
+  span.className = `${CLS.folderIcon} ${FOLDER_COLOR_TEXT[folderColorKey(f)]}`;
+  span.replaceChildren(svgIcon(FOLDER_ICON_RAW[folderIconKey(f)], '', 16));
+}
+
+function openCustomize(btn, folderId) {
+  closeCustomize();
+  closeMoveMenu();
+  const folder = folders.find((f) => f.id === folderId);
+  if (!folder) return;
+
+  const pop = document.createElement('div');
+  pop.className = CLS.customizePop;
+  pop.dataset.role = 'customize-popover';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', t('chat.folders.title'));
+
+  const colorsLabel = document.createElement('div');
+  colorsLabel.className = CLS.customizeTitle;
+  colorsLabel.textContent = t('chat.folders.color');
+  const colorsRow = document.createElement('div');
+  colorsRow.className = CLS.customizeColors;
+  colorsRow.setAttribute('role', 'group');
+  colorsRow.setAttribute('aria-label', t('chat.folders.color'));
+
+  const iconsLabel = document.createElement('div');
+  iconsLabel.className = CLS.customizeTitle;
+  iconsLabel.textContent = t('chat.folders.icon');
+  const iconsGrid = document.createElement('div');
+  iconsGrid.className = CLS.customizeIcons;
+  iconsGrid.setAttribute('role', 'group');
+  iconsGrid.setAttribute('aria-label', t('chat.folders.icon'));
+
+  const syncState = () => {
+    for (const b of /** @type {HTMLElement[]} */ (Array.from(colorsRow.children))) {
+      const on = b.dataset.value === folderColorKey(folder);
+      b.dataset.active = String(on);
+      b.setAttribute('aria-pressed', String(on));
+      b.replaceChildren(...(on ? [svgIcon(checkRaw, '', 12)] : []));
+    }
+    for (const b of /** @type {HTMLElement[]} */ (Array.from(iconsGrid.children))) {
+      b.setAttribute('aria-pressed', String(b.dataset.value === folderIconKey(folder)));
+    }
+  };
+
+  // Mise à jour optimiste puis PATCH ; retour arrière si le serveur refuse.
+  const apply = async (patch) => {
+    const before = { color: folder.color, icon: folder.icon };
+    Object.assign(folder, patch);
+    syncState();
+    refreshFolderIcon(folder);
+    try {
+      await updateFolder(folder.id, patch);
+    } catch (err) {
+      console.error(err);
+      Object.assign(folder, before);
+      syncState();
+      refreshFolderIcon(folder);
+      showError(t('chat.errors.customizeFolder', { message: err.message }));
+    }
+  };
+
+  for (const key of Object.keys(FOLDER_COLOR_BG)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `${CLS.customizeSwatch} ${FOLDER_COLOR_BG[key]}`;
+    b.dataset.role = 'folder-color';
+    b.dataset.value = key;
+    const label = t(`chat.folders.colors.${key}`);
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    b.addEventListener('click', () => apply({ color: key }));
+    colorsRow.appendChild(b);
+  }
+  for (const key of Object.keys(FOLDER_ICON_RAW)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = CLS.customizeIcon;
+    b.dataset.role = 'folder-icon-choice';
+    b.dataset.value = key;
+    const label = t(`chat.folders.icons.${key}`);
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    b.replaceChildren(svgIcon(FOLDER_ICON_RAW[key], '', 16));
+    b.addEventListener('click', () => apply({ icon: key }));
+    iconsGrid.appendChild(b);
+  }
+
+  const done = document.createElement('button');
+  done.type = 'button';
+  done.className = CLS.customizeDone;
+  done.dataset.role = 'customize-done';
+  done.textContent = t('chat.folders.done');
+  done.addEventListener('click', () => closeCustomize(true));
+
+  pop.append(colorsLabel, colorsRow, iconsLabel, iconsGrid, done);
+  syncState();
+
+  pop.style.visibility = 'hidden';
+  document.body.appendChild(pop);
+  const findHeader = findFolderEl(folderId)?.querySelector(ROLE_FOLDER_HEADER);
+  const r = (findHeader || btn).getBoundingClientRect();
+  const w = pop.offsetWidth;
+  const h = pop.offsetHeight;
+  const pad = 8;
+  const left = Math.max(pad, Math.min(r.left, window.innerWidth - w - pad));
+  let top = r.bottom + 4;
+  if (top + h > window.innerHeight - pad) top = r.top - h - 4;
+  top = Math.max(pad, Math.min(top, window.innerHeight - h - pad));
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+  pop.style.visibility = '';
+
+  const onPointerDown = (e) => {
+    const target = /** @type {HTMLElement} */ (e.target);
+    if (pop.contains(target) || target.closest('[data-action="customize-folder"]')) return;
+    closeCustomize();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCustomize(true);
+      return;
+    }
+    // Flèches : déplacement dans la rangée de couleurs ou la grille d'icônes.
+    const active = /** @type {HTMLElement} */ (document.activeElement);
+    const group = active && active.parentElement;
+    if (!group || (group !== colorsRow && group !== iconsGrid)) return;
+    const list = /** @type {HTMLElement[]} */ (Array.from(group.children));
+    const idx = list.indexOf(active);
+    let next = -1;
+    if (e.key === 'ArrowRight') next = (idx + 1) % list.length;
+    else if (e.key === 'ArrowLeft') next = (idx - 1 + list.length) % list.length;
+    else if (e.key === 'ArrowDown' && group === iconsGrid) next = Math.min(idx + 6, list.length - 1);
+    else if (e.key === 'ArrowUp' && group === iconsGrid) next = Math.max(idx - 6, 0);
+    if (next >= 0) {
+      e.preventDefault();
+      list[next].focus();
+    }
+  };
+  const onDismiss = () => closeCustomize();
+  const scroller = listEl.closest('nav') || listEl;
+  document.addEventListener('pointerdown', onPointerDown, true);
+  document.addEventListener('keydown', onKey, true);
+  scroller.addEventListener('scroll', onDismiss);
+  window.addEventListener('resize', onDismiss);
+  customizePop = {
+    el: pop,
+    folderId,
+    btn,
+    cleanup() {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKey, true);
+      scroller.removeEventListener('scroll', onDismiss);
+      window.removeEventListener('resize', onDismiss);
+    },
+  };
+  const first =
+    /** @type {HTMLElement|null} */ (colorsRow.querySelector('[data-active="true"]')) ||
+    /** @type {HTMLElement} */ (colorsRow.firstElementChild);
+  if (first) first.focus();
+}
+
 /* ---------- Événements de la liste ---------- */
 
 listEl.addEventListener('click', async (e) => {
@@ -981,6 +1571,10 @@ listEl.addEventListener('click', async (e) => {
       e.stopPropagation();
       const action = btn.getAttribute('data-action');
       if (action === 'rename-folder') startFolderRename(folderId);
+      else if (action === 'customize-folder') {
+        if (customizePop && customizePop.folderId === folderId) closeCustomize(true);
+        else openCustomize(/** @type {HTMLElement} */ (btn), folderId);
+      }
       else if (action === 'delete-folder') await removeFolder(folderId);
     } else {
       toggleFolder(header);
@@ -1200,6 +1794,9 @@ function newConversation() {
   chatTitle.textContent = defaultTitle();
   thinkEnabled = loadLastThink();
   renderThinkToggle();
+  useMemoryEnabled = loadLastUseMemory();
+  learnMemoryEnabled = loadLastLearnMemory();
+  renderMemoryToggles();
   updateModelSelect();
   renderList();
   input.focus();
@@ -1216,6 +1813,9 @@ async function loadConversation(id) {
     chatTitle.textContent = conv.title || defaultTitle();
     thinkEnabled = conv.think !== false;
     renderThinkToggle();
+    useMemoryEnabled = conv.useMemory !== false;
+    learnMemoryEnabled = conv.learnMemory === true;
+    renderMemoryToggles();
     renderMessages();
     updateModelSelect();
     ensureActiveFolderOpen();
@@ -1297,7 +1897,11 @@ async function send() {
   // 1) Conversation
   if (!current) {
     try {
-      const conv = await createConversation({ connectionId, model, title: autoTitle(text), think: thinkEnabled });
+      const conv = await createConversation({ connectionId, model, title: autoTitle(text),
+        think: thinkEnabled,
+        useMemory: useMemoryEnabled,
+        learnMemory: learnMemoryEnabled,
+      });
       current = conv;
       currentId = conv.id;
       chatTitle.textContent = conv.title;
@@ -1321,6 +1925,9 @@ async function send() {
   }
   const conv = current;
   const thinkForMessage = thinkEnabled;
+  if (typeof conv.useMemory !== 'boolean') conv.useMemory = useMemoryEnabled;
+  if (typeof conv.learnMemory !== 'boolean') conv.learnMemory = learnMemoryEnabled;
+  const memoryForMessage = conv.useMemory;
 
   // 2) Message utilisateur
   /** @type {Message} */
@@ -1423,6 +2030,7 @@ async function send() {
       messages: conv.messages.map((m) => ({ role: m.role, content: m.content })),
       signal: controller.signal,
       think: thinkForMessage,
+      memory: memoryForMessage,
       onUpdate: (r) => {
         latest = r;
         if (!frame) frame = requestAnimationFrame(paint);
@@ -1462,6 +2070,10 @@ async function send() {
     } catch (err) {
       if (visible) showError(t('chat.errors.save', { message: err.message }));
     }
+    // Amélioration de la mémoire : en arrière-plan, uniquement si la réponse est complète.
+    if (!failure && !controller.signal.aborted && result.content && conv.learnMemory) {
+      learnFromExchange(conv, connectionId, model, text, result.content);
+    }
   } else {
     el.remove();
   }
@@ -1480,6 +2092,7 @@ initShutdown();
 initSidebar();
 initModelPicker();
 renderThinkToggle();
+renderMemoryToggles();
 updateModelSelect();
 updateSendBtn();
 updateEmptyState();

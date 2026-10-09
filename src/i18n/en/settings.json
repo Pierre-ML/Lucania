@@ -1,10 +1,11 @@
 {
   "docTitle": "Settings — Lucania",
   "title": "Settings",
-  "back": "← Back",
+  "back": "Back to chat",
   "navLabel": "Settings sections",
   "nav": {
     "connections": "Connections",
+    "memory": "Memory",
     "shutdown": "Remote shutdown",
     "appearance": "Appearance",
     "wireguard": "WireGuard guide",
@@ -40,10 +41,33 @@
       "message": "“{name}” will be removed. Your conversations are not affected."
     }
   },
+  "memory": {
+    "title": "Memory",
+    "description": "Each model has its own memory. Its facts are given to it at the start of every conversation. Everything stays on this computer.",
+    "model": "Model",
+    "chooseModel": "Choose a model",
+    "otherModels": "Other models with memory",    "noModelTitle": "No model",
+    "noModelText": "Add an Ollama connection to pick a model and manage its memory.",
+    "noModelLink": "Go to connections",
+    "enabled": "Memory enabled",
+    "enabledHelp": "Saved facts are given to the model at the start of every conversation.",
+    "autoExtract": "Automatic extraction",
+    "autoExtractHelp": "The model suggests facts to remember from your conversations.",
+    "facts": "Saved facts",
+    "addLabel": "New fact",
+    "addPlaceholder": "Add a fact (500 characters max)",
+    "add": "Add",
+    "emptyFacts": "No fact saved for this model",
+    "edit": "Edit fact",
+    "editLabel": "Fact content",
+    "delete": "Delete fact",
+    "emptyContent": "A fact cannot be empty.",
+    "tooLong": "A fact cannot exceed {max} characters."
+  },
   "form": {
     "titleAdd": "Add a connection",
     "titleEdit": "Edit connection",
-    "back": "← Back",
+    "back": "Back",
     "cancel": "Cancel",
     "save": "Save",
     "add": "Add",

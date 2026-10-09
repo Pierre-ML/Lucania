@@ -175,37 +175,72 @@ function migrateV5(db: DatabaseSync) {
   console.log('[db] connexion initiale créée (schéma v5)');
 }
 
+// v6 : mémoire persistante (faits par nom de modèle, réglages par modèle, options par conversation).
+function migrateV6(db: DatabaseSync) {
+  db.exec(`CREATE TABLE IF NOT EXISTS memory_facts (
+    id TEXT PRIMARY KEY,
+    model TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_memory_facts_model ON memory_facts(model)');
+  db.exec(`CREATE TABLE IF NOT EXISTS memory_settings (
+    model TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    auto_extract INTEGER NOT NULL DEFAULT 1
+  )`);
+  if (!hasColumn(db, 'conversations', 'use_memory')) {
+    db.exec('ALTER TABLE conversations ADD COLUMN use_memory INTEGER NOT NULL DEFAULT 1');
+  }
+  if (!hasColumn(db, 'conversations', 'learn_memory')) {
+    db.exec('ALTER TABLE conversations ADD COLUMN learn_memory INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
+// v7 : couleur et icône personnalisables des dossiers (NULL = valeurs par défaut).
+function migrateV7(db: DatabaseSync) {
+  if (!hasColumn(db, 'folders', 'color')) db.exec('ALTER TABLE folders ADD COLUMN color TEXT');
+  if (!hasColumn(db, 'folders', 'icon')) db.exec('ALTER TABLE folders ADD COLUMN icon TEXT');
+}
+
 function migrateSchema(db: DatabaseSync) {
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as unknown as
     | { value: string }
     | undefined;
   const version = Number(row?.value ?? '1');
-  if (version >= 5) return;
+  if (version >= 7) return;
   db.exec('BEGIN IMMEDIATE');
   try {
-    if (version < 2) {
-      db.exec(`CREATE TABLE IF NOT EXISTS folders (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )`);
-      if (!hasColumn(db, 'conversations', 'folder_id')) {
-        db.exec('ALTER TABLE conversations ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL');
+    if (version < 5) {
+      if (version < 2) {
+        db.exec(`CREATE TABLE IF NOT EXISTS folders (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`);
+        if (!hasColumn(db, 'conversations', 'folder_id')) {
+          db.exec('ALTER TABLE conversations ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL');
+        }
+        db.exec('CREATE INDEX IF NOT EXISTS idx_conv_folder ON conversations(folder_id)');
+        db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '2')");
       }
-      db.exec('CREATE INDEX IF NOT EXISTS idx_conv_folder ON conversations(folder_id)');
-      db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '2')");
+      if (!hasColumn(db, 'conversations', 'think')) {
+        db.exec('ALTER TABLE conversations ADD COLUMN think INTEGER NOT NULL DEFAULT 1');
+      }
+      db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '3')");
+      if (!hasColumn(db, 'conversations', 'pinned')) {
+        db.exec('ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
+      }
+      db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '4')");
+      migrateV5(db);
+      db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '5')");
     }
-    if (!hasColumn(db, 'conversations', 'think')) {
-      db.exec('ALTER TABLE conversations ADD COLUMN think INTEGER NOT NULL DEFAULT 1');
-    }
-    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '3')");
-    if (!hasColumn(db, 'conversations', 'pinned')) {
-      db.exec('ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
-    }
-    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '4')");
-    migrateV5(db);
-    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '5')");
+    migrateV6(db);
+    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '6')");
+    migrateV7(db);
+    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '7')");
     db.exec('COMMIT');
   } catch (e) {
     try {

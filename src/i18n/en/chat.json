@@ -32,9 +32,29 @@
     "chooseModel": "Choose model",
     "models": "Models",
     "think": "Thinking",
+    "thinkShort": "Thinking",
     "thinkOn": "Thinking on — the model reasons before answering",
     "thinkOff": "Thinking off",
-    "thinkError": "Could not change the thinking setting: {message}"
+    "thinkError": "Could not change the thinking setting: {message}",
+    "memoryUse": "Use memory",
+    "memoryUseShort": "Memory",
+    "memoryUseOn": "Memory on — the AI knows what it has remembered about you",
+    "memoryUseOff": "Memory not used in this conversation",
+    "memoryLearn": "Improve memory",
+    "memoryLearnShort": "Learn",
+    "memoryLearnOn": "Improving on — this conversation can enrich the memory",
+    "memoryLearnOff": "Improving off",
+    "memoryDisabled": "Memory is turned off for this model (see settings)",
+    "memoryExtractDisabled": "Automatic learning is turned off for this model (see settings)",
+    "memoryError": "Could not change the memory setting: {message}"
+  },
+  "memory": {
+    "proposalTitle": "Remember for {model}?",
+    "accept": "Accept",
+    "reject": "Reject",
+    "acceptAll": "Accept all",
+    "dismiss": "Dismiss",
+    "added": "Added"
   },
   "picker": {
     "none": "No model available",
@@ -92,6 +112,38 @@
       "Tidying up its ideas"
     ]
   },
+  "folders": {
+    "customize": "Customize",
+    "color": "Color",
+    "icon": "Icon",
+    "done": "Done",
+    "title": "Customize folder",
+    "colors": {
+      "default": "Default",
+      "sky": "Sky",
+      "emerald": "Emerald",
+      "amber": "Amber",
+      "violet": "Violet",
+      "pink": "Pink",
+      "orange": "Orange",
+      "teal": "Teal",
+      "slate": "Slate"
+    },
+    "icons": {
+      "folder": "Folder",
+      "star": "Star",
+      "heart": "Heart",
+      "code": "Code",
+      "book": "Book",
+      "briefcase": "Briefcase",
+      "lightbulb": "Idea",
+      "flask": "Science",
+      "music": "Music",
+      "image": "Image",
+      "globe": "Globe",
+      "gamepad": "Games"
+    }
+  },
   "list": {
     "pinned": "Pinned",
     "conversations": "Conversations",
@@ -131,7 +183,8 @@
     "pin": "Could not pin: {message}",
     "delete": "Could not delete: {message}",
     "create": "Could not create: {message}",
-    "save": "Could not save: {message}"
+    "save": "Could not save: {message}",
+    "customizeFolder": "Could not customize the folder: {message}"
   },
   "shutdown": {
     "button": "Shut down {name}",

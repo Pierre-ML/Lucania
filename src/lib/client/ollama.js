@@ -25,12 +25,13 @@ function splitThinking(raw) {
 
 /**
  * Envoie la conversation et lit le flux NDJSON.
- * @param {{ connectionId: string, model: string, messages: ChatMessage[], signal?: AbortSignal, think?: boolean, onUpdate?: (r: ChatResult) => void }} opts
+ * @param {{ connectionId: string, model: string, messages: ChatMessage[], signal?: AbortSignal, think?: boolean, memory?: boolean, onUpdate?: (r: ChatResult) => void }} opts
  * @returns {Promise<ChatResult>}
  */
-export async function streamChat({ connectionId, model, messages, signal, think, onUpdate }) {
+export async function streamChat({ connectionId, model, messages, signal, think, memory, onUpdate }) {
   const payload = { connectionId, model, messages };
   if (typeof think === 'boolean') payload.think = think;
+  if (typeof memory === 'boolean') payload.memory = memory;
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,4 +1,12 @@
 ---
+import ArrowUpIcon from '../assets/icons/arrow-up.svg';
+import StopIcon from '../assets/icons/stop.svg';
+import SparkleIcon from '../assets/icons/sparkle.svg';
+import ChevronDownIcon from '../assets/icons/chevron-down.svg';
+import LockIcon from '../assets/icons/lock.svg';
+import BrainIcon from '../assets/icons/brain.svg';
+import DatabaseIcon from '../assets/icons/database.svg';
+import SparklePlusIcon from '../assets/icons/sparkle-plus.svg';
 import { getLang, t } from '../i18n/index';
 const lang = getLang(Astro);
 ---
@@ -8,10 +16,10 @@ const lang = getLang(Astro);
 			<textarea id="composer-input" rows="1" placeholder={t(lang, 'chat.composer.placeholder')} class="max-h-50 min-w-0 flex-1 resize-none overflow-auto bg-transparent py-2 pr-2 text-[15px] leading-6 text-composer-fg placeholder:text-composer-muted focus:outline-none focus-visible:outline-none"></textarea>
 			<div class="flex shrink-0 items-center gap-2">
 				<button id="send-btn" type="submit" aria-label={t(lang, 'chat.composer.send')} class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-composer-accent [&.hidden]:hidden text-composer-fg transition-colors hover:bg-composer-accent-hover disabled:cursor-not-allowed disabled:bg-composer-disabled disabled:text-composer-muted">
-					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+					<ArrowUpIcon width="18" height="18" aria-hidden="true" />
 				</button>
 				<button id="stop-btn" type="button" aria-label={t(lang, 'chat.composer.stop')} class="hidden size-9 shrink-0 items-center justify-center rounded-lg bg-composer-fg text-composer-surface transition-opacity hover:opacity-90 [&:not(.hidden)]:flex">
-					<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+					<StopIcon width="14" height="14" aria-hidden="true" />
 				</button>
 			</div>
 		</div>
@@ -20,16 +28,30 @@ const lang = getLang(Astro);
 			</select>
 			<div id="model-picker" class="relative min-w-0">
 				<button id="model-picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-picker-menu" aria-label={t(lang, 'chat.composer.chooseModel')} class="group flex max-w-56 cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-composer-muted transition-colors hover:bg-white/5 hover:text-composer-fg focus-visible:outline-2 data-[locked=true]:cursor-default data-[locked=true]:hover:bg-transparent data-[locked=true]:hover:text-composer-muted sm:max-w-80">
-					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/></svg>
+					<SparkleIcon width="14" height="14" aria-hidden="true" class="shrink-0" />
 					<span id="model-picker-label" class="min-w-0 truncate"></span>
-					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 transition-transform group-aria-expanded:rotate-180 group-data-[locked=true]:hidden"><path d="M6 9l6 6 6-6"/></svg>
-					<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hidden shrink-0 group-data-[locked=true]:block"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+					<ChevronDownIcon width="14" height="14" aria-hidden="true" class="shrink-0 transition-transform group-aria-expanded:rotate-180 group-data-[locked=true]:hidden" />
+					<LockIcon width="13" height="13" aria-hidden="true" class="hidden shrink-0 group-data-[locked=true]:block" />
 				</button>
 				<ul id="model-picker-menu" role="listbox" aria-label={t(lang, 'chat.composer.models')} tabindex="-1" class="hidden animate-pop-in motion-reduce:animate-none absolute bottom-full left-0 z-20 mb-2 max-h-72 min-w-64 max-w-[min(24rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-composer-border bg-composer-surface p-1 shadow-xl shadow-black/30 focus:outline-none"></ul>
 			</div>
-			<button id="think-toggle" type="button" aria-pressed="true" aria-label={t(lang, 'chat.composer.think')} title={t(lang, 'chat.composer.thinkOn')} class="flex size-6.5 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-1 text-composer-fg opacity-40 transition-opacity hover:bg-white/5 hover:opacity-80 focus-visible:outline-2 aria-pressed:opacity-100">
-				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>
+			<button id="think-toggle" type="button" aria-pressed="true" aria-label={t(lang, 'chat.composer.think')} title={t(lang, 'chat.composer.thinkOn')} class="group flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-1.5 text-composer-muted transition-colors motion-reduce:transition-none not-aria-disabled:not-aria-pressed:hover:text-composer-fg focus-visible:outline-2 aria-pressed:text-composer-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40">
+				<BrainIcon width="15" height="15" aria-hidden="true" class="shrink-0" />
+				<span aria-hidden="true" class="hidden text-[11px] leading-none sm:inline">{t(lang, 'chat.composer.thinkShort')}</span>
+				<span aria-hidden="true" class="relative block h-4 w-7 shrink-0 rounded-full bg-composer-fg/20 ease-out group-data-[animate=true]:transition-colors group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:bg-composer-fg"><span class="absolute left-0.5 top-0.5 block size-3 rounded-full bg-composer-muted ease-out group-data-[animate=true]:transition-[translate,background-color] group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:translate-x-3 group-aria-pressed:bg-composer-surface"></span></span>
 				<span class="sr-only">{t(lang, 'chat.composer.think')}</span>
+			</button>
+			<button id="memory-use-toggle" type="button" aria-pressed="true" aria-label={t(lang, 'chat.composer.memoryUse')} title={t(lang, 'chat.composer.memoryUseOn')} class="group flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-1.5 text-composer-muted transition-colors motion-reduce:transition-none not-aria-disabled:not-aria-pressed:hover:text-composer-fg focus-visible:outline-2 aria-pressed:text-composer-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40">
+				<DatabaseIcon width="15" height="15" aria-hidden="true" class="shrink-0" />
+				<span aria-hidden="true" class="hidden text-[11px] leading-none sm:inline">{t(lang, 'chat.composer.memoryUseShort')}</span>
+				<span aria-hidden="true" class="relative block h-4 w-7 shrink-0 rounded-full bg-composer-fg/20 ease-out group-data-[animate=true]:transition-colors group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:bg-composer-fg"><span class="absolute left-0.5 top-0.5 block size-3 rounded-full bg-composer-muted ease-out group-data-[animate=true]:transition-[translate,background-color] group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:translate-x-3 group-aria-pressed:bg-composer-surface"></span></span>
+				<span class="sr-only">{t(lang, 'chat.composer.memoryUse')}</span>
+			</button>
+			<button id="memory-learn-toggle" type="button" aria-pressed="false" aria-label={t(lang, 'chat.composer.memoryLearn')} title={t(lang, 'chat.composer.memoryLearnOff')} class="group flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-1.5 text-composer-muted transition-colors motion-reduce:transition-none not-aria-disabled:not-aria-pressed:hover:text-composer-fg focus-visible:outline-2 aria-pressed:text-composer-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40">
+				<SparklePlusIcon width="15" height="15" aria-hidden="true" class="shrink-0" />
+				<span aria-hidden="true" class="hidden text-[11px] leading-none sm:inline">{t(lang, 'chat.composer.memoryLearnShort')}</span>
+				<span aria-hidden="true" class="relative block h-4 w-7 shrink-0 rounded-full bg-composer-fg/20 ease-out group-data-[animate=true]:transition-colors group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:bg-composer-fg"><span class="absolute left-0.5 top-0.5 block size-3 rounded-full bg-composer-muted ease-out group-data-[animate=true]:transition-[translate,background-color] group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:translate-x-3 group-aria-pressed:bg-composer-surface"></span></span>
+				<span class="sr-only">{t(lang, 'chat.composer.memoryLearn')}</span>
 			</button>
 		</div>
 	</form>

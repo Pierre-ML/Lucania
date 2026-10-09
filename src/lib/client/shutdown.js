@@ -1,11 +1,11 @@
 // Extinction des machines : un bouton par connexion dont l'extinction est activée, puis dialogue de confirmation.
 import { listConnections } from './connections.js';
 import { t } from './i18n.js';
+import { svgIcon } from './icons.js';
+import powerRaw from '../../assets/icons/power.svg?raw';
 
 const BTN_CLASS =
   'flex w-full items-center justify-center gap-2 rounded-lg border border-danger/50 px-3 py-2 text-sm font-medium text-danger transition-colors duration-200 hover:bg-white/5';
-const SVG_POWER =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>';
 
 /** @type {{ id: string, name: string }|null} */
 let target = null;
@@ -26,7 +26,7 @@ async function renderShutdownButtons(zone, list, openDialog) {
     b.dataset.connectionId = c.id;
     const icon = document.createElement('span');
     icon.className = 'flex shrink-0';
-    icon.innerHTML = SVG_POWER; // SVG statique
+    icon.replaceChildren(svgIcon(powerRaw, '', 16));
     const text = document.createElement('span');
     text.className = 'min-w-0 truncate';
     text.textContent = t('chat.shutdown.button', { name: c.name });

@@ -1,8 +1,10 @@
 import type { APIRoute } from 'astro';
+import { getLang } from '../../i18n';
 import { getConnectionSecret } from '../../lib/server/connections';
 import { json, readJson, validModel } from '../../lib/server/http';
+import { buildMemorySystemMessage } from '../../lib/server/memory';
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
   const body = await readJson(request);
   if (!body) return json({ error: 'Corps JSON invalide' }, 400);
   const conn = getConnectionSecret(body.connectionId);
@@ -21,13 +23,20 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: 'messages invalide' }, 400);
   }
 
+  // Mémoire : les faits du modèle sont injectés en tête (sauf si le corps demande memory: false).
+  const memoryText = body.memory === false ? null : buildMemorySystemMessage(model, getLang({ cookies, request }));
+  const outMessages = [
+    ...(memoryText ? [{ role: 'system', content: memoryText }] : []),
+    ...messages.map(({ role, content }: any) => ({ role, content })),
+  ];
+
   const send = (think: unknown) =>
     fetch(`${conn.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
-        messages: messages.map(({ role, content }: any) => ({ role, content })),
+        messages: outMessages,
         stream: true,
         ...(typeof think === 'boolean' && { think }),
       }),

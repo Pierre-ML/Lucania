@@ -1,0 +1,13 @@
+---
+import { getLang, t } from '../i18n/index';
+const lang = getLang(Astro);
+---
+<section id="memory-proposal" role="dialog" aria-modal="false" aria-labelledby="memory-proposal-title" class="hidden animate-pop-in motion-reduce:animate-none fixed right-4 bottom-28 z-40 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-3 text-fg shadow-lg shadow-black/30 [&:not(.hidden)]:block">
+	<h2 id="memory-proposal-title" data-role="memory-title" class="mb-2 px-1 text-sm font-medium text-fg"></h2>
+	<ul data-role="memory-list" class="m-0 flex max-h-60 list-none flex-col gap-1 overflow-y-auto p-0"></ul>
+	<p data-role="memory-added" role="status" aria-live="polite" class="hidden px-1 pt-1 text-xs text-muted [&:not(.hidden)]:block"></p>
+	<div class="mt-3 flex items-center justify-end gap-2">
+		<button type="button" data-action="memory-dismiss" class="cursor-pointer rounded-lg border-0 bg-transparent px-3 py-1.5 text-sm text-muted transition-colors hover:bg-white/5 hover:text-fg focus-visible:outline-2">{t(lang, 'chat.memory.dismiss')}</button>
+		<button type="button" data-action="memory-accept-all" class="cursor-pointer rounded-lg border-0 bg-fg px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90 focus-visible:outline-2">{t(lang, 'chat.memory.acceptAll')}</button>
+	</div>
+</section>

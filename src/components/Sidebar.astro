@@ -1,4 +1,7 @@
 ---
+import PlusIcon from '../assets/icons/plus.svg';
+import FolderPlusIcon from '../assets/icons/folder-plus.svg';
+import SettingsIcon from '../assets/icons/settings.svg';
 import ShutdownButton from './ShutdownButton.astro';
 import { getLang, t } from '../i18n/index';
 const lang = getLang(Astro);
@@ -21,11 +24,11 @@ const lang = getLang(Astro);
 			</div>
 			<div class="flex items-center gap-1">
 				<button id="new-chat-btn" type="button" class="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
-					<span class="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-white/5 text-muted transition-colors group-hover:text-fg"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+					<span class="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-white/5 text-muted transition-colors group-hover:text-fg"><PlusIcon width="14" height="14" aria-hidden="true" /></span>
 					{t(lang, 'chat.sidebar.newChat')}
 				</button>
 				<button id="new-folder-btn" type="button" aria-label={t(lang, 'chat.sidebar.newFolder')} title={t(lang, 'chat.sidebar.newFolder')} class="group flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
-					<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 10.5v5M9.5 13h5"/></svg>
+					<FolderPlusIcon width="19" height="19" aria-hidden="true" />
 				</button>
 			</div>
 		</div>
@@ -34,7 +37,7 @@ const lang = getLang(Astro);
 		</nav>
 		<div class="px-3 pb-2 pt-1">
 			<a href="/parametres" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
-				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SettingsIcon width="16" height="16" aria-hidden="true" /></span>
 				{t(lang, 'chat.sidebar.settings')}
 			</a>
 		</div>

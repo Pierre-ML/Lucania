@@ -1,4 +1,9 @@
 ---
+import ChevronLeftIcon from '../../assets/icons/chevron-left.svg';
+import MonitorIcon from '../../assets/icons/monitor.svg';
+import ServerIcon from '../../assets/icons/server.svg';
+import PencilIcon from '../../assets/icons/pencil.svg';
+import ChevronDownSmallIcon from '../../assets/icons/chevron-down-small.svg';
 import { getLang, t } from '../../i18n/index';
 import Switch from './Switch.astro';
 
@@ -16,7 +21,10 @@ const lang = getLang(Astro);
 <dialog id="connection-dialog" aria-labelledby="cf-title" class="m-auto max-h-none w-[min(28rem,calc(100vw-2rem))] max-w-md overflow-hidden rounded-2xl border border-border bg-surface p-0 text-fg open:animate-pop-in backdrop:bg-black/70 motion-reduce:animate-none">
 	<form id="connection-form" novalidate class="flex max-h-[calc(100dvh-2rem)] flex-col">
 		<header class="px-6 pb-4 pt-5">
-			<button type="button" data-action="back" hidden class={`${ghostBtn} -ml-1.5 mb-1 px-1.5 py-0.5`}>{t(lang, 'settings.form.back')}</button>
+			<button type="button" data-action="back" hidden class="group -ml-2 mb-1 inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg px-2 text-sm text-muted transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:bg-fg/5 focus-visible:text-fg focus-visible:outline-2 focus-visible:outline-fg/40 motion-reduce:transition-none">
+				<ChevronLeftIcon aria-hidden="true" class="size-3.5 shrink-0 transition-transform duration-150 ease-out group-hover:-translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none" />
+				<span>{t(lang, 'settings.form.back')}</span>
+			</button>
 			<h2 id="cf-title" class="font-serif text-xl">{t(lang, 'settings.form.titleAdd')}</h2>
 		</header>
 
@@ -26,14 +34,14 @@ const lang = getLang(Astro);
 				<p class="mb-3 text-sm font-medium">{t(lang, 'settings.form.step1.question')}</p>
 				<div class="space-y-2">
 					<button type="button" data-kind="local" class={card}>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-muted"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+						<MonitorIcon aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-muted" />
 						<span class="min-w-0">
 							<span class="block text-sm font-medium">{t(lang, 'settings.form.step1.localTitle')}</span>
 							<span class="mt-0.5 block text-xs text-muted">{t(lang, 'settings.form.step1.localText')}</span>
 						</span>
 					</button>
 					<button type="button" data-kind="remote" class={card}>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-muted"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg>
+						<ServerIcon aria-hidden="true" class="mt-0.5 size-6 shrink-0 text-muted" />
 						<span class="min-w-0">
 							<span class="block text-sm font-medium">{t(lang, 'settings.form.step1.remoteTitle')}</span>
 							<span class="mt-0.5 block text-xs text-muted">{t(lang, 'settings.form.step1.remoteText')}</span>
@@ -79,7 +87,7 @@ const lang = getLang(Astro);
 					<span>{t(lang, 'settings.form.name.label')}</span>
 					<button type="button" id="cf-name-btn" aria-label={t(lang, 'settings.form.name.edit')} class="-mx-0.5 inline-flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-fg transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-fg/40">
 						<span id="cf-name-text" class="truncate"></span>
-						<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-3.5 shrink-0 text-muted"><path d="M11 2.5l2.5 2.5L5.5 13H3v-2.5z"/></svg>
+						<PencilIcon aria-hidden="true" class="size-3.5 shrink-0 text-muted" />
 					</button>
 					<input id="cf-name" name="name" type="text" maxlength="80" autocomplete="off" hidden aria-label={t(lang, 'settings.form.name.inputLabel')} class={`${input} h-8 min-w-0 flex-1 text-fg`} />
 				</div>
@@ -87,7 +95,7 @@ const lang = getLang(Astro);
 				<details id="cf-advanced" class="group/adv border-t border-border pt-4">
 					<summary class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md text-sm font-medium text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 [&::-webkit-details-marker]:hidden">
 						<span>{t(lang, 'settings.form.advanced.summary')}</span>
-						<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-4 transition-transform duration-150 group-open/adv:rotate-180 motion-reduce:transition-none"><path d="M4 6l4 4 4-4"/></svg>
+						<ChevronDownSmallIcon aria-hidden="true" class="size-4 transition-transform duration-150 group-open/adv:rotate-180 motion-reduce:transition-none" />
 					</summary>
 					<div class="mt-4 space-y-5">
 						<div class="flex items-center justify-between gap-4">

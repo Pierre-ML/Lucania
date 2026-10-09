@@ -13,6 +13,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Lire et vérifier la version
+        id: version
+        shell: bash
+        run: |
+          v=$(node -e '
+            const fs = require("fs");
+            const main = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8")).version;
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
+            const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+            const cargo = (fs.readFileSync("src-tauri/Cargo.toml", "utf8").match(/^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m) || [])[1];
+            const found = {
+              "package.json": pkg,
+              "package-lock.json (racine)": lock.version,
+              "package-lock.json (packages)": lock.packages && lock.packages[""] && lock.packages[""].version,
+              "src-tauri/Cargo.toml": cargo,
+            };
+            const bad = Object.entries(found).filter(([, x]) => x !== main);
+            if (!main || bad.length) {
+              for (const [f, x] of bad) console.error("::error::Version divergente dans " + f + " : " + x + " (tauri.conf.json : " + main + ")");
+              if (!main) console.error("::error::Version introuvable dans src-tauri/tauri.conf.json");
+              process.exit(1);
+            }
+            console.log(main);
+          ')
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Vérifier si le tag existe déjà
+        id: tag
+        shell: bash
+        run: |
+          if [ -n "$(git ls-remote --tags origin "refs/tags/v${{ steps.version.outputs.version }}")" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,7 +64,8 @@ jobs:
       - run: npm run tauri build
 
       - uses: softprops/action-gh-release@v2
+        if: steps.tag.outputs.exists == 'false'
         with:
-          tag_name: v0.1.${{ github.run_number }}
-          name: Lucania v0.1.${{ github.run_number }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Lucania v${{ steps.version.outputs.version }}
           files: src-tauri/target/release/bundle/nsis/*.exe

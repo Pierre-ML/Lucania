@@ -3,9 +3,9 @@ import { t } from './i18n.js';
 
 /**
  * @typedef {{ role: 'user'|'assistant', content: string, thinking?: string, model: string, createdAt: string }} Message
- * @typedef {{ id: string, title: string, model: string, connectionId: string|null, createdAt: string, updatedAt: string, folderId: string|null, think: boolean, pinned: boolean, messages: Message[] }} Conversation
- * @typedef {{ id: string, title: string, model: string, connectionId: string|null, createdAt: string, updatedAt: string, folderId: string|null, think: boolean, pinned: boolean, messageCount: number }} ConversationSummary
- * @typedef {{ id: string, name: string, createdAt: string, updatedAt: string, conversationCount: number }} Folder
+ * @typedef {{ id: string, title: string, model: string, connectionId: string|null, createdAt: string, updatedAt: string, folderId: string|null, think: boolean, useMemory: boolean, learnMemory: boolean, pinned: boolean, messages: Message[] }} Conversation
+ * @typedef {{ id: string, title: string, model: string, connectionId: string|null, createdAt: string, updatedAt: string, folderId: string|null, think: boolean, useMemory: boolean, learnMemory: boolean, pinned: boolean, messageCount: number }} ConversationSummary
+ * @typedef {{ id: string, name: string, createdAt: string, updatedAt: string, conversationCount: number, color: string, icon: string }} Folder
  */
 
 /**
@@ -40,14 +40,17 @@ export function getConversation(id) {
   return request(`/api/conversations/${encodeURIComponent(id)}`);
 }
 
-/** @param {{ connectionId: string, model: string, title?: string, folderId?: string|null, think?: boolean }} data @returns {Promise<Conversation>} */
-export function createConversation({ connectionId, model, title, folderId, think }) {
-  return request('/api/conversations', { method: 'POST', body: JSON.stringify({ connectionId, model, title, folderId, think }) });
+/** @param {{ connectionId: string, model: string, title?: string, folderId?: string|null, think?: boolean, useMemory?: boolean, learnMemory?: boolean }} data @returns {Promise<Conversation>} */
+export function createConversation({ connectionId, model, title, folderId, think, useMemory, learnMemory }) {
+  return request('/api/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ connectionId, model, title, folderId, think, useMemory, learnMemory }),
+  });
 }
 
 /**
  * @param {string} id
- * @param {{ title?: string, model?: string, connectionId?: string|null, messages?: Message[], folderId?: string|null, think?: boolean, pinned?: boolean }} patch
+ * @param {{ title?: string, model?: string, connectionId?: string|null, messages?: Message[], folderId?: string|null, think?: boolean, useMemory?: boolean, learnMemory?: boolean, pinned?: boolean }} patch
  * @returns {Promise<Conversation>}
  */
 export function updateConversation(id, patch) {
@@ -65,6 +68,16 @@ export async function deleteConversation(id) {
 /** Mémorise le réglage « Réflexion » de la conversation. @param {string} id @param {boolean} think @returns {Promise<Conversation>} */
 export function setConversationThink(id, think) {
   return updateConversation(id, { think });
+}
+
+/** Mémorise le réglage « Utiliser la mémoire » de la conversation. @param {string} id @param {boolean} useMemory @returns {Promise<Conversation>} */
+export function setConversationUseMemory(id, useMemory) {
+  return updateConversation(id, { useMemory });
+}
+
+/** Mémorise le réglage « Améliorer la mémoire » de la conversation. @param {string} id @param {boolean} learnMemory @returns {Promise<Conversation>} */
+export function setConversationLearnMemory(id, learnMemory) {
+  return updateConversation(id, { learnMemory });
 }
 
 /** Épingle ou désépingle la conversation. @param {string} id @param {boolean} pinned @returns {Promise<Conversation>} */
@@ -92,6 +105,11 @@ export function createFolder(name) {
 /** @param {string} id @param {string} name @returns {Promise<Folder>} */
 export function renameFolder(id, name) {
   return request(`/api/folders/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+}
+
+/** Met à jour la couleur et/ou l’icône d’un dossier. @param {string} id @param {{ color?: string, icon?: string }} patch @returns {Promise<Folder>} */
+export function updateFolder(id, patch) {
+  return request(`/api/folders/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
 /** Supprime le dossier ; ses conversations sont conservées (folderId repasse à null). @param {string} id @returns {Promise<void>} */

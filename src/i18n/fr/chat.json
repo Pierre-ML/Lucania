@@ -32,9 +32,29 @@
     "chooseModel": "Choisir le modèle",
     "models": "Modèles",
     "think": "Réflexion",
+    "thinkShort": "Réflexion",
     "thinkOn": "Réflexion activée — le modèle réfléchit avant de répondre",
     "thinkOff": "Réflexion désactivée",
-    "thinkError": "Réglage de la réflexion impossible : {message}"
+    "thinkError": "Réglage de la réflexion impossible : {message}",
+    "memoryUse": "Utiliser la mémoire",
+    "memoryUseShort": "Mémoire",
+    "memoryUseOn": "Mémoire utilisée — l'IA connaît ce qu'elle a retenu sur vous",
+    "memoryUseOff": "Mémoire non utilisée dans cette conversation",
+    "memoryLearn": "Améliorer la mémoire",
+    "memoryLearnShort": "Apprendre",
+    "memoryLearnOn": "Amélioration activée — cette conversation peut enrichir la mémoire",
+    "memoryLearnOff": "Amélioration désactivée",
+    "memoryDisabled": "La mémoire est désactivée pour ce modèle (voir les paramètres)",
+    "memoryExtractDisabled": "L'apprentissage automatique est désactivé pour ce modèle (voir les paramètres)",
+    "memoryError": "Réglage de la mémoire impossible : {message}"
+  },
+  "memory": {
+    "proposalTitle": "Retenir pour {model} ?",
+    "accept": "Accepter",
+    "reject": "Rejeter",
+    "acceptAll": "Tout accepter",
+    "dismiss": "Ignorer",
+    "added": "Ajouté"
   },
   "picker": {
     "none": "Aucun modèle disponible",
@@ -92,6 +112,38 @@
       "Met de l’ordre dans ses idées"
     ]
   },
+  "folders": {
+    "customize": "Personnaliser",
+    "color": "Couleur",
+    "icon": "Icône",
+    "done": "Terminé",
+    "title": "Personnaliser le dossier",
+    "colors": {
+      "default": "Par défaut",
+      "sky": "Bleu ciel",
+      "emerald": "Émeraude",
+      "amber": "Ambre",
+      "violet": "Violet",
+      "pink": "Rose",
+      "orange": "Orange",
+      "teal": "Turquoise",
+      "slate": "Ardoise"
+    },
+    "icons": {
+      "folder": "Dossier",
+      "star": "Étoile",
+      "heart": "Cœur",
+      "code": "Code",
+      "book": "Livre",
+      "briefcase": "Mallette",
+      "lightbulb": "Idée",
+      "flask": "Science",
+      "music": "Musique",
+      "image": "Image",
+      "globe": "Globe",
+      "gamepad": "Jeux"
+    }
+  },
   "list": {
     "pinned": "Épinglées",
     "conversations": "Conversations",
@@ -131,7 +183,8 @@
     "pin": "Épinglage impossible : {message}",
     "delete": "Suppression impossible : {message}",
     "create": "Création impossible : {message}",
-    "save": "Sauvegarde impossible : {message}"
+    "save": "Sauvegarde impossible : {message}",
+    "customizeFolder": "Personnalisation du dossier impossible : {message}"
   },
   "shutdown": {
     "button": "Éteindre {name}",
