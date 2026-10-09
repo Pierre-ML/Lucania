@@ -6,12 +6,16 @@ export const json = (body: unknown, status = 200) =>
 
 export const noContent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
-/** Refuse les requêtes envoyées depuis une autre origine (en-tête Origin présent et différent). */
+/**
+ * Refuse les requêtes envoyées depuis une autre origine (en-tête Origin présent et différent).
+ * On compare à l'en-tête Host (fixé par le navigateur) car l'adapter node construit toujours request.url avec localhost.
+ */
 export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
   if (!origin) return true;
   try {
-    return new URL(origin).host === new URL(request.url).host;
+    const host = request.headers.get('host') || new URL(request.url).host;
+    return new URL(origin).host.toLowerCase() === host.toLowerCase();
   } catch {
     return false;
   }
