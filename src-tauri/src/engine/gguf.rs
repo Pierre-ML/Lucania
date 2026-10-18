@@ -15,6 +15,8 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
+use serde::{Deserialize, Serialize};
+
 const MAGIC: &[u8; 4] = b"GGUF";
 /// Garde-fous contre un en-tête corrompu.
 const MAX_KV: u64 = 1 << 20;
@@ -407,6 +409,65 @@ pub(crate) fn model_info(first: &Header, others: &[Header]) -> ModelInfo {
   }
 }
 
+/// Dimensions de l'architecture utiles à l'estimation mémoire (`engine::estimate`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchMeta {
+  pub block_count: Option<u64>,
+  pub head_count: Option<u64>,
+  /// Absent si le GGUF donne une valeur par couche (tableau).
+  pub head_count_kv: Option<u64>,
+  pub key_length: Option<u64>,
+  pub value_length: Option<u64>,
+  pub embedding_length: Option<u64>,
+  pub context_length: Option<u64>,
+}
+
+impl ArchMeta {
+  /// Dimension par défaut d'une tête : embedding_length / head_count.
+  fn default_head_dim(&self) -> Option<u64> {
+    match (self.embedding_length, self.head_count) {
+      (Some(e), Some(h)) if h > 0 => Some(e / h),
+      _ => None,
+    }
+  }
+
+  pub fn head_dim_k(&self) -> Option<u64> {
+    self.key_length.or_else(|| self.default_head_dim())
+  }
+
+  pub fn head_dim_v(&self) -> Option<u64> {
+    self.value_length.or_else(|| self.default_head_dim())
+  }
+
+  /// Têtes clé/valeur : head_count_kv, sinon head_count (pas de GQA).
+  pub fn n_head_kv(&self) -> Option<u64> {
+    self.head_count_kv.or(self.head_count)
+  }
+}
+
+pub(crate) fn arch_meta(h: &Header) -> ArchMeta {
+  let Some(arch) = h.str("general.architecture") else {
+    return ArchMeta::default();
+  };
+  let key = |k: &str| h.uint(&format!("{arch}.{k}"));
+  ArchMeta {
+    block_count: key("block_count"),
+    head_count: key("attention.head_count"),
+    head_count_kv: key("attention.head_count_kv"),
+    key_length: key("attention.key_length"),
+    value_length: key("attention.value_length"),
+    embedding_length: key("embedding_length"),
+    context_length: key("context_length"),
+  }
+}
+
+/// Métadonnées d'architecture d'un GGUF local (en-tête de la première partie).
+pub(crate) fn read_arch_meta(path: &Path) -> Result<ArchMeta, String> {
+  let h = read_header(path).map_err(|e| invalid_message(&display(path), &e))?;
+  Ok(arch_meta(&h))
+}
+
 /// Vérifie qu'un GGUF est un modèle de langage autonome avant de le confier à llama.cpp.
 pub fn check_model(path: &Path) -> Result<(), String> {
   let name = display(path);
@@ -645,6 +706,43 @@ mod tests {
     assert_eq!(parse_size_label(""), None);
     let h = parse_header(&gguf(&[("general.architecture", st("llama")), ("general.size_label", st("4B"))], &[]), 1 << 20).unwrap();
     assert_eq!(model_info(&h, &[]).param_count, Some(4_000_000_000));
+  }
+
+  #[test]
+  fn meta_architecture() {
+    let kv = vec![
+      ("general.architecture", st("llama")),
+      ("llama.block_count", Value::UInt(32)),
+      ("llama.attention.head_count", Value::UInt(32)),
+      ("llama.attention.head_count_kv", Value::UInt(8)),
+      ("llama.embedding_length", Value::UInt(4096)),
+      ("llama.context_length", Value::UInt(131072)),
+    ];
+    let h = parse_header(&gguf(&kv, &["token_embd.weight"]), 1 << 20).unwrap();
+    let m = arch_meta(&h);
+    assert_eq!((m.block_count, m.head_count_kv, m.context_length), (Some(32), Some(8), Some(131072)));
+    // key_length absent : embedding_length / head_count.
+    assert_eq!((m.head_dim_k(), m.head_dim_v(), m.n_head_kv()), (Some(128), Some(128), Some(8)));
+    // head_count_kv par couche (tableau) : ignoré, repli sur head_count ; longueurs explicites.
+    let kv = vec![
+      ("general.architecture", st("gemma3")),
+      ("gemma3.attention.head_count", Value::UInt(16)),
+      ("gemma3.attention.head_count_kv", Value::Array),
+      ("gemma3.attention.key_length", Value::UInt(256)),
+      ("gemma3.attention.value_length", Value::UInt(192)),
+    ];
+    let m = arch_meta(&parse_header(&gguf(&kv, &[]), 1 << 20).unwrap());
+    assert_eq!((m.head_count_kv, m.n_head_kv(), m.head_dim_k(), m.head_dim_v()), (None, Some(16), Some(256), Some(192)));
+    assert_eq!(m.block_count, None);
+    // Sans architecture : tout absent.
+    let m = arch_meta(&parse_header(&gguf(&[("general.name", st("x"))], &[]), 1 << 20).unwrap());
+    assert_eq!(m, ArchMeta::default());
+    // Lecture depuis un fichier.
+    let d = dir("meta");
+    let p = d.0.join("m.gguf");
+    std::fs::write(&p, gguf(&base("llama", 4), &["token_embd.weight"])).unwrap();
+    assert_eq!(read_arch_meta(&p).unwrap().block_count, Some(4));
+    assert!(read_arch_meta(&d.0.join("absent.gguf")).is_err());
   }
 
   /// Test manuel : LUCANIA_TEST_GGUF=<fichier> cargo test --lib gguf -- --ignored --nocapture

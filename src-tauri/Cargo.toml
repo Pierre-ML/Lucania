@@ -1,6 +1,6 @@
 [package]
 name = "lucania"
-version = "0.1.16"
+version = "0.2.0"
 description = "Lucania - interface de chat locale pour modèles GGUF (llama.cpp)"
 authors = ["Pierre Mouilleseaux Lhuillier"]
 license = "MIT"
@@ -33,7 +33,19 @@ llama-cpp-sys-2 = { version = "0.1.160", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "rustls-tls-native-roots", "stream", "json"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # Runtime déjà utilisé par Tauri : on active seulement les modules utiles aux téléchargements.
-tokio = { version = "1", features = ["sync", "time", "fs", "io-util", "macros"] }
+tokio = { version = "1", features = ["sync", "time", "fs", "io-util", "macros", "net", "rt"] }
+# Mode serveur (la « tour ») : API HTTP exposant le moteur et Hugging Face au portable.
+axum = { version = "0.8", default-features = false, features = ["tokio", "http1", "json"] }
+# Clé d'API : tirage aléatoire, encodage base64url, empreinte SHA-256 stockée.
+sha2 = "0.10"
+getrandom = "0.3"
+base64 = "0.22"
+# Interfaces réseau IPv4 (choix de l'adresse d'écoute, détection WireGuard).
+if-addrs = "0.13"
+
+[dev-dependencies]
+# Tests du routeur axum en mémoire (ServiceExt::oneshot).
+tower = { version = "0.5", default-features = false, features = ["util"] }
 
 [features]
 # Build GPU NVIDIA : « npm run tauri:cuda » (dev) ou « npm run desktop:build:cuda ».

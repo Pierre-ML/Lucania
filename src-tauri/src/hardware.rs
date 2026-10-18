@@ -257,12 +257,23 @@ pub fn detect(engine: Option<&Engine>) -> Hardware {
   Hardware { ram_total_bytes, ram_available_bytes, gpus, source: source.label() }
 }
 
-#[tauri::command]
-pub async fn system_hardware(app: AppHandle) -> Result<Hardware, String> {
+/// Matériel de cette machine, hors du thread principal.
+pub async fn detect_async(app: &AppHandle) -> Result<Hardware, String> {
   let engine = app.try_state::<Engine>().map(|e| e.inner().clone());
   tauri::async_runtime::spawn_blocking(move || detect(engine.as_ref()))
     .await
     .map_err(|e| format!("Détection du matériel interrompue : {e}"))
+}
+
+/// Exécution locale de `system_hardware` (pages, API de la tour, relais).
+pub(crate) async fn run(app: &AppHandle) -> Result<serde_json::Value, crate::calls::CallError> {
+  crate::calls::to_value(detect_async(app).await?)
+}
+
+/// Relayée vers la tour en mode distant.
+#[tauri::command]
+pub async fn system_hardware(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<serde_json::Value, String> {
+  crate::calls::invoke(&app, "system_hardware", &request).await
 }
 
 #[cfg(test)]

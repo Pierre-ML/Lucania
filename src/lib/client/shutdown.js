@@ -5,14 +5,19 @@ import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
 
 /** @typedef {'ok'|'partial'|'none'} PowerState */
+/**
+ * Entrée de la pastille. En mode distant (remote), l'état est celui de la tour : `error` = tour injoignable,
+ * `remoteError` = message d'erreur éventuel.
+ * @typedef {{ engineAvailable: boolean, status: import('./engine.js').EngineStatus|null, error?: boolean, remote?: boolean, remoteError?: string|null }} PowerInput
+ */
 
 /** Durée d'affichage de la note « aucune machine à éteindre ». */
 const NOTE_MS = 3500;
 
 /**
  * Couleur du bouton : ok (vert) = modèle prêt, partial (orange) = moteur joignable sans modèle ou chargement,
- * none (gris) = aucun signal. Isolé ici pour pouvoir y brancher plus tard l'état d'une machine distante.
- * @param {{ engineAvailable: boolean, status: import('./engine.js').EngineStatus|null, error?: boolean }} input
+ * none (gris) = aucun signal ou tour injoignable. Même règle en mode local et en mode distant (état de la tour).
+ * @param {PowerInput} input
  * @returns {PowerState}
  */
 export function computePowerState({ engineAvailable: available, status, error = false }) {
@@ -22,8 +27,18 @@ export function computePowerState({ engineAvailable: available, status, error = 
   return 'partial';
 }
 
-/** @param {{ engineAvailable: boolean, status: import('./engine.js').EngineStatus|null, error?: boolean }} input */
-function statusLabel({ engineAvailable: available, status, error = false }) {
+/** @param {PowerInput} input */
+function statusLabel({ engineAvailable: available, status, error = false, remote = false, remoteError = null }) {
+  if (remote) {
+    if (!available || error) {
+      return remoteError ? t('common.remote.unreachableWithError', { error: remoteError }) : t('common.remote.unreachable');
+    }
+    if (!status) return t('common.remote.checking');
+    if (status.loading) return t('common.remote.loading');
+    if (status.generating) return t('common.remote.generating');
+    if (status.loadedModel) return t('common.remote.ready');
+    return t('common.remote.idle');
+  }
   if (!available) return t('chat.engine.unavailable');
   if (error) return t('chat.power.error');
   if (!status) return t('chat.status.checking');
@@ -33,8 +48,8 @@ function statusLabel({ engineAvailable: available, status, error = false }) {
   return t('chat.engine.idle');
 }
 
-/** Dernier état du moteur reçu de app.js. @type {{ engineAvailable: boolean, status: import('./engine.js').EngineStatus|null, error: boolean }} */
-let power = { engineAvailable: engineAvailable(), status: null, error: false };
+/** Dernier état du moteur reçu de app.js. @type {{ engineAvailable: boolean, status: import('./engine.js').EngineStatus|null, error: boolean, remote: boolean, remoteError: string|null }} */
+let power = { engineAvailable: engineAvailable(), status: null, error: false, remote: false, remoteError: null };
 /** Connexion à éteindre (première dont l'extinction est activée), ou null. @type {{ id: string, name: string }|null} */
 let target = null;
 /** @type {(() => void)|null} */
@@ -42,10 +57,16 @@ let renderPower = null;
 
 /**
  * Met à jour la couleur et l'infobulle du bouton.
- * @param {{ engineAvailable: boolean, status: import('./engine.js').EngineStatus|null, error?: boolean }} input
+ * @param {PowerInput} input
  */
 export function setPowerStatus(input) {
-  power = { engineAvailable: input.engineAvailable, status: input.status, error: Boolean(input.error) };
+  power = {
+    engineAvailable: input.engineAvailable,
+    status: input.status,
+    error: Boolean(input.error),
+    remote: Boolean(input.remote),
+    remoteError: input.remoteError || null,
+  };
   if (renderPower) renderPower();
 }
 

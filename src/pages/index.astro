@@ -8,6 +8,7 @@ import ConfirmDialog from '../components/ConfirmDialog.astro';
 import MemoryProposal from '../components/MemoryProposal.astro';
 import ShutdownButton from '../components/ShutdownButton.astro';
 import AddModelDialog from '../components/AddModelDialog.astro';
+import ModelSettingsDialog from '../components/ModelSettingsDialog.astro';
 ---
 <Layout>
 	<div class="flex h-dvh overflow-hidden">
@@ -19,6 +20,7 @@ import AddModelDialog from '../components/AddModelDialog.astro';
 		</div>
 	</div>
 	<AddModelDialog />
+	<ModelSettingsDialog />
 	<ShutdownButton />
 	<ConfirmDialog />
 	<MemoryProposal />
@@ -26,4 +28,9 @@ import AddModelDialog from '../components/AddModelDialog.astro';
 
 <script>
   import '../lib/client/app.js';
+</script>
+
+<script>
+  import { guardServerMode } from '../lib/client/server-guard.js';
+  guardServerMode();
 </script>

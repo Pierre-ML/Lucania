@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 /**
  * @typedef {{ id: string, author: string, downloads: number, likes: number, lastModified: string|null, gated: boolean }} HfRepo
  * @typedef {{ name: string, files: string[], sizeBytes: number, quant: string|null, installed: boolean, annexHint: boolean }} HfFile
- * @typedef {{ standalone: boolean, reason: string|null, architecture: string|null, blockCount: number|null, contextLength: number|null, paramCount: number|null }} HfFileCheck
+ * @typedef {{ standalone: boolean, reason: string|null, architecture: string|null, blockCount: number|null, contextLength: number|null, paramCount: number|null, meta?: import('./hardware.js').ArchMeta|null }} HfFileCheck
  * @typedef {'downloading'|'paused'|'completed'|'error'} DownloadState
  * @typedef {{ id: string, repo: string, files: string[], modelId: string, state: DownloadState, downloadedBytes: number, totalBytes: number|null, speedBps: number, error: string|null }} DownloadInfo
  * @typedef {{ hasToken: boolean, user: string|null }} TokenStatus

@@ -19,7 +19,9 @@ import {
 import { getMemory, addFact, extractFacts, getSystemMemory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
 import { initShutdown, setPowerStatus } from './shutdown.js';
+import { getRemoteState, onRemoteState } from './remote.js';
 import { initAddModel } from './hf-browser.js';
+import { initModelSettings, openModelSettings } from './model-settings.js';
 import { initSidebar, closeSidebarMobile } from './sidebar.js';
 import { initModelPicker, syncModelPicker, setModelPickerData, parseModelRef, makeModelRef } from './model-picker.js';
 import { confirmDialog } from './dialog.js';
@@ -368,17 +370,63 @@ let engineStatus = null;
 /** Vrai si la lecture de l'état du moteur a échoué. */
 let engineStatusError = false;
 
+/** Mode distant : la tour est-elle jointe ? (inutilisé en mode local) */
+let remoteMode = false;
+let remoteConnected = true;
+/** @type {string|null} */
+let remoteError = null;
+
 /** Pousse l'état du moteur vers le bouton marche/arrêt de l'en-tête. */
 function renderStatus() {
-  setPowerStatus({ engineAvailable: engineAvailable(), status: engineStatus, error: engineStatusError });
+  if (remoteMode && !remoteConnected) {
+    setPowerStatus({ engineAvailable: true, status: null, error: true, remote: true, remoteError });
+    return;
+  }
+  setPowerStatus({ engineAvailable: engineAvailable(), status: engineStatus, error: engineStatusError, remote: remoteMode, remoteError });
+}
+
+/** Relit l'état du moteur (mode distant : au retour de la tour). */
+async function reloadEngineStatus() {
+  try {
+    engineStatus = await getEngineStatus();
+    engineStatusError = false;
+  } catch (err) {
+    console.warn(err);
+    engineStatus = null;
+    engineStatusError = true;
+  }
+  renderStatus();
+}
+
+/** Applique un état distant { mode, connected, error } reçu de Rust. @param {{ mode?: string, connected?: boolean, error?: string|null }} s */
+function applyRemoteState(s) {
+  const wasRemote = remoteMode;
+  const wasConnected = remoteConnected;
+  remoteMode = s.mode === 'remote';
+  remoteConnected = remoteMode ? Boolean(s.connected) : true;
+  remoteError = remoteMode && !remoteConnected ? s.error || null : null;
+  if (remoteMode && remoteConnected && (!wasRemote || !wasConnected)) {
+    reloadEngineStatus();
+    return;
+  }
+  if (wasRemote && !remoteMode) engineStatusError = false;
+  renderStatus();
 }
 
 /** Lit l'état du moteur puis s'abonne à ses changements. */
 async function initEngineStatus() {
+  if (engineAvailable()) {
+    try {
+      applyRemoteState(await getRemoteState());
+      await onRemoteState(applyRemoteState);
+    } catch {
+      /* hors Tauri ou mode local : comportement inchangé */
+    }
+  }
   renderStatus();
   if (!engineAvailable()) return;
   try {
-    engineStatus = await getEngineStatus();
+    if (!(remoteMode && !remoteConnected)) engineStatus = await getEngineStatus();
     renderStatus();
     await onEngineStatus((s) => {
       engineStatus = s;
@@ -470,10 +518,26 @@ function updateModelSelect() {
     if (!current) selectDefaultModel();
   }
   syncModelPicker();
+  syncModelSettingsBtn();
   refreshMemoryAvailability();
 }
 
+/** Bouton « Réglages du modèle » : actif seulement si un modèle local installé est sélectionné. */
+function syncModelSettingsBtn() {
+  const btn = /** @type {HTMLButtonElement|null} */ ($('model-settings-btn'));
+  if (!btn) return;
+  const ref = parseModelRef(select.value);
+  btn.disabled = !(engineAvailable() && ref.group === LOCAL_GROUP && ref.model && modelMeta.get(select.value)?.available !== false);
+}
+
+$('model-settings-btn')?.addEventListener('click', () => {
+  const ref = parseModelRef(select.value);
+  if (ref.group !== LOCAL_GROUP || !ref.model) return;
+  openModelSettings(ref.model, modelMeta.get(select.value)?.name);
+});
+
 select.addEventListener('change', () => {
+  syncModelSettingsBtn();
   refreshMemoryAvailability();
   if (select.value && !select.disabled) {
     try {
@@ -1991,6 +2055,7 @@ async function send() {
 
 initShutdown();
 initAddModel({ onChange: () => refreshModels() });
+initModelSettings();
 initSidebar();
 initModelPicker();
 renderMemoryToggles();

@@ -115,6 +115,11 @@ fn model_files(path: &Path) -> Vec<PathBuf> {
   out
 }
 
+/// Taille totale d'un modèle (toutes ses parties présentes).
+pub fn model_size(path: &Path) -> u64 {
+  model_files(path).iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum()
+}
+
 /// Supprime les fichiers du modèle `path` (déjà résolu), puis les dossiers devenus vides
 /// jusqu'au dossier des modèles (exclu).
 pub fn delete_model_files(dir: &Path, path: &Path) -> Result<(), String> {
@@ -154,6 +159,7 @@ mod tests {
     std::fs::write(root.join("org/autre.gguf"), b"x").unwrap();
     let path = resolve_model(&root, "org/repo/Q4/m-00001-of-00003.gguf").unwrap();
     assert_eq!(model_files(&path).len(), 3);
+    assert_eq!(model_size(&path), 3);
     delete_model_files(&root, &path).unwrap();
     // Dossiers vides supprimés ; « org » contient encore un modèle.
     assert!(!root.join("org/repo").exists());

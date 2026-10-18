@@ -1,0 +1,205 @@
+---
+import XIcon from '../assets/icons/x.svg';
+import Switch from './settings/Switch.astro';
+import { getLang, t } from '../i18n/index';
+
+const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const smallBtn = 'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger disabled:cursor-not-allowed disabled:opacity-50';
+const textarea = 'min-h-24 w-full resize-y rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger';
+const label = 'mb-1.5 block text-sm font-medium';
+const hint = 'mt-1 text-xs text-muted';
+const errorCls = 'mt-1 text-xs text-danger';
+const sectionTitle = 'text-sm font-medium';
+const rowCls = 'flex items-center justify-between gap-4 px-4 py-2.5';
+
+const lang = getLang(Astro);
+
+const ctxPresets = [2048, 4096, 8192, 16384, 32768, 65536, 131072];
+
+// Champs numériques simples. `step` : pas du champ, `inputmode` : clavier mobile.
+const loadFields = [
+	{ key: 'nThreads', label: t(lang, 'settings.modelSettings.load.nThreads'), step: '1', mode: 'numeric' as const },
+	{ key: 'nBatch', label: t(lang, 'settings.modelSettings.load.nBatch'), step: '1', mode: 'numeric' as const },
+];
+const genFields = [
+	{ key: 'temperature', label: t(lang, 'settings.modelSettings.gen.temperature'), step: '0.05', mode: 'decimal' as const, hint: '' },
+	{ key: 'topP', label: t(lang, 'settings.modelSettings.gen.topP'), step: '0.05', mode: 'decimal' as const, hint: '' },
+	{ key: 'topK', label: t(lang, 'settings.modelSettings.gen.topK'), step: '1', mode: 'numeric' as const, hint: '' },
+	{ key: 'minP', label: t(lang, 'settings.modelSettings.gen.minP'), step: '0.01', mode: 'decimal' as const, hint: '' },
+	{ key: 'repeatPenalty', label: t(lang, 'settings.modelSettings.gen.repeatPenalty'), step: '0.05', mode: 'decimal' as const, hint: '' },
+	{ key: 'maxTokens', label: t(lang, 'settings.modelSettings.gen.maxTokens'), step: '1', mode: 'numeric' as const, hint: '' },
+	{ key: 'seed', label: t(lang, 'settings.modelSettings.gen.seed'), step: '1', mode: 'numeric' as const, hint: t(lang, 'settings.modelSettings.gen.seedHint') },
+];
+const estRows = [
+	{ key: 'weights', label: t(lang, 'settings.modelSettings.estimate.weights') },
+	{ key: 'kv', label: t(lang, 'settings.modelSettings.estimate.kv') },
+	{ key: 'compute', label: t(lang, 'settings.modelSettings.estimate.compute') },
+	{ key: 'layers', label: t(lang, 'settings.modelSettings.estimate.layers') },
+	{ key: 'ram', label: t(lang, 'settings.modelSettings.estimate.ram') },
+	{ key: 'maxContext', label: t(lang, 'settings.modelSettings.estimate.maxContext') },
+];
+---
+<dialog id="model-settings-dialog" aria-labelledby="model-settings-title" class="backdrop:bg-black/70 backdrop:backdrop-blur-sm m-auto max-h-[90vh] w-[min(40rem,calc(100vw-2rem))] max-w-none flex-col overflow-hidden rounded-2xl border border-border bg-surface p-0 text-fg shadow-[0_24px_80px_-12px_rgb(0_0_0/0.8)] open:flex open:animate-pop-in motion-reduce:animate-none">
+	<div class="flex shrink-0 items-start justify-between gap-4 px-6 pb-4 pt-6">
+		<div class="min-w-0">
+			<h2 id="model-settings-title" class="font-serif text-xl">{t(lang, 'settings.modelSettings.title')}</h2>
+			<p data-ms="model-name" class="mt-1 truncate font-mono text-xs text-muted"></p>
+		</div>
+		<button type="button" data-ms="close" aria-label={t(lang, 'settings.modelSettings.close')} title={t(lang, 'settings.modelSettings.close')} class="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
+			<XIcon width="18" height="18" aria-hidden="true" />
+		</button>
+	</div>
+
+	<form data-ms="form" novalidate class="flex min-h-0 flex-1 flex-col">
+		<div class="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+			<p data-ms="message" role="status" aria-live="polite" hidden class="mb-4 rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+			<p data-ms="notice" role="status" aria-live="polite" hidden class="mb-4 rounded-lg border border-border px-3 py-2 text-xs text-muted"></p>
+			<p data-ms="loading" class="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted">{t(lang, 'settings.modelSettings.loading')}</p>
+
+			<fieldset data-ms="fieldset" hidden class="contents">
+				<div data-ms="body" class="space-y-8">
+					<section aria-labelledby="ms-load-title">
+						<h3 id="ms-load-title" class={sectionTitle}>{t(lang, 'settings.modelSettings.load.title')}</h3>
+						<p class={hint}>{t(lang, 'settings.modelSettings.load.note')}</p>
+
+						<div class="mt-4 grid gap-4 sm:grid-cols-2">
+							<div class="sm:col-span-2">
+								<label for="ms-nCtx" class={label}>{t(lang, 'settings.modelSettings.load.nCtx')}</label>
+								<div class="flex items-center gap-3">
+									<input id="ms-nCtx" data-ms-field="nCtx" type="number" inputmode="numeric" step="1" min="0" list="ms-ctx-list" class={input} />
+									<label class="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
+										<input data-ms="nCtxMax" type="checkbox" class="size-4 accent-fg" />
+										{t(lang, 'settings.modelSettings.load.nCtxMax')}
+									</label>
+								</div>
+								<datalist id="ms-ctx-list">
+									{ctxPresets.map((n) => <option value={String(n)}></option>)}
+								</datalist>
+								<p data-ms="nCtxHint" class={hint}>{t(lang, 'settings.modelSettings.load.nCtxHint')}</p>
+								<p data-ms-error="nCtx" hidden class={errorCls}></p>
+							</div>
+
+							<div class="sm:col-span-2">
+								<div class="mb-1.5 flex items-center justify-between gap-3">
+									<label for="ms-nGpuLayers" class="text-sm font-medium">{t(lang, 'settings.modelSettings.load.gpuLayers')}</label>
+									<label data-ms="gpuAutoWrap" class="flex cursor-pointer items-center gap-2 text-sm">
+										<input data-ms="gpuAuto" type="checkbox" class="size-4 accent-fg" />
+										{t(lang, 'settings.modelSettings.load.gpuAuto')}
+									</label>
+								</div>
+								<div data-ms="gpuControls" class="flex items-center gap-3">
+									<input data-ms="gpuRange" type="range" min="0" max="100" step="1" aria-label={t(lang, 'settings.modelSettings.load.gpuLayers')} class="min-w-0 flex-1 cursor-pointer accent-fg disabled:cursor-not-allowed disabled:opacity-50" />
+									<input id="ms-nGpuLayers" data-ms-field="nGpuLayers" type="number" inputmode="numeric" step="1" min="0" class="h-10 w-24 shrink-0 rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger disabled:cursor-not-allowed disabled:opacity-50" />
+								</div>
+								<p data-ms="gpuHint" class={hint}></p>
+								<p data-ms-error="nGpuLayers" hidden class={errorCls}></p>
+							</div>
+
+							{loadFields.map((f) => (
+								<div>
+									<label for={`ms-${f.key}`} class={label}>{f.label}</label>
+									<input id={`ms-${f.key}`} data-ms-field={f.key} type="number" inputmode={f.mode} step={f.step} class={input} />
+									<p data-ms-error={f.key} hidden class={errorCls}></p>
+								</div>
+							))}
+
+							<div class="sm:col-span-2">
+								<div class="flex items-center justify-between gap-4 rounded-xl border border-border px-4 py-3">
+									<div class="min-w-0">
+										<p id="ms-flash-label" class="text-sm font-medium">{t(lang, 'settings.modelSettings.load.flashAttn')}</p>
+										<p class={hint}>{t(lang, 'settings.modelSettings.load.flashAttnHint')}</p>
+									</div>
+									<Switch id="ms-flashAttn" labelledby="ms-flash-label" attrs={{ 'data-ms': 'flashAttn' }} />
+								</div>
+							</div>
+
+							<div class="sm:col-span-2">
+								<label for="ms-cache" class={label}>{t(lang, 'settings.modelSettings.load.cache')}</label>
+								<select id="ms-cache" data-ms="cache" class={`${input} [&>option]:bg-surface`}>
+									<option value="f16">{t(lang, 'settings.modelSettings.load.cacheF16')}</option>
+									<option value="q8_0">{t(lang, 'settings.modelSettings.load.cacheQ8')}</option>
+									<option value="q4_0">{t(lang, 'settings.modelSettings.load.cacheQ4')}</option>
+								</select>
+								<p class={hint}>{t(lang, 'settings.modelSettings.load.cacheHint')}</p>
+							</div>
+						</div>
+					</section>
+
+					<section aria-labelledby="ms-estimate-title" aria-live="polite">
+						<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+							<h3 id="ms-estimate-title" class={sectionTitle}>{t(lang, 'settings.modelSettings.estimate.title')}</h3>
+							<button type="button" data-ms="autoFit" class={smallBtn}>{t(lang, 'settings.modelSettings.estimate.autoFit')}</button>
+						</div>
+
+						<p data-ms="estStatus" class="mt-3 rounded-xl border border-dashed border-border px-4 py-4 text-center text-sm text-muted">{t(lang, 'settings.modelSettings.estimate.pending')}</p>
+
+						<div data-ms="estBody" hidden class="mt-3 space-y-3">
+							<div data-ms="gpuCard" class="rounded-xl border border-border px-4 py-3">
+								<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+									<p class="text-sm">{t(lang, 'settings.modelSettings.estimate.gpuTotal')}</p>
+									<p data-ms-est="total" class="font-mono text-sm font-medium"></p>
+								</div>
+								<div aria-hidden="true" class="mt-2 h-2 overflow-hidden rounded-full bg-fg/10">
+									<div data-ms="gauge" data-over="false" class="h-full w-0 rounded-full bg-fg transition-[width] duration-150 data-[over=true]:bg-danger motion-reduce:transition-none"></div>
+								</div>
+								<p data-ms="vramUnknown" hidden class={hint}>
+									<span>{t(lang, 'settings.modelSettings.estimate.vramUnknown')}</span>
+									<a data-ms="hwLink" href="/parametres#moteur" class="underline underline-offset-2 hover:text-fg">{t(lang, 'settings.modelSettings.estimate.vramUnknownLink')}</a>
+								</p>
+							</div>
+
+							<div data-ms="alert" role="alert" hidden class="rounded-xl border border-danger/40 px-4 py-3">
+								<p data-ms="alertTitle" class="text-sm font-medium text-danger"></p>
+								<p class="mt-1 text-xs text-muted">{t(lang, 'settings.modelSettings.estimate.notFitsHint')}</p>
+								<button type="button" data-ms="autoFitAlert" class={`${smallBtn} mt-3`}>{t(lang, 'settings.modelSettings.estimate.autoFit')}</button>
+							</div>
+
+							<dl class="divide-y divide-border rounded-xl border border-border text-sm">
+								{estRows.map((r) => (
+									<div data-ms-row={r.key} class={rowCls}>
+										<dt class="text-muted">{r.label}</dt>
+										<dd data-ms-est={r.key} class="font-mono text-xs"></dd>
+									</div>
+								))}
+							</dl>
+							<p data-ms="loadedLayers" hidden class={hint}></p>
+						</div>
+					</section>
+
+					<section aria-labelledby="ms-gen-title">
+						<h3 id="ms-gen-title" class={sectionTitle}>{t(lang, 'settings.modelSettings.gen.title')}</h3>
+						<p class={hint}>{t(lang, 'settings.modelSettings.gen.note')}</p>
+
+						<div class="mt-4 grid gap-4 sm:grid-cols-2">
+							{genFields.map((f) => (
+								<div>
+									<label for={`ms-${f.key}`} class={label}>{f.label}</label>
+									<input id={`ms-${f.key}`} data-ms-field={f.key} type="number" inputmode={f.mode} step={f.step} class={input} />
+									{f.hint && <p class={hint}>{f.hint}</p>}
+									<p data-ms-error={f.key} hidden class={errorCls}></p>
+								</div>
+							))}
+							<div class="sm:col-span-2">
+								<label for="ms-systemPrompt" class={label}>{t(lang, 'settings.modelSettings.gen.systemPrompt')}</label>
+								<textarea id="ms-systemPrompt" data-ms-field="systemPrompt" rows="4" spellcheck="false" class={textarea}></textarea>
+								<p class={hint}>{t(lang, 'settings.modelSettings.gen.systemPromptHint')}</p>
+							</div>
+						</div>
+					</section>
+				</div>
+			</fieldset>
+		</div>
+
+		<div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
+			<button type="button" data-ms="reset" disabled class={secondaryBtn}>{t(lang, 'settings.modelSettings.reset')}</button>
+			<div class="flex items-center gap-2">
+				<button type="button" data-ms="cancel" class={secondaryBtn}>{t(lang, 'common.cancel')}</button>
+				<button type="submit" data-ms="save" disabled class={primaryBtn}>
+					<span data-ms="saveLabel">{t(lang, 'settings.modelSettings.save')}</span>
+				</button>
+			</div>
+		</div>
+	</form>
+</dialog>

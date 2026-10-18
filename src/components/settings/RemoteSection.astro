@@ -1,0 +1,156 @@
+---
+import { getLang, t } from '../../i18n/index';
+
+const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const primaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger/60';
+const label = 'mb-1.5 block text-sm font-medium';
+const radio = 'flex cursor-pointer items-center gap-2.5 rounded-lg border border-border px-3 py-2.5 text-sm transition-colors duration-150 hover:border-fg/20 has-[:checked]:border-fg/40 has-[:checked]:bg-fg/5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-fg/40';
+const lang = getLang(Astro);
+---
+<section aria-labelledby="remote-title">
+	<h2 id="remote-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.remote.title')}</h2>
+	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.remote.description')}</p>
+
+	<p id="remote-unavailable" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted"></p>
+
+	<div id="remote-main" hidden>
+		<!-- a. Utiliser une autre machine (client) -->
+		<h3 class="mt-8 text-sm font-medium">{t(lang, 'settings.remote.client.title')}</h3>
+		<p class="mt-1 text-xs text-muted">{t(lang, 'settings.remote.client.description')}</p>
+
+		<form id="remote-form" novalidate class="mt-4 space-y-4">
+			<fieldset>
+				<legend class={label}>{t(lang, 'settings.remote.client.mode.label')}</legend>
+				<div class="grid gap-2 sm:grid-cols-2">
+					<label class={radio}>
+						<input type="radio" name="remote-mode" value="local" data-remote-mode class="size-4 shrink-0 accent-fg" />
+						<span>{t(lang, 'settings.remote.client.mode.local')}</span>
+					</label>
+					<label class={radio}>
+						<input type="radio" name="remote-mode" value="remote" data-remote-mode class="size-4 shrink-0 accent-fg" />
+						<span>{t(lang, 'settings.remote.client.mode.remote')}</span>
+					</label>
+				</div>
+			</fieldset>
+
+			<div id="remote-fields" hidden class="space-y-4">
+				<div>
+					<label for="remote-url" class={label}>{t(lang, 'settings.remote.client.url.label')}</label>
+					<input id="remote-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder={t(lang, 'settings.remote.client.url.placeholder')} class={`${input} font-mono`} />
+				</div>
+				<div>
+					<label for="remote-key" class={label}>{t(lang, 'settings.remote.client.key.label')}</label>
+					<input id="remote-key" type="password" autocomplete="new-password" spellcheck="false" placeholder={t(lang, 'settings.remote.client.key.placeholder')} class={`${input} font-mono`} />
+				</div>
+				<div class="flex flex-wrap items-center gap-2">
+					<button type="button" id="remote-test" class={secondaryBtn}>{t(lang, 'settings.remote.client.test')}</button>
+				</div>
+
+				<dl id="remote-test-result" hidden class="divide-y divide-border rounded-xl border border-border text-sm">
+					<div class="flex items-center justify-between gap-4 px-4 py-2.5">
+						<dt class="text-muted">{t(lang, 'settings.remote.client.result.latency')}</dt>
+						<dd data-remote-res="latency" class="font-medium"></dd>
+					</div>
+					<div class="flex items-center justify-between gap-4 px-4 py-2.5">
+						<dt class="text-muted">{t(lang, 'settings.remote.client.result.version')}</dt>
+						<dd data-remote-res="version" class="font-medium"></dd>
+					</div>
+					<div class="flex items-center justify-between gap-4 px-4 py-2.5">
+						<dt class="text-muted">{t(lang, 'settings.remote.client.result.backend')}</dt>
+						<dd data-remote-res="backend" class="font-medium"></dd>
+					</div>
+					<div class="flex items-center justify-between gap-4 px-4 py-2.5">
+						<dt class="text-muted">{t(lang, 'settings.remote.client.result.gpu')}</dt>
+						<dd data-remote-res="gpu" class="text-right font-medium"></dd>
+					</div>
+					<div class="flex items-center justify-between gap-4 px-4 py-2.5">
+						<dt class="text-muted">{t(lang, 'settings.remote.client.result.model')}</dt>
+						<dd data-remote-res="model" class="text-right font-medium [overflow-wrap:anywhere]"></dd>
+					</div>
+				</dl>
+				<p id="remote-test-error" role="alert" hidden class="rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+			</div>
+
+			<p id="remote-state" role="status" aria-live="polite" data-bad="false" class="text-sm text-muted data-[bad=true]:text-danger"></p>
+
+			<div class="flex flex-wrap items-center gap-3">
+				<button type="submit" id="remote-save" class={primaryBtn}>{t(lang, 'settings.remote.client.save')}</button>
+				<p id="remote-note" role="status" aria-live="polite" hidden class="text-xs text-muted"></p>
+			</div>
+			<p id="remote-error" role="alert" hidden class="rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+		</form>
+
+		<!-- b. Partager cette machine (mode serveur) -->
+		<h3 class="mt-10 text-sm font-medium">{t(lang, 'settings.server.title')}</h3>
+		<p class="mt-1 text-xs text-muted">{t(lang, 'settings.server.description')}</p>
+
+		<div class="mt-4 space-y-4">
+			<div>
+				<label for="server-interface" class={label}>{t(lang, 'settings.server.interface.label')}</label>
+				<select id="server-interface" class={`${input} [&>option]:bg-surface`}></select>
+			</div>
+
+			<div id="server-all-block" hidden class="space-y-3 rounded-xl border border-danger/40 px-4 py-3">
+				<p class="text-xs text-danger">{t(lang, 'settings.server.allowAll.warning')}</p>
+				<label class="flex cursor-pointer items-center gap-2.5 text-sm">
+					<input type="checkbox" id="server-allow-all" class="size-4 shrink-0 accent-fg" />
+					<span>{t(lang, 'settings.server.allowAll.confirm')}</span>
+				</label>
+			</div>
+
+			<div class="max-w-40">
+				<label for="server-port" class={label}>{t(lang, 'settings.server.port.label')}</label>
+				<input id="server-port" type="number" min="1024" max="65535" step="1" inputmode="numeric" value="4750" class={input} />
+			</div>
+
+			<div>
+				<p class={label}>{t(lang, 'settings.server.key.label')}</p>
+				<div class="flex flex-wrap items-center gap-3">
+					<p id="server-key-status" class="text-sm text-muted"></p>
+					<button type="button" id="server-key-generate" class={secondaryBtn}>{t(lang, 'settings.server.key.generate')}</button>
+				</div>
+				<div id="server-key-reveal" hidden class="mt-3 space-y-2">
+					<div class="flex gap-2">
+						<label for="server-key-value" class="sr-only">{t(lang, 'settings.server.key.shownLabel')}</label>
+						<input id="server-key-value" type="text" readonly spellcheck="false" autocomplete="off" class={`${input} font-mono`} />
+						<button type="button" id="server-key-copy" class={secondaryBtn + ' h-10'}>{t(lang, 'settings.server.key.copy')}</button>
+					</div>
+					<p class="text-xs text-muted">{t(lang, 'settings.server.key.note')}</p>
+				</div>
+			</div>
+
+			<div class="flex flex-wrap items-center gap-3">
+				<button type="button" id="server-start" class={primaryBtn}>{t(lang, 'settings.server.start')}</button>
+				<p id="server-hint" class="text-xs text-muted"></p>
+			</div>
+			<p id="server-running" role="status" aria-live="polite" hidden class="text-sm text-muted"></p>
+			<p id="server-error" role="alert" hidden class="rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+		</div>
+
+		<!-- c. Guide WireGuard -->
+		<details class="mt-10 rounded-xl border border-border">
+			<summary class="cursor-pointer rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-fg/40">{t(lang, 'settings.remote.guide.title')}</summary>
+			<div class="border-t border-border px-4 py-4 text-sm">
+				<p class="text-muted">{t(lang, 'settings.remote.guide.intro')}</p>
+				<ol class="mt-4 list-decimal space-y-3 pl-5">
+					<li>
+						{t(lang, 'settings.remote.guide.step1')}
+						<button type="button" data-remote-link="https://www.wireguard.com/install/" class="cursor-pointer rounded text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg focus-visible:outline-fg/40">{t(lang, 'settings.remote.guide.step1Link')}</button>
+					</li>
+					<li>{t(lang, 'settings.remote.guide.step2')}</li>
+					<li>
+						{t(lang, 'settings.remote.guide.step3')}
+						<span class="mt-1 block text-xs text-muted">{t(lang, 'settings.remote.guide.step3Firewall')}</span>
+					</li>
+					<li>{t(lang, 'settings.remote.guide.step4')}</li>
+					<li>{t(lang, 'settings.remote.guide.step5')}</li>
+				</ol>
+				<p class="mt-4 rounded-lg border border-border bg-code px-3 py-2 text-xs text-muted">{t(lang, 'settings.remote.guide.security')}</p>
+				<p class="mt-3 text-xs text-muted">{t(lang, 'settings.remote.guide.docs')}</p>
+			</div>
+		</details>
+	</div>
+
+	<p id="remote-loading" class="mt-6 text-sm text-muted">{t(lang, 'settings.connections.loading')}</p>
+</section>

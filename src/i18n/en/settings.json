@@ -8,6 +8,7 @@
     "hf": "Hugging Face",
     "connections": "Connections",
     "memory": "Memory",
+    "remote": "Remote access",
     "shutdown": "Remote shutdown",
     "appearance": "Appearance",
     "about": "About"
@@ -203,6 +204,201 @@
       "saved": "Token saved",
       "help": "Only needed for gated models. The token is never shown again.",
       "link": "Create a token on Hugging Face"
+    }
+  },
+  "modelSettings": {
+    "title": "Model settings",
+    "open": "Settings",
+    "close": "Close",
+    "loading": "Loading settings…",
+    "load": {
+      "title": "Loading",
+      "note": "Changing these values reloads the model.",
+      "nCtx": "Context (tokens)",
+      "nCtxMax": "Model maximum",
+      "nCtxMaxHint": "Model maximum: {n} tokens",
+      "nCtxHint": "The larger the context, the more memory the KV cache uses.",
+      "gpuLayers": "GPU layers",
+      "gpuAuto": "Automatic",
+      "gpuHint": "Out of {total} layers. Fewer GPU layers frees video memory but slows generation down.",
+      "gpuHintUnknown": "The model's layer count is unknown.",
+      "cpuOnly": "This engine runs on the CPU only: no layer is sent to the GPU.",
+      "nThreads": "Threads",
+      "nBatch": "Batch size",
+      "flashAttn": "Flash Attention",
+      "flashAttnHint": "Speeds up attention and reduces context memory (depending on the graphics card).",
+      "cache": "KV cache",
+      "cacheF16": "f16 (precise)",
+      "cacheQ8": "q8_0 (compact)",
+      "cacheQ4": "q4_0 (very compact)",
+      "cacheHint": "Quantizing the cache reduces memory use. Quantizing V turns on Flash Attention."
+    },
+    "estimate": {
+      "title": "Estimated video memory",
+      "pending": "Estimating…",
+      "unknown": "Estimate unavailable (metadata missing)",
+      "error": "Could not estimate: {message}",
+      "gpuTotal": "Video memory used",
+      "weights": "Model weights (GPU)",
+      "kv": "KV cache (GPU)",
+      "compute": "Compute",
+      "layers": "GPU layers",
+      "layersValue": "{gpu} / {total}",
+      "ram": "System memory used",
+      "maxContext": "Model training context",
+      "vramUnknown": "Video memory unknown.",
+      "vramUnknownLink": "Set my hardware",
+      "notFitsVram": "Does not fit in video memory",
+      "notFitsMemory": "Does not fit in memory",
+      "notFitsHint": "Loading may fail or be very slow. Reduce the context or the number of GPU layers.",
+      "autoFit": "Adjust automatically",
+      "loadedLayers": "Model currently loaded with {count} GPU layers."
+    },
+    "gen": {
+      "title": "Generation",
+      "note": "Applied to the next message, no reload needed.",
+      "temperature": "Temperature",
+      "topP": "Top-p",
+      "topK": "Top-k",
+      "minP": "Min-p",
+      "repeatPenalty": "Repeat penalty",
+      "maxTokens": "Maximum length (tokens)",
+      "seed": "Seed",
+      "seedPlaceholder": "Random",
+      "seedHint": "Empty = random.",
+      "systemPrompt": "System prompt",
+      "systemPromptHint": "Placed before the memory. Empty = none.",
+      "systemPromptPlaceholder": "E.g. Always answer concisely."
+    },
+    "errors": {
+      "number": "Enter a number.",
+      "integer": "Enter a whole number.",
+      "range": "Value between {min} and {max}.",
+      "min": "Minimum value: {min}.",
+      "nCtx": "0 (model maximum) or a value between 256 and 1,048,576."
+    },
+    "reset": "Reset",
+    "save": "Save",
+    "saving": "Saving…",
+    "reloading": "Reloading…",
+    "saved": "Settings saved.",
+    "savedLater": "Settings saved, applied at the next load.",
+    "resetDone": "Defaults restored.",
+    "reload": {
+      "title": "Reload the model",
+      "message": "A generation is in progress. Stop it and reload the model?",
+      "confirm": "Stop and reload"
+    }
+  },
+  "remote": {
+    "title": "Remote access",
+    "description": "Use the power of another Lucania machine through a WireGuard tunnel, or share this one with your other devices.",
+    "client": {
+      "title": "Use another machine",
+      "description": "The chat stays the same: only the engine runs on the tower instead of this computer.",
+      "mode": {
+        "label": "Where does the engine run?",
+        "local": "Local (this computer)",
+        "remote": "Remote (a Lucania tower)"
+      },
+      "url": {
+        "label": "Tower address",
+        "placeholder": "http://10.0.0.1:4750"
+      },
+      "key": {
+        "label": "API key",
+        "placeholder": "Tower's key",
+        "savedPlaceholder": "Key saved"
+      },
+      "urlRequired": "Enter the tower's address.",
+      "test": "Test connection",
+      "testing": "Testing…",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Settings saved.",
+      "reloading": "Reloading…",
+      "result": {
+        "latency": "Latency",
+        "latencyMs": "{ms} ms",
+        "version": "Version",
+        "backend": "Engine",
+        "backendCuda": "GPU (CUDA)",
+        "backendCpu": "CPU",
+        "gpu": "Graphics card",
+        "gpuVram": "{name} ({vram})",
+        "vramGb": "{vram} GB",
+        "noGpu": "No GPU",
+        "model": "Loaded model",
+        "noModel": "None"
+      },
+      "state": {
+        "local": "Local mode: this computer's engine is used.",
+        "connected": "Connected to the tower",
+        "unreachable": "Tower unreachable: {error}",
+        "unreachableNoError": "Tower unreachable"
+      }
+    },
+    "guide": {
+      "title": "WireGuard guide",
+      "intro": "WireGuard creates a private tunnel between your tower and your laptop. Here are the steps, using 10.0.0.1 for the tower and 10.0.0.2 for the laptop.",
+      "step1": "Install WireGuard on both machines.",
+      "step1Link": "wireguard.com/install",
+      "step2": "Create the WireGuard tunnel: for example 10.0.0.1 for the tower and 10.0.0.2 for the laptop, then bring it up on both sides.",
+      "step3": "On the tower: Lucania › Remote access, pick the WireGuard interface, keep port 4750, generate the key, then enable server mode.",
+      "step3Firewall": "Windows asks to allow Lucania through the firewall: accept for private networks, or create an inbound TCP 4750 rule limited to the WireGuard interface.",
+      "step4": "On the laptop: choose Remote mode, enter the address http://10.0.0.1:4750, paste the key, test the connection, then save.",
+      "step5": "The header dot follows the tower: gray when unreachable, orange with no model loaded, green when ready. Shutting the tower down uses Settings › Connections.",
+      "security": "Security: the connection uses plain HTTP, with no encryption of its own. Use it ONLY inside the WireGuard tunnel; the key only travels through that tunnel.",
+      "docs": "Full guide: docs/wireguard.md in the repository."
+    }
+  },
+  "server": {
+    "title": "Share this machine (server mode)",
+    "description": "This computer becomes a tower: it makes its engine available to another Lucania. The screen is then reserved for server mode until you stop it.",
+    "interface": {
+      "label": "Listening interface",
+      "option": "{name} — {ip}",
+      "optionWireguard": "{name} — {ip} (WireGuard)",
+      "all": "All interfaces (0.0.0.0) — not recommended"
+    },
+    "allowAll": {
+      "warning": "Listening on all interfaces exposes the engine to every network this computer is connected to, including the Internet if the port is open. Prefer the WireGuard interface.",
+      "confirm": "I understand the risks"
+    },
+    "port": {
+      "label": "Port",
+      "invalid": "Enter a port between 1024 and 65535."
+    },
+    "key": {
+      "label": "API key",
+      "set": "A key is configured",
+      "none": "No key",
+      "generate": "Generate a new key",
+      "shownLabel": "New key",
+      "copy": "Copy",
+      "copied": "Copied",
+      "note": "Write it down now: it will not be shown again.",
+      "confirm": {
+        "title": "Generate a new key?",
+        "message": "The old key will stop working: machines using it will need the new one.",
+        "ok": "Generate"
+      }
+    },
+    "start": "Enable server mode",
+    "starting": "Enabling…",
+    "running": "Server mode is active on {address}.",
+    "hint": {
+      "needKey": "Generate a key first to enable server mode.",
+      "needAck": "Tick \"I understand the risks\" to listen on all interfaces."
+    },
+    "errors": {
+      "generic": "Something went wrong."
+    },
+    "screen": {
+      "docTitle": "Server mode — Lucania",
+      "stop": "Stop server mode",
+      "stopping": "Stopping…",
+      "listening": "Listening on {address}"
     }
   }
 }

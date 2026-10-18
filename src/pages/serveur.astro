@@ -1,0 +1,15 @@
+---
+import { getLang, t } from '../i18n/index';
+import Layout from '../layouts/Layout.astro';
+
+const lang = getLang(Astro);
+const primaryBtn = 'inline-flex h-14 cursor-pointer items-center justify-center rounded-xl bg-fg px-10 text-lg font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+---
+<Layout title={t(lang, 'settings.server.screen.docTitle')}>
+	<main class="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-6 text-center">
+		<button type="button" id="server-stop" class={primaryBtn}>{t(lang, 'settings.server.screen.stop')}</button>
+		<p id="server-address" class="text-xs text-muted [overflow-wrap:anywhere]"></p>
+		<p id="server-error" role="alert" hidden class="max-w-md text-sm text-danger"></p>
+	</main>
+	<script>import '../lib/client/server-screen.js';</script>
+</Layout>

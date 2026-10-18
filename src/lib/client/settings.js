@@ -23,9 +23,10 @@ import {
   RAM_OPTIONS_GB,
   buildFitBadge,
   describeProfile,
-  estimateFit,
+  estimateFitAsync,
   formatBytes,
   getDetectedHardware,
+  isRemoteMode,
   getManualHardware,
   onHardwareChange,
   clearManualHardware,
@@ -33,6 +34,7 @@ import {
 } from './hardware.js';
 import { invoke } from '@tauri-apps/api/core';
 import { confirmDialog } from './dialog.js';
+import { openModelSettings } from './model-settings.js';
 import { t, getLang, setLang } from './i18n.js';
 import { THEMES, getTheme, setTheme } from './theme.js';
 
@@ -363,7 +365,19 @@ function buildModelItem(model) {
     badge.textContent = t('settings.engine.loaded');
     head.append(badge);
   }
-  if (hwProfile && hwProfile.known) head.append(buildFitBadge(estimateFit(model.sizeBytes, hwProfile)));
+  if (hwProfile && hwProfile.known) {
+    // Emplacement rempli dès que l'estimation du moteur répond (repli grossier géré par estimateFitAsync).
+    const fitSlot = document.createElement('span');
+    fitSlot.className = 'contents';
+    head.append(fitSlot);
+    estimateFitAsync({ modelId: model.id, sizeBytes: model.sizeBytes }, hwProfile)
+      .then((fit) => {
+        if (fitSlot.isConnected) fitSlot.replaceChildren(buildFitBadge(fit));
+      })
+      .catch(() => {
+        /* pas de badge si l'estimation échoue */
+      });
+  }
   const meta = document.createElement('p');
   meta.className = 'mt-0.5 truncate font-mono text-[11px] text-muted';
   meta.textContent = `${formatSize(model.sizeBytes)} · ${model.id}`;
@@ -379,6 +393,9 @@ function buildModelItem(model) {
       () => useEngineModel(model.id),
       locked,
     ),
+  );
+  actions.append(
+    buildModelBtn(t('settings.modelSettings.open'), modelBtn, () => openModelSettings(model.id, model.name), false),
   );
   if (isLoaded) actions.append(buildModelBtn(t('settings.engine.unload'), modelBtn, unloadEngineModel, locked));
   actions.append(buildModelBtn(t('settings.engine.delete.button'), modelBtnDanger, () => deleteEngineModel(model), locked));
@@ -488,6 +505,8 @@ engineRefreshBtn?.addEventListener('click', loadEngine);
 
 // ---------- Moteur : mon matériel (détecté ou saisi à la main) ----------
 
+const hwTitleEl = byId('hw-title');
+const hwDescEl = byId('hw-description');
 const hwRamEl = byId('hw-ram');
 const hwGpuEl = byId('hw-gpu');
 const hwUsedEl = byId('hw-used');
@@ -558,9 +577,17 @@ async function fillHardwareForm() {
 
 async function loadHardware() {
   if (!hwRamEl || !hwGpuEl || !hwUsedEl) return;
+  const remote = await isRemoteMode();
   const detected = await getDetectedHardware();
-  const manual = getManualHardware();
+  const manual = remote ? null : getManualHardware();
   hwProfile = manual || detected;
+  if (hwTitleEl) hwTitleEl.textContent = remote ? t('common.remote.hardwareTitle') : t('settings.engine.hardware.title');
+  if (hwDescEl) hwDescEl.textContent = remote ? t('common.remote.hardwareDescription') : t('settings.engine.hardware.description');
+  if (hwToggleBtn) hwToggleBtn.hidden = remote;
+  if (remote && hwFormEl) {
+    hwFormEl.hidden = true;
+    hwToggleBtn?.setAttribute('aria-expanded', 'false');
+  }
   const unknown = t('settings.engine.hardware.notDetected');
   hwRamEl.textContent = detected.known ? formatBytes(detected.ramBytes) : unknown;
   if (!detected.known) hwGpuEl.textContent = unknown;
@@ -570,7 +597,9 @@ async function loadHardware() {
       vram: formatBytes(detected.vramBytes),
     });
   } else hwGpuEl.textContent = t('settings.engine.hardware.noGpuDetected');
-  hwUsedEl.textContent = manual
+  hwUsedEl.textContent = remote
+    ? t('common.remote.hardwareNote')
+    : manual
     ? t('settings.engine.hardware.usedManual', { profile: describeProfile(manual) })
     : t('settings.engine.hardware.usedAuto');
   if (hwResetBtn) hwResetBtn.hidden = !manual;

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-generate-key"
+description = "Enables the server_generate_key command without any pre-configured scope."
+commands.allow = ["server_generate_key"]
+
+[[permission]]
+identifier = "deny-server-generate-key"
+description = "Denies the server_generate_key command without any pre-configured scope."
+commands.deny = ["server_generate_key"]

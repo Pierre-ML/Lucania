@@ -1,9 +1,14 @@
 use tauri::Manager;
 
+mod bus;
+mod calls;
 mod crashlog;
 mod engine;
 mod hardware;
 mod hf;
+mod localfile;
+mod remote;
+mod server;
 
 #[cfg(not(debug_assertions))]
 mod sidecar {
@@ -196,6 +201,10 @@ pub fn run() {
       engine::commands::engine_generate,
       engine::commands::engine_stop,
       engine::commands::engine_delete_model,
+      engine::commands::engine_get_profile,
+      engine::commands::engine_set_profile,
+      engine::commands::engine_reset_profile,
+      engine::commands::engine_estimate,
       hf::commands::hf_search,
       hf::commands::hf_list_files,
       hf::commands::hf_download,
@@ -208,6 +217,15 @@ pub fn run() {
       hf::commands::hf_check_file,
       hf::commands::hf_avatars,
       hardware::system_hardware,
+      server::server_get_config,
+      server::server_interfaces,
+      server::server_generate_key,
+      server::server_start,
+      server::server_stop,
+      remote::remote_get_config,
+      remote::remote_set_config,
+      remote::remote_test,
+      remote::remote_state,
     ])
     .setup(|app| {
       crashlog::start_session();
@@ -217,6 +235,10 @@ pub fn run() {
         let _ = std::fs::create_dir_all(docs.join("Lucania"));
       }
 
+      // Mode client (relais vers la tour) : chargé avant le moteur, dont les événements locaux
+      // ne sont plus envoyés aux pages en mode distant.
+      remote::setup(app);
+
       // Moteur llama.cpp intégré (thread dédié) ; dossier des modèles :
       // %LOCALAPPDATA%\com.lucania.desktop\models
       engine::setup(app);
@@ -225,6 +247,9 @@ pub fn run() {
       // %LOCALAPPDATA%\com.lucania.desktop\hf-token
       let models_dir = app.state::<engine::Engine>().models_dir().to_path_buf();
       hf::setup(app, models_dir);
+
+      // Mode serveur (la tour) : relancé s'il était actif, avec passage en plein écran.
+      server::setup(app);
 
       #[cfg(debug_assertions)]
       if let Some(w) = app.get_webview_window("main") {

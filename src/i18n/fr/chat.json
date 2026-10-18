@@ -67,7 +67,8 @@
     "unavailableOption": "{model} (indisponible)",
     "deletedConnection": "Connexion supprimée",
     "unknownConnection": "Connexion inconnue",
-    "localGroup": "Cet ordinateur"
+    "localGroup": "Cet ordinateur",
+    "settings": "Réglages du modèle"
   },
   "messages": {
     "emptyTitle": "Comment puis-je vous aider ?",

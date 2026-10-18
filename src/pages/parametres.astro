@@ -4,6 +4,7 @@ import PowerSmallIcon from '../assets/icons/power-small.svg';
 import { getLang, t } from '../i18n/index';
 import Layout from '../layouts/Layout.astro';
 import ConfirmDialog from '../components/ConfirmDialog.astro';
+import ModelSettingsDialog from '../components/ModelSettingsDialog.astro';
 import EngineSection from '../components/settings/EngineSection.astro';
 import HfSection from '../components/settings/HfSection.astro';
 import ConnectionsSection from '../components/settings/ConnectionsSection.astro';
@@ -12,6 +13,7 @@ import AppearanceSection from '../components/settings/AppearanceSection.astro';
 import AboutSection from '../components/settings/AboutSection.astro';
 import ShutdownSection from '../components/settings/ShutdownSection.astro';
 import MemorySection from '../components/settings/MemorySection.astro';
+import RemoteSection from '../components/settings/RemoteSection.astro';
 
 const lang = getLang(Astro);
 const tabs = [
@@ -19,6 +21,7 @@ const tabs = [
 	{ id: 'huggingface', label: t(lang, 'settings.nav.hf') },
 	{ id: 'connexions', label: t(lang, 'settings.nav.connections') },
 	{ id: 'memoire', label: t(lang, 'settings.nav.memory') },
+	{ id: 'acces-distant', label: t(lang, 'settings.nav.remote') },
 	{ id: 'extinction', label: t(lang, 'settings.nav.shutdown'), icon: true },
 	{ id: 'apparence', label: t(lang, 'settings.nav.appearance') },
 	{ id: 'a-propos', label: t(lang, 'settings.nav.about') },
@@ -47,6 +50,7 @@ const panel = 'animate-pop-in motion-reduce:animate-none';
 				<div data-panel="huggingface" hidden class={panel}><HfSection /></div>
 				<div data-panel="connexions" hidden class={panel}><ConnectionsSection /></div>
 				<div data-panel="memoire" hidden class={panel}><MemorySection /></div>
+				<div data-panel="acces-distant" hidden class={panel}><RemoteSection /></div>
 				<div data-panel="extinction" hidden class={panel}><ShutdownSection /></div>
 				<div data-panel="apparence" hidden class={panel}><AppearanceSection /></div>
 				<div data-panel="a-propos" hidden class={panel}><AboutSection /></div>
@@ -55,8 +59,12 @@ const panel = 'animate-pop-in motion-reduce:animate-none';
 	</main>
 
 	<ConnectionForm />
+	<ModelSettingsDialog />
 	<ConfirmDialog />
 	<script>import '../lib/client/settings.js';</script>
+	<script>import { initModelSettings } from '../lib/client/model-settings.js'; initModelSettings();</script>
 	<script>import '../lib/client/memory-settings.js';</script>
 	<script>import '../lib/client/hf-settings.js';</script>
+	<script>import { initRemoteSettings } from '../lib/client/remote-settings.js'; initRemoteSettings();</script>
+	<script>import { guardServerMode } from '../lib/client/server-guard.js'; guardServerMode();</script>
 </Layout>

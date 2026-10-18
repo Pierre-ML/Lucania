@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-reset-profile"
+description = "Enables the engine_reset_profile command without any pre-configured scope."
+commands.allow = ["engine_reset_profile"]
+
+[[permission]]
+identifier = "deny-engine-reset-profile"
+description = "Denies the engine_reset_profile command without any pre-configured scope."
+commands.deny = ["engine_reset_profile"]

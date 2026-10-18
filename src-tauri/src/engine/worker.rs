@@ -18,7 +18,7 @@ use llama_cpp_2::model::{LlamaChatMessage, LlamaChatTemplate, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
 use llama_cpp_2::{LlamaBackendDeviceType, list_llama_ggml_backend_devices};
 
-use super::gguf;
+use super::{estimate, gguf, models};
 use super::types::{CUDA_BUILD, CacheType, ChatMessage, GenerateResult, LoadConfig, Sampling, StopReason};
 use super::utf8::Utf8Stream;
 use super::{Shared, log};
@@ -48,10 +48,26 @@ pub(crate) enum Command {
 
 struct Loaded {
   id: String,
+  /// Configuration DEMANDÉE (nGpuLayers None = auto) : comparée pour décider d'un rechargement.
   config: LoadConfig,
   model: LlamaModel,
   /// Chargé sans aucun GPU (repli ou GPU absent) : le contexte n'utilise pas le GPU non plus.
   no_gpu: bool,
+  /// Couches effectivement placées sur le GPU.
+  gpu_layers: u32,
+}
+
+/// nGpuLayers « tout sur GPU » : inclut la couche de sortie.
+const ALL_LAYERS: u32 = 999;
+
+/// Mémoire (totale, libre) du GPU le mieux doté vu par llama.cpp ; (0, 0) sans GPU.
+pub(crate) fn best_gpu_memory() -> (u64, u64) {
+  list_llama_ggml_backend_devices()
+    .into_iter()
+    .filter(|d| matches!(d.device_type, LlamaBackendDeviceType::Gpu | LlamaBackendDeviceType::IntegratedGpu))
+    .map(|d| (d.memory_total as u64, d.memory_free as u64))
+    .max_by_key(|&(total, _)| total)
+    .unwrap_or((0, 0))
 }
 
 struct Worker {
@@ -128,13 +144,13 @@ fn kv_type(t: CacheType) -> KvCacheType {
 }
 
 fn context_params(config: &LoadConfig, no_gpu: bool) -> LlamaContextParams {
-  // Un cache V quantifié exige Flash Attention : on l'active alors d'office.
-  let flash = config.flash_attn || config.cache_type_v != CacheType::F16;
+  // Un cache V quantifié exige Flash Attention : `flash()` l'active alors d'office.
+  let flash = config.flash();
   let threads = i32::try_from(config.n_threads).unwrap_or(1).max(1);
   let params = LlamaContextParams::default()
     .with_n_ctx(NonZeroU32::new(config.n_ctx))
     .with_n_batch(config.n_batch)
-    .with_n_ubatch(config.n_batch.min(512))
+    .with_n_ubatch(config.n_ubatch())
     .with_n_threads(threads)
     .with_n_threads_batch(threads)
     .with_flash_attention_policy(if flash {
@@ -163,7 +179,7 @@ impl Worker {
       }
       Command::Unload { reply } => {
         let r = self.guarded(|w| {
-          w.loaded = None;
+          w.set_loaded(None);
           w.shared.set_status(|s| s.loaded_model = None);
           Ok(())
         });
@@ -195,7 +211,7 @@ impl Worker {
     match catch_unwind(AssertUnwindSafe(|| f(self))) {
       Ok(r) => r,
       Err(_) => {
-        self.loaded = None;
+        self.set_loaded(None);
         self.shared.set_status(|s| *s = Default::default());
         Err("Erreur interne du moteur : le modèle a été déchargé.".into())
       }
@@ -206,6 +222,12 @@ impl Worker {
   // Chargement
   // -------------------------------------------------------------------------------------------
 
+  /// Remplace le modèle chargé et publie ses couches GPU effectives.
+  fn set_loaded(&mut self, l: Option<Loaded>) {
+    *super::lock(&self.shared.loaded_gpu) = l.as_ref().map(|l| (l.id.clone(), l.gpu_layers));
+    self.loaded = l;
+  }
+
   fn load(&mut self, id: &str, path: &Path, config: &LoadConfig) -> Result<(), String> {
     if let Some(l) = &self.loaded {
       if l.id == id && l.config == *config {
@@ -213,14 +235,14 @@ impl Worker {
       }
     }
     // Libère d'abord l'ancien modèle (RAM/VRAM).
-    self.loaded = None;
+    self.set_loaded(None);
     self.shared.set_status(|s| {
       s.loaded_model = None;
       s.loading = true;
     });
     let result = self.load_inner(id, path, config);
     let loaded_id = result.as_ref().ok().map(|l| l.id.clone());
-    let outcome = result.map(|l| self.loaded = Some(l));
+    let outcome = result.map(|l| self.set_loaded(Some(l)));
     self.shared.set_status(|s| {
       s.loading = false;
       s.loaded_model = loaded_id;
@@ -238,30 +260,62 @@ impl Worker {
     log(&format!(
       "« {id} » chargé en {:.1} s ({})",
       start.elapsed().as_secs_f64(),
-      if loaded.no_gpu { "CPU seul".to_string() } else { format!("GPU, nGpuLayers {}", config.n_gpu_layers) }
+      if loaded.no_gpu { "CPU seul".to_string() } else { format!("GPU, {} couche(s)", loaded.gpu_layers) }
     ));
     Ok(loaded)
   }
 
+  /// nGpuLayers à passer à llama.cpp : la valeur demandée, ou (auto) le plus grand nombre de
+  /// couches tenant dans la VRAM libre, mesurée maintenant (ancien modèle déjà libéré).
+  fn resolve_gpu_layers(&self, path: &Path, config: &LoadConfig) -> u32 {
+    match config.n_gpu_layers {
+      Some(n) => n,
+      None if !self.gpu => 0,
+      None => {
+        let meta = match gguf::read_arch_meta(path) {
+          Ok(m) => m,
+          Err(e) => {
+            log(&format!("nGpuLayers auto : métadonnées illisibles ({e}), tout sur GPU"));
+            return ALL_LAYERS;
+          }
+        };
+        let (_, free) = best_gpu_memory();
+        let size = models::model_size(path);
+        match (estimate::auto_gpu_layers(size, &meta, config, free), meta.block_count) {
+          (Some(g), Some(total)) => {
+            log(&format!("nGpuLayers auto : {g}/{total} ({} Mo de VRAM libres)", free >> 20));
+            if g >= total { ALL_LAYERS } else { u32::try_from(g).unwrap_or(ALL_LAYERS) }
+          }
+          _ => {
+            log("nGpuLayers auto : métadonnées incomplètes, tout sur GPU");
+            ALL_LAYERS
+          }
+        }
+      }
+    }
+  }
+
   fn load_devices(&self, id: &str, path: &Path, config: &LoadConfig) -> Result<Loaded, String> {
-    if CUDA_BUILD && !self.gpu && config.n_gpu_layers > 0 {
+    let layers = self.resolve_gpu_layers(path, config);
+    if CUDA_BUILD && !self.gpu && layers > 0 {
       log("aucun GPU CUDA utilisable : chargement sur le CPU");
     }
-    if self.gpu && config.n_gpu_layers > 0 {
-      match self.try_load(id, path, config, false) {
+    if self.gpu && layers > 0 {
+      match self.try_load(id, path, config, layers, false) {
         Ok(l) => return Ok(l),
         Err(e) => log(&format!("échec du chargement avec le GPU ({e}) : nouvel essai sur le CPU")),
       }
     }
     // Sans GPU utilisable (ou après échec) : aucun périphérique GPU. Avec un GPU utilisable et
     // nGpuLayers = 0, llama.cpp garde le droit d'accélérer certains calculs sur le GPU.
-    let no_gpu = !self.gpu || config.n_gpu_layers > 0;
-    self.try_load(id, path, config, no_gpu)
+    let no_gpu = !self.gpu || layers > 0;
+    self.try_load(id, path, config, 0, no_gpu)
   }
 
-  fn try_load(&self, id: &str, path: &Path, config: &LoadConfig, no_gpu: bool) -> Result<Loaded, String> {
+  fn try_load(&self, id: &str, path: &Path, config: &LoadConfig, layers: u32, no_gpu: bool) -> Result<Loaded, String> {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let mut params = LlamaModelParams::default().with_n_gpu_layers(if no_gpu { 0 } else { config.n_gpu_layers });
+    let layers = if no_gpu { 0 } else { layers };
+    let mut params = LlamaModelParams::default().with_n_gpu_layers(layers);
     if no_gpu {
       // Liste de périphériques vide = aucun GPU (équivalent de `--device none`).
       params = params.with_devices(&[]).map_err(|e| format!("Paramètres de chargement invalides : {e}"))?;
@@ -276,7 +330,8 @@ impl Worker {
         config.n_ctx
       )
     })?;
-    Ok(Loaded { id: id.to_string(), config: config.clone(), model, no_gpu })
+    let gpu_layers = layers.min(model.n_layer());
+    Ok(Loaded { id: id.to_string(), config: config.clone(), model, no_gpu, gpu_layers })
   }
 
   // -------------------------------------------------------------------------------------------

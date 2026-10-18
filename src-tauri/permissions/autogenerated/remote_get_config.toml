@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-get-config"
+description = "Enables the remote_get_config command without any pre-configured scope."
+commands.allow = ["remote_get_config"]
+
+[[permission]]
+identifier = "deny-remote-get-config"
+description = "Denies the remote_get_config command without any pre-configured scope."
+commands.deny = ["remote_get_config"]

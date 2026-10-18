@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-estimate"
+description = "Enables the engine_estimate command without any pre-configured scope."
+commands.allow = ["engine_estimate"]
+
+[[permission]]
+identifier = "deny-engine-estimate"
+description = "Denies the engine_estimate command without any pre-configured scope."
+commands.deny = ["engine_estimate"]

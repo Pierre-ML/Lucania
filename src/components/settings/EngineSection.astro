@@ -39,8 +39,8 @@ const lang = getLang(Astro);
 			</div>
 		</dl>
 
-		<h3 class="mt-8 text-sm font-medium">{t(lang, 'settings.engine.hardware.title')}</h3>
-		<p class="mt-1 text-xs text-muted">{t(lang, 'settings.engine.hardware.description')}</p>
+		<h3 id="hw-title" class="mt-8 text-sm font-medium">{t(lang, 'settings.engine.hardware.title')}</h3>
+		<p id="hw-description" class="mt-1 text-xs text-muted">{t(lang, 'settings.engine.hardware.description')}</p>
 		<div class="mt-3 divide-y divide-border rounded-xl border border-border text-sm">
 			<div class="flex items-center justify-between gap-4 px-4 py-3">
 				<span class="text-muted">{t(lang, 'settings.engine.hardware.ram')}</span>

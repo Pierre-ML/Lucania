@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-get-profile"
+description = "Enables the engine_get_profile command without any pre-configured scope."
+commands.allow = ["engine_get_profile"]
+
+[[permission]]
+identifier = "deny-engine-get-profile"
+description = "Denies the engine_get_profile command without any pre-configured scope."
+commands.deny = ["engine_get_profile"]

@@ -67,7 +67,8 @@
     "unavailableOption": "{model} (unavailable)",
     "deletedConnection": "Deleted connection",
     "unknownConnection": "Unknown connection",
-    "localGroup": "This computer"
+    "localGroup": "This computer",
+    "settings": "Model settings"
   },
   "messages": {
     "emptyTitle": "How can I help you?",

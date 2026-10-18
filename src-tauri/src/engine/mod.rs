@@ -5,19 +5,22 @@
 //! - `models` : dossier des modèles GGUF (liste, résolution sûre des identifiants) ;
 //! - `gguf` : lecture de l'en-tête GGUF, refus des fichiers annexes avant llama.cpp ;
 //! - `types` : structures échangées et réglages par défaut ;
+//! - `profiles` : réglages enregistrés par modèle (`model-profiles.json`) ;
+//! - `estimate` : estimation mémoire et choix automatique des couches GPU ;
 //! - `utf8` : découpage UTF-8 correct du flux de jetons.
 //!
 //! `Engine` est la poignée partagée (clonable) : ses méthodes sont bloquantes et sont appelées
 //! hors du thread principal par les commandes.
 
 pub mod commands;
+mod estimate;
 pub(crate) mod gguf;
 mod models;
+mod profiles;
 mod types;
 mod utf8;
 mod worker;
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
@@ -26,8 +29,13 @@ use std::time::Duration;
 
 use tauri::Manager;
 
-pub use types::{ChatMessage, EngineInfo, EngineStatus, GenParams, GenerateResult, LoadOptions, ModelEntry, TokenEvent};
-use types::{LoadConfig, Sampling};
+pub use estimate::VramEstimate;
+pub use types::{
+  ChatMessage, EngineInfo, EngineStatus, EstimateInput, GenParams, GenerateResult, LoadOptions, ModelEntry, ModelProfile, ProfileInfo,
+  SaveResult, TokenEvent,
+};
+use profiles::ProfileStore;
+use types::{CUDA_BUILD, Defaults, LoadConfig, Sampling};
 use worker::{Command, GenerateJob};
 
 /// Événements émis par le moteur (relayés aux pages par `commands::emitter`).
@@ -62,8 +70,10 @@ pub(crate) struct Shared {
   /// Une génération est acceptée (de l'appel jusqu'à la réponse).
   busy: AtomicBool,
   current_request: Mutex<Option<String>>,
-  /// Dernières options de chargement réussies, par modèle.
-  last_config: Mutex<HashMap<String, LoadConfig>>,
+  /// Réglages enregistrés par modèle.
+  profiles: Mutex<ProfileStore>,
+  /// Modèle chargé et couches effectivement placées sur le GPU (tenu à jour par le worker).
+  loaded_gpu: Mutex<Option<(String, u32)>>,
   /// Issue de l'initialisation du thread : Ok(gpu utilisable) ou message d'erreur.
   init: Mutex<Option<Result<bool, String>>>,
   init_cv: Condvar,
@@ -131,15 +141,17 @@ pub struct Engine {
 }
 
 impl Engine {
-  /// Démarre le thread du moteur. `models_dir` doit déjà exister (sinon la liste est vide).
-  pub fn start(models_dir: PathBuf, sink: EventSink) -> Engine {
+  /// Démarre le thread du moteur. `models_dir` doit déjà exister (sinon la liste est vide) ;
+  /// `profiles_file` : fichier des réglages par modèle (absent = aucun réglage).
+  pub fn start(models_dir: PathBuf, profiles_file: PathBuf, sink: EventSink) -> Engine {
     let shared = Arc::new(Shared {
       models_dir,
       status: Mutex::new(EngineStatus::default()),
       stop: AtomicBool::new(false),
       busy: AtomicBool::new(false),
       current_request: Mutex::new(None),
-      last_config: Mutex::new(HashMap::new()),
+      profiles: Mutex::new(ProfileStore::open(profiles_file)),
+      loaded_gpu: Mutex::new(None),
       init: Mutex::new(None),
       init_cv: Condvar::new(),
       sink,
@@ -171,12 +183,12 @@ impl Engine {
     lock(&self.shared.status).clone()
   }
 
+  /// Options absentes : celles du profil du modèle.
   pub fn load(&self, model_id: String, options: Option<LoadOptions>) -> Result<(), String> {
     let path = models::resolve_model(&self.shared.models_dir, &model_id)?;
-    let config = LoadConfig::from_options(&options.unwrap_or_default());
-    self.call(|reply| Command::Load { id: model_id.clone(), path, config: config.clone(), reply })?;
-    lock(&self.shared.last_config).insert(model_id, config);
-    Ok(())
+    let options = options.unwrap_or_else(|| self.profile(&model_id).load);
+    let config = LoadConfig::from_options(&options);
+    self.call(|reply| Command::Load { id: model_id, path, config, reply })
   }
 
   pub fn unload(&self) -> Result<(), String> {
@@ -197,7 +209,8 @@ impl Engine {
       return Err(format!("Rôle de message invalide : « {} » (system, user ou assistant).", m.role));
     }
     let path = models::resolve_model(&self.shared.models_dir, &model_id)?;
-    let sampling = Sampling::from_params(&params.unwrap_or_default());
+    let profile = self.profile(&model_id);
+    let (messages, sampling) = prepare(messages, params.unwrap_or_default(), &profile.generation);
 
     if self.shared.busy.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
       return Err(BUSY.into());
@@ -206,7 +219,8 @@ impl Engine {
     self.shared.stop.store(false, Ordering::SeqCst);
     *lock(&self.shared.current_request) = Some(request_id.clone());
 
-    let config = lock(&self.shared.last_config).get(&model_id).cloned().unwrap_or_default();
+    // Utilisée seulement si le modèle n'est pas déjà chargé (sinon : sa configuration actuelle).
+    let config = LoadConfig::from_options(&profile.load);
     let job = Box::new(GenerateJob { request_id, model_id, path, config, messages, sampling });
     self.call(|reply| Command::Generate { job, reply })
   }
@@ -230,7 +244,78 @@ impl Engine {
     if is_loaded {
       self.call(|reply| Command::Unload { reply })?;
     }
-    models::delete_model_files(&self.shared.models_dir, &path)
+    models::delete_model_files(&self.shared.models_dir, &path)?;
+    if let Err(e) = lock(&self.shared.profiles).remove(model_id) {
+      log(&format!("réglages de « {model_id} » non supprimés : {e}"));
+    }
+    Ok(())
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Réglages par modèle
+  // -------------------------------------------------------------------------------------------
+
+  fn profile(&self, model_id: &str) -> ModelProfile {
+    lock(&self.shared.profiles).get(model_id)
+  }
+
+  fn is_loaded(&self, model_id: &str) -> bool {
+    self.status().loaded_model.as_deref() == Some(model_id)
+  }
+
+  /// GPU utilisable par llama.cpp (attend l'initialisation du moteur).
+  fn gpu_usable(&self) -> bool {
+    matches!(self.shared.wait_init(), Some(Ok(true)))
+  }
+
+  pub fn get_profile(&self, model_id: String) -> Result<ProfileInfo, String> {
+    let path = models::resolve_model(&self.shared.models_dir, &model_id)?;
+    let loaded_gpu_layers = lock(&self.shared.loaded_gpu).as_ref().filter(|(id, _)| *id == model_id).map(|(_, g)| *g);
+    Ok(ProfileInfo {
+      profile: self.profile(&model_id),
+      defaults: Defaults::current(),
+      meta: gguf::read_arch_meta(&path).ok(),
+      size_bytes: models::model_size(&path),
+      loaded: self.is_loaded(&model_id),
+      loaded_gpu_layers,
+      gpu_build: CUDA_BUILD,
+      model_id,
+    })
+  }
+
+  /// Enregistre le profil (validé) sans recharger le modèle.
+  pub fn set_profile(&self, model_id: String, profile: ModelProfile) -> Result<SaveResult, String> {
+    models::resolve_model(&self.shared.models_dir, &model_id)?;
+    let new_load = LoadConfig::from_options(&profile.load);
+    let old = lock(&self.shared.profiles).set(&model_id, profile)?;
+    Ok(SaveResult { load_changed: LoadConfig::from_options(&old.load) != new_load, loaded: self.is_loaded(&model_id) })
+  }
+
+  pub fn reset_profile(&self, model_id: String) -> Result<SaveResult, String> {
+    let old = lock(&self.shared.profiles).remove(&model_id)?;
+    Ok(SaveResult { load_changed: LoadConfig::from_options(&old.load) != LoadConfig::default(), loaded: self.is_loaded(&model_id) })
+  }
+
+  /// Estimation mémoire d'un modèle installé (`modelId`) ou décrit (`meta` + `sizeBytes`).
+  pub fn estimate(&self, input: EstimateInput) -> Result<VramEstimate, String> {
+    let (size, meta, options) = match input.model_id {
+      Some(id) => {
+        let path = models::resolve_model(&self.shared.models_dir, &id)?;
+        let meta = gguf::read_arch_meta(&path)?;
+        (models::model_size(&path), meta, input.options.unwrap_or_else(|| self.profile(&id).load))
+      }
+      None => match (input.meta, input.size_bytes) {
+        (Some(meta), Some(size)) => (size, meta, input.options.unwrap_or_default()),
+        _ => return Err("Estimation impossible : indiquez modelId, ou meta et sizeBytes.".into()),
+      },
+    };
+    let vram = match input.vram_bytes {
+      Some(v) => v,
+      None if self.gpu_usable() => worker::best_gpu_memory().0,
+      None => 0,
+    };
+    let config = LoadConfig::from_options(&options);
+    Ok(estimate::estimate(size, &meta, &config, vram, input.ram_bytes.unwrap_or(0)))
   }
 
   /// Arrête la génération en cours ; sans effet si `request_id` désigne une autre requête.
@@ -248,6 +333,14 @@ impl Engine {
   }
 }
 
+/// Fusionne les paramètres de la requête avec le profil du modèle (sauf `useProfile: false`) :
+/// champ absent -> profil -> défaut. Le prompt système retenu passe en tête de la conversation.
+fn prepare(mut messages: Vec<ChatMessage>, params: GenParams, profile: &GenParams) -> (Vec<ChatMessage>, Sampling) {
+  let params = if params.use_profile == Some(false) { params } else { params.or(profile) };
+  profiles::apply_system_prompt(&mut messages, params.system_prompt.as_deref());
+  (messages, Sampling::from_params(&params))
+}
+
 /// Crée le dossier des modèles et démarre le moteur (appelé depuis `setup`).
 pub fn setup(app: &tauri::App) {
   let base = app
@@ -258,13 +351,30 @@ pub fn setup(app: &tauri::App) {
   if let Err(e) = std::fs::create_dir_all(&models_dir) {
     log(&format!("création du dossier des modèles impossible ({}) : {e}", models_dir.display()));
   }
-  let engine = Engine::start(models_dir, commands::emitter(app.handle().clone()));
+  let engine = Engine::start(models_dir, base.join("model-profiles.json"), commands::emitter(app.handle().clone()));
   app.manage(engine);
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn fusion_avec_profil() {
+    let msg = |role: &str, content: &str| ChatMessage { role: role.into(), content: content.into() };
+    let profile = GenParams { temperature: Some(0.1), max_tokens: Some(99), system_prompt: Some("Profil.".into()), ..Default::default() };
+    let params = GenParams { max_tokens: Some(10), ..Default::default() };
+    let (m, s) = prepare(vec![msg("system", "Conv."), msg("user", "Q")], params.clone(), &profile);
+    assert_eq!(m[0].content, "Profil.\n\nConv.");
+    assert_eq!((s.temperature, s.max_tokens), (0.1, 10));
+    // Champ absent partout : défaut.
+    assert_eq!(s.top_k, types::DEFAULT_TOP_K);
+    // useProfile false : rien du profil.
+    let off = GenParams { use_profile: Some(false), ..params };
+    let (m, s) = prepare(vec![msg("user", "Q")], off, &profile);
+    assert_eq!(m, vec![msg("user", "Q")]);
+    assert_eq!((s.temperature, s.max_tokens), (types::DEFAULT_TEMPERATURE, 10));
+  }
 
   /// Test manuel (ignoré par défaut) : génère quelques jetons avec un vrai GGUF.
   ///   LUCANIA_TEST_GGUF=C:\chemin\modele.gguf cargo test --lib engine -- --ignored --nocapture
@@ -284,7 +394,8 @@ mod tests {
       Event::Token(t) => lock(&s2).push_str(&t.text),
       Event::Status(s) => eprintln!("[statut] {s:?}"),
     });
-    let engine = Engine::start(std::env::temp_dir(), sink);
+    let profiles = std::env::temp_dir().join(format!("lucania-profiles-reel-{}.json", std::process::id()));
+    let engine = Engine::start(std::env::temp_dir(), profiles, sink);
     let info = engine.info();
     eprintln!("backend = {}", info.backend);
 

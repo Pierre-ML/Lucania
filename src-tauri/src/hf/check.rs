@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use super::api::{self, PathInfo};
 use super::types::FileCheck;
 use super::{Hf, lock, log, names};
-use crate::engine::gguf::{self, Header, HeaderError, ModelInfo};
+use crate::engine::gguf::{self, ArchMeta, Header, HeaderError, ModelInfo};
 
 /// Premier morceau lu pour la première partie (métadonnées : vocabulaire, modèle de chat…).
 const FIRST_CHUNK: u64 = 4 << 20;
@@ -28,7 +28,8 @@ const PART_CHUNK: u64 = 1 << 20;
 /// Plafond de lecture par fichier.
 const MAX_HEADER: u64 = 64 << 20;
 const CACHE_FILE: &str = "checks.json";
-const CACHE_VERSION: u32 = 1;
+/// 2 : ajout des métadonnées d'architecture (`meta`) pour l'estimation de la VRAM.
+const CACHE_VERSION: u32 = 2;
 const MAX_ENTRIES: usize = 1000;
 /// Une demande identique (dépôt + fichiers) récente est servie sans rappeler l'API.
 const RECENT_TTL: Duration = Duration::from_secs(600);
@@ -125,19 +126,22 @@ fn file_name(path: &str) -> &str {
   path.rsplit('/').next().unwrap_or(path)
 }
 
-fn verdict(reason: Option<String>, info: ModelInfo) -> FileCheck {
+/// `meta` : dimensions du modèle, conservées seulement s'il est accepté.
+fn verdict(reason: Option<String>, info: ModelInfo, meta: Option<ArchMeta>) -> FileCheck {
+  let reason_none = reason.is_none();
   FileCheck {
-    standalone: reason.is_none(),
+    standalone: reason_none,
     reason,
     architecture: info.architecture,
     block_count: info.block_count,
     context_length: info.context_length,
     param_count: info.param_count,
+    meta: if reason_none { meta } else { None },
   }
 }
 
 fn refused(reason: String) -> FileCheck {
-  verdict(Some(reason), ModelInfo::default())
+  verdict(Some(reason), ModelInfo::default(), None)
 }
 
 fn too_large(name: &str) -> String {
@@ -198,7 +202,7 @@ async fn evaluate(
   };
   let arch = match gguf::check_kind(name, &h) {
     Ok(a) => a,
-    Err(reason) => return Ok((verdict(Some(reason), gguf::model_info(&h, &[])), true)),
+    Err(reason) => return Ok((verdict(Some(reason), gguf::model_info(&h, &[]), None), true)),
   };
 
   // Modèle découpé : les tenseurs sont répartis entre les parties, chacune avec son en-tête.
@@ -233,7 +237,7 @@ async fn evaluate(
     }
   }
   let reason = gguf::check_tensors(name, &arch, &h, &others).err();
-  Ok((verdict(reason, gguf::model_info(&h, &others)), cacheable))
+  Ok((verdict(reason, gguf::model_info(&h, &others), Some(gguf::arch_meta(&h))), cacheable))
 }
 
 /// Vérifie qu'un modèle du dépôt (`files` : ses parties) est un modèle de chat autonome. Erreur :

@@ -8,6 +8,7 @@
     "hf": "Hugging Face",
     "connections": "Connexions",
     "memory": "Mémoire",
+    "remote": "Accès distant",
     "shutdown": "Extinction à distance",
     "appearance": "Apparence",
     "about": "À propos"
@@ -203,6 +204,201 @@
       "saved": "Jeton enregistré",
       "help": "Nécessaire seulement pour les modèles à accès restreint. Le jeton n’est jamais réaffiché.",
       "link": "Créer un jeton sur Hugging Face"
+    }
+  },
+  "modelSettings": {
+    "title": "Réglages du modèle",
+    "open": "Réglages",
+    "close": "Fermer",
+    "loading": "Chargement des réglages…",
+    "load": {
+      "title": "Chargement",
+      "note": "Modifier ces valeurs recharge le modèle.",
+      "nCtx": "Contexte (en tokens)",
+      "nCtxMax": "Maximum du modèle",
+      "nCtxMaxHint": "Maximum du modèle : {n} tokens",
+      "nCtxHint": "Plus le contexte est grand, plus le cache KV occupe de mémoire.",
+      "gpuLayers": "Couches sur le GPU",
+      "gpuAuto": "Automatique",
+      "gpuHint": "Sur {total} couches. Moins de couches sur le GPU libère de la mémoire vidéo, mais ralentit la génération.",
+      "gpuHintUnknown": "Le nombre de couches du modèle est inconnu.",
+      "cpuOnly": "Ce moteur tourne sur le processeur seul : aucune couche n'est envoyée au GPU.",
+      "nThreads": "Threads",
+      "nBatch": "Taille de lot",
+      "flashAttn": "Flash Attention",
+      "flashAttnHint": "Accélère l'attention et réduit la mémoire du contexte (selon la carte graphique).",
+      "cache": "Cache KV",
+      "cacheF16": "f16 (précis)",
+      "cacheQ8": "q8_0 (économe)",
+      "cacheQ4": "q4_0 (très économe)",
+      "cacheHint": "Quantifier le cache réduit la mémoire utilisée. Quantifier V active Flash Attention."
+    },
+    "estimate": {
+      "title": "Mémoire vidéo estimée",
+      "pending": "Estimation en cours…",
+      "unknown": "Estimation indisponible (métadonnées absentes)",
+      "error": "Estimation impossible : {message}",
+      "gpuTotal": "Mémoire vidéo utilisée",
+      "weights": "Poids du modèle (GPU)",
+      "kv": "Cache KV (GPU)",
+      "compute": "Calcul",
+      "layers": "Couches sur le GPU",
+      "layersValue": "{gpu} / {total}",
+      "ram": "Mémoire vive utilisée",
+      "maxContext": "Contexte d'entraînement du modèle",
+      "vramUnknown": "Mémoire vidéo inconnue.",
+      "vramUnknownLink": "Renseigner mon matériel",
+      "notFitsVram": "Ne tient pas en mémoire vidéo",
+      "notFitsMemory": "Ne tient pas en mémoire",
+      "notFitsHint": "Le chargement risque d'échouer ou d'être très lent. Réduisez le contexte ou le nombre de couches sur le GPU.",
+      "autoFit": "Ajuster automatiquement",
+      "loadedLayers": "Modèle actuellement chargé avec {count} couches sur le GPU."
+    },
+    "gen": {
+      "title": "Génération",
+      "note": "Appliqué au prochain message, sans rechargement.",
+      "temperature": "Température",
+      "topP": "Top-p",
+      "topK": "Top-k",
+      "minP": "Min-p",
+      "repeatPenalty": "Pénalité de répétition",
+      "maxTokens": "Longueur maximale (tokens)",
+      "seed": "Graine",
+      "seedPlaceholder": "Aléatoire",
+      "seedHint": "Vide = aléatoire.",
+      "systemPrompt": "Prompt système",
+      "systemPromptHint": "Placé avant la mémoire. Vide = aucun.",
+      "systemPromptPlaceholder": "Ex. : Réponds toujours en français, de façon concise."
+    },
+    "errors": {
+      "number": "Saisissez un nombre.",
+      "integer": "Saisissez un nombre entier.",
+      "range": "Valeur comprise entre {min} et {max}.",
+      "min": "Valeur minimale : {min}.",
+      "nCtx": "0 (maximum du modèle) ou une valeur entre 256 et 1 048 576."
+    },
+    "reset": "Réinitialiser",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "reloading": "Rechargement…",
+    "saved": "Réglages enregistrés.",
+    "savedLater": "Réglages enregistrés, appliqués au prochain chargement.",
+    "resetDone": "Valeurs par défaut rétablies.",
+    "reload": {
+      "title": "Recharger le modèle",
+      "message": "Une génération est en cours. L'arrêter et recharger le modèle ?",
+      "confirm": "Arrêter et recharger"
+    }
+  },
+  "remote": {
+    "title": "Accès distant",
+    "description": "Utilise la puissance d'une autre machine Lucania à travers un tunnel WireGuard, ou partage celle-ci avec tes autres appareils.",
+    "client": {
+      "title": "Utiliser une autre machine",
+      "description": "Le chat reste identique : seul le moteur tourne sur la tour au lieu de cet ordinateur.",
+      "mode": {
+        "label": "Où tourne le moteur ?",
+        "local": "Local (cet ordinateur)",
+        "remote": "Distant (une tour Lucania)"
+      },
+      "url": {
+        "label": "Adresse de la tour",
+        "placeholder": "http://10.0.0.1:4750"
+      },
+      "key": {
+        "label": "Clé d'API",
+        "placeholder": "Clé de la tour",
+        "savedPlaceholder": "Clé enregistrée"
+      },
+      "urlRequired": "Indique l'adresse de la tour.",
+      "test": "Tester la connexion",
+      "testing": "Test en cours…",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saved": "Réglages enregistrés.",
+      "reloading": "Rechargement…",
+      "result": {
+        "latency": "Latence",
+        "latencyMs": "{ms} ms",
+        "version": "Version",
+        "backend": "Moteur",
+        "backendCuda": "GPU (CUDA)",
+        "backendCpu": "CPU",
+        "gpu": "Carte graphique",
+        "gpuVram": "{name} ({vram})",
+        "vramGb": "{vram} Go",
+        "noGpu": "Aucun GPU",
+        "model": "Modèle chargé",
+        "noModel": "Aucun"
+      },
+      "state": {
+        "local": "Mode local : le moteur de cet ordinateur est utilisé.",
+        "connected": "Connecté à la tour",
+        "unreachable": "Tour injoignable : {error}",
+        "unreachableNoError": "Tour injoignable"
+      }
+    },
+    "guide": {
+      "title": "Guide WireGuard",
+      "intro": "WireGuard crée un tunnel privé entre ta tour et ton portable. Voici les étapes, en prenant 10.0.0.1 pour la tour et 10.0.0.2 pour le portable.",
+      "step1": "Installe WireGuard sur les deux machines.",
+      "step1Link": "wireguard.com/install",
+      "step2": "Crée le tunnel WireGuard : par exemple 10.0.0.1 pour la tour et 10.0.0.2 pour le portable, puis active-le des deux côtés.",
+      "step3": "Sur la tour : Lucania › Accès distant, choisis l'interface WireGuard, garde le port 4750, génère la clé, puis active le mode serveur.",
+      "step3Firewall": "Windows demande d'autoriser Lucania dans le pare-feu : accepte pour les réseaux privés, ou crée une règle entrante TCP 4750 limitée à l'interface WireGuard.",
+      "step4": "Sur le portable : choisis le mode Distant, saisis l'adresse http://10.0.0.1:4750, colle la clé, teste la connexion, puis enregistre.",
+      "step5": "La pastille de l'en-tête suit la tour : grise si elle est injoignable, orange sans modèle chargé, verte quand elle est prête. L'extinction de la tour utilise Paramètres › Connexions.",
+      "security": "Sécurité : la connexion est en HTTP, sans chiffrement propre. À utiliser UNIQUEMENT dans le tunnel WireGuard ; la clé ne circule que dans ce tunnel.",
+      "docs": "Guide complet : docs/wireguard.md du dépôt."
+    }
+  },
+  "server": {
+    "title": "Partager cette machine (mode serveur)",
+    "description": "Cet ordinateur devient une tour : il met son moteur à disposition d'un autre Lucania. L'écran est alors réservé au mode serveur jusqu'à son arrêt.",
+    "interface": {
+      "label": "Interface d'écoute",
+      "option": "{name} — {ip}",
+      "optionWireguard": "{name} — {ip} (WireGuard)",
+      "all": "Toutes les interfaces (0.0.0.0) — déconseillé"
+    },
+    "allowAll": {
+      "warning": "Écouter sur toutes les interfaces expose le moteur à tous les réseaux auxquels cet ordinateur est connecté, y compris Internet si le port est ouvert. Préfère l'interface WireGuard.",
+      "confirm": "Je comprends les risques"
+    },
+    "port": {
+      "label": "Port",
+      "invalid": "Indique un port compris entre 1024 et 65535."
+    },
+    "key": {
+      "label": "Clé d'API",
+      "set": "Une clé est configurée",
+      "none": "Aucune clé",
+      "generate": "Générer une nouvelle clé",
+      "shownLabel": "Nouvelle clé",
+      "copy": "Copier",
+      "copied": "Copié",
+      "note": "Notez-la maintenant : elle ne sera plus affichée.",
+      "confirm": {
+        "title": "Générer une nouvelle clé ?",
+        "message": "L'ancienne clé cessera de fonctionner : les machines qui l'utilisent devront recevoir la nouvelle.",
+        "ok": "Générer"
+      }
+    },
+    "start": "Activer le mode serveur",
+    "starting": "Activation…",
+    "running": "Le mode serveur est actif sur {address}.",
+    "hint": {
+      "needKey": "Génère d'abord une clé pour activer le mode serveur.",
+      "needAck": "Coche « Je comprends les risques » pour écouter sur toutes les interfaces."
+    },
+    "errors": {
+      "generic": "Une erreur est survenue."
+    },
+    "screen": {
+      "docTitle": "Mode serveur — Lucania",
+      "stop": "Arrêter le mode serveur",
+      "stopping": "Arrêt…",
+      "listening": "En écoute sur {address}"
     }
   }
 }

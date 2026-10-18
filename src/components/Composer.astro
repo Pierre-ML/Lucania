@@ -6,6 +6,7 @@ import ChevronDownIcon from '../assets/icons/chevron-down.svg';
 import LockIcon from '../assets/icons/lock.svg';
 import DatabaseIcon from '../assets/icons/database.svg';
 import SparklePlusIcon from '../assets/icons/sparkle-plus.svg';
+import SettingsIcon from '../assets/icons/settings.svg';
 import { getLang, t } from '../i18n/index';
 const lang = getLang(Astro);
 ---
@@ -34,7 +35,10 @@ const lang = getLang(Astro);
 				</button>
 				<ul id="model-picker-menu" role="listbox" aria-label={t(lang, 'chat.composer.models')} tabindex="-1" class="hidden animate-pop-in motion-reduce:animate-none absolute bottom-full left-0 z-20 mb-2 max-h-72 min-w-64 max-w-[min(24rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-composer-border bg-composer-surface p-1 shadow-xl shadow-black/30 focus:outline-none"></ul>
 			</div>
-			<button id="memory-use-toggle" type="button" aria-pressed="true" aria-label={t(lang, 'chat.composer.memoryUse')} title={t(lang, 'chat.composer.memoryUseOn')} class="group flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-1.5 text-composer-muted transition-colors motion-reduce:transition-none not-aria-disabled:not-aria-pressed:hover:text-composer-fg focus-visible:outline-2 aria-pressed:text-composer-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40">
+			<button id="model-settings-btn" type="button" disabled aria-label={t(lang, 'chat.picker.settings')} title={t(lang, 'chat.picker.settings')} class="flex size-6.5 shrink-0 cursor-pointer items-center justify-center rounded-md text-composer-muted transition-colors hover:bg-white/5 hover:text-composer-fg focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-composer-muted motion-reduce:transition-none">
+					<SettingsIcon width="15" height="15" aria-hidden="true" />
+				</button>
+				<button id="memory-use-toggle" type="button" aria-pressed="true" aria-label={t(lang, 'chat.composer.memoryUse')} title={t(lang, 'chat.composer.memoryUseOn')} class="group flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-1.5 text-composer-muted transition-colors motion-reduce:transition-none not-aria-disabled:not-aria-pressed:hover:text-composer-fg focus-visible:outline-2 aria-pressed:text-composer-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40">
 				<DatabaseIcon width="15" height="15" aria-hidden="true" class="shrink-0" />
 				<span aria-hidden="true" class="hidden text-[11px] leading-none sm:inline">{t(lang, 'chat.composer.memoryUseShort')}</span>
 				<span aria-hidden="true" class="relative block h-4 w-7 shrink-0 rounded-full bg-composer-fg/20 ease-out group-data-[animate=true]:transition-colors group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:bg-composer-fg"><span class="absolute left-0.5 top-0.5 block size-3 rounded-full bg-composer-muted ease-out group-data-[animate=true]:transition-[translate,background-color] group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:translate-x-3 group-aria-pressed:bg-composer-surface"></span></span>

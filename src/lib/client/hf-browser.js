@@ -6,6 +6,7 @@ import {
   buildFitBadge,
   describeProfile,
   estimateFit,
+  estimateFitAsync,
   getHardwareProfile,
   onHardwareChange,
 } from './hardware.js';
@@ -456,6 +457,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
       checkRunning--;
       renderDetail(ref);
       renderFileAction(ref);
+      if (ref.result) applyFit(ref); // la méta d'architecture affine le badge
       pumpChecks();
     }
   }
@@ -506,18 +508,40 @@ export function mountHfBrowser(root, { onChange } = {}) {
     });
   }
 
-  /** Badge de compatibilité + masquage éventuel des fichiers trop gros. @param {FileActionRef} ref */
-  function applyFit(ref) {
-    if (!profile || !profile.known) {
-      ref.fitEl.replaceChildren();
-      ref.li.hidden = false;
-      return;
-    }
-    const fit = estimateFit(ref.sizeBytes, profile);
+  /** Jeton par fichier : seule la dernière demande d'estimation a le droit d'écrire le badge. @type {WeakMap<FileActionRef, number>} */
+  const fitTokens = new WeakMap();
+
+  /** Affiche le badge et masque éventuellement le fichier. @param {FileActionRef} ref @param {import('./hardware.js').Fit} fit */
+  function showFit(ref, fit) {
     ref.fitEl.replaceChildren(buildFitBadge(fit));
     const dl = downloads.get(ref.id);
     const keep = ref.installed || (dl && dl.state === 'completed');
     ref.li.hidden = hideTooBig && fit === 'too-big' && !keep;
+  }
+
+  /**
+   * Badge de compatibilité + masquage éventuel des fichiers trop gros.
+   * Estimation grossière tout de suite, puis précise (méta de la vérification) quand elle arrive.
+   * @param {FileActionRef} ref
+   */
+  function applyFit(ref) {
+    const token = (fitTokens.get(ref) || 0) + 1;
+    fitTokens.set(ref, token);
+    const current = profile;
+    if (!current || !current.known) {
+      ref.fitEl.replaceChildren();
+      ref.li.hidden = false;
+      return;
+    }
+    showFit(ref, estimateFit(ref.sizeBytes, current));
+    const meta = /** @type {any} */ (ref.result)?.meta || undefined;
+    if (!meta) return; // sans méta, l'estimation grossière est la seule disponible
+    estimateFitAsync({ sizeBytes: ref.sizeBytes, meta }, current).then((fit) => {
+      if (fitTokens.get(ref) !== token || profile !== current) return; // réponse périmée
+      showFit(ref, fit);
+      const g = [...groups].find((x) => x.refs.includes(ref));
+      if (g) g.note.hidden = !g.refs.every((r) => r.li.hidden);
+    });
   }
 
   function applyAllFits() {

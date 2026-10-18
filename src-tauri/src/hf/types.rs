@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::engine::gguf::ArchMeta;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
@@ -79,4 +81,7 @@ pub struct FileCheck {
   pub block_count: Option<u64>,
   pub context_length: Option<u64>,
   pub param_count: Option<u64>,
+  /// Dimensions pour l'estimation mémoire ; null pour un refus ou un ancien résultat en cache.
+  #[serde(default)]
+  pub meta: Option<ArchMeta>,
 }
