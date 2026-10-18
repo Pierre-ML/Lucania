@@ -7,10 +7,12 @@ import {
 } from './connections.js';
 import {
   engineAvailable,
+  getCrashLogs,
   getEngineInfo,
   getEngineStatus,
   listModels,
   onEngineStatus,
+  openCrashLogs,
   useModel,
   unloadModel,
   deleteModel,
@@ -427,6 +429,7 @@ async function loadEngine() {
     engineDirEl.textContent = info.modelsDir;
     engineInfoEl.hidden = false;
     subscribeEngine();
+    loadCrashLogs();
   } catch (e) {
     showEngineError(errorMessage(e));
   } finally {
@@ -434,6 +437,36 @@ async function loadEngine() {
     if (engineRefreshBtn) engineRefreshBtn.disabled = false;
   }
 }
+
+/** Ligne « Journaux de plantage » : masquée si la commande échoue, sans gêner le reste de la section. */
+async function loadCrashLogs() {
+  const row = byId('engine-crash-row');
+  const countEl = byId('engine-crash-count');
+  const dirEl = byId('engine-crash-dir');
+  if (!row || !countEl || !dirEl) return;
+  try {
+    const logs = await getCrashLogs();
+    if (!logs || typeof logs.dir !== 'string') throw new Error('invalid');
+    const count = Array.isArray(logs.files) ? logs.files.length : 0;
+    countEl.textContent = t('settings.engine.crashLogs.count', { count });
+    dirEl.textContent = logs.dir;
+    row.hidden = false;
+  } catch {
+    row.hidden = true;
+  }
+}
+
+byId('engine-crash-open')?.addEventListener('click', async (e) => {
+  const btn = /** @type {HTMLButtonElement} */ (e.currentTarget);
+  btn.disabled = true;
+  try {
+    await openCrashLogs();
+  } catch (err) {
+    showEngineError(errorMessage(err));
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 engineRefreshBtn?.addEventListener('click', loadEngine);
 

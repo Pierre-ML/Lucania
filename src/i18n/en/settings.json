@@ -22,7 +22,7 @@
     "modelsDir": "Models folder",
     "modelsTitle": "Installed models",
     "empty": "No model found in this folder.",
-    "help": "To add a model, download it from the Hugging Face section, or copy a .gguf file into the models folder above, then click “Refresh”.",
+    "help": "To add a model, use “Add a model” in the chat sidebar, or copy a .gguf file into the models folder above, then click “Refresh”.",
     "unitGb": "GB",
     "unitMb": "MB",
     "loaded": "Loaded",
@@ -33,6 +33,15 @@
       "button": "Delete",
       "title": "Delete this model?",
       "message": "“{name}” will be removed from this computer. This cannot be undone."
+    },
+    "crashLogs": {
+      "title": "Crash logs",
+      "count": {
+        "zero": "No reports",
+        "one": "{count} report",
+        "other": "{count} reports"
+      },
+      "open": "Open folder"
     }
   },
   "connections": {
@@ -161,11 +170,7 @@
   },
   "hf": {
     "title": "Hugging Face",
-    "description": "Search and download GGUF models from Hugging Face to use with the local engine.",
-    "parts": {
-      "one": "{count} part",
-      "other": "{count} parts"
-    },
+    "description": "Enter an access token to download gated models. To search for and download models, use “Add a model” in the chat sidebar.",
     "token": {
       "title": "Access token (optional)",
       "label": "Hugging Face token",
@@ -178,39 +183,6 @@
       "saved": "Token saved",
       "help": "Only needed for gated models. The token is never shown again.",
       "link": "Create a token on Hugging Face"
-    },
-    "search": {
-      "title": "Search for a model",
-      "label": "Search for a model",
-      "placeholder": "Name, author or model family…",
-      "button": "Search",
-      "loading": "Searching…",
-      "popular": "Most downloaded",
-      "empty": "No model found.",
-      "stats": "{downloads} downloads · {likes} likes",
-      "gated": "Gated"
-    },
-    "files": {
-      "loading": "Loading files…",
-      "empty": "No GGUF file in this repository.",
-      "download": "Download",
-      "installed": "Installed"
-    },
-    "downloads": {
-      "title": "Downloads",
-      "pause": "Pause",
-      "resume": "Resume",
-      "cancel": "Cancel",
-      "keep": "Keep going",
-      "use": "Use",
-      "cancelTitle": "Cancel the download?",
-      "cancelMessage": "The download of “{name}” will stop and the data already received will be deleted.",
-      "state": {
-        "downloading": "Downloading…",
-        "paused": "Paused",
-        "completed": "Done",
-        "error": "Error"
-      }
     }
   }
 }

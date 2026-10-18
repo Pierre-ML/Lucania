@@ -301,6 +301,13 @@ mod tests {
         eprintln!("{} {:?} {} octets {:?}", g.name, g.files, g.size_bytes, super::super::names::quant(&g.name));
       }
       assert!(groups.iter().any(|g| g.files == ["Qwen3-4B-Q4_K_M.gguf"]));
+      // Dépôt avec annexes (tête MTP, imatrix, mmproj) : aucune ne doit être proposée.
+      let tree = list_tree(&client, None, "unsloth/Qwen3.8-27B-GGUF").await.expect("arbre");
+      let groups = super::super::names::group_files(&tree);
+      let annexes: Vec<_> = tree.iter().filter(|(p, _)| super::super::names::is_annex_file(p)).map(|(p, _)| p.as_str()).collect();
+      eprintln!("annexes écartées : {annexes:?} ; plus petit modèle proposé : {:?}", groups.first().map(|g| &g.files));
+      assert!(annexes.iter().any(|p| p.starts_with("MTP/")));
+      assert!(groups.iter().flat_map(|g| &g.files).all(|f| !super::super::names::is_annex_file(f)));
       assert!(list_tree(&client, None, "unsloth/existe-pas-123456").await.is_err());
       assert_eq!(whoami(&client, "hf_invalide").await, Err(TOKEN_REFUSED.into()));
     });

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-app-open-crash-logs"
+description = "Enables the app_open_crash_logs command without any pre-configured scope."
+commands.allow = ["app_open_crash_logs"]
+
+[[permission]]
+identifier = "deny-app-open-crash-logs"
+description = "Denies the app_open_crash_logs command without any pre-configured scope."
+commands.deny = ["app_open_crash_logs"]

@@ -9,6 +9,8 @@ import { t } from './i18n.js';
  * @typedef {{ id: string, name: string, sizeBytes: number }} EngineModel
  * @typedef {{ backend: 'cuda'|'cpu', modelsDir: string }} EngineInfo
  * @typedef {{ loadedModel: string|null, loading: boolean, generating: boolean }} EngineStatus
+ * @typedef {{ name: string, sizeBytes: number, modified: string }} CrashLogFile
+ * @typedef {{ dir: string, files: CrashLogFile[] }} CrashLogs
  */
 
 /** Vrai si la page tourne dans la fenêtre Tauri (et non dans un simple navigateur). */
@@ -123,6 +125,21 @@ export async function useModel(id) {
   } catch {
     /* stockage indisponible : le modèle reste chargé */
   }
+}
+
+/**
+ * Dossier des journaux de plantage et fichiers présents (du plus récent au plus ancien).
+ * @returns {Promise<CrashLogs>}
+ */
+export async function getCrashLogs() {
+  requireEngine();
+  return invoke('app_crash_logs');
+}
+
+/** Ouvre le dossier des journaux de plantage dans l'explorateur. @returns {Promise<void>} */
+export async function openCrashLogs() {
+  requireEngine();
+  await invoke('app_open_crash_logs');
 }
 
 /**

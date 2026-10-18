@@ -2,7 +2,7 @@
 import PlusIcon from '../assets/icons/plus.svg';
 import FolderPlusIcon from '../assets/icons/folder-plus.svg';
 import SettingsIcon from '../assets/icons/settings.svg';
-import ShutdownButton from './ShutdownButton.astro';
+import SparklePlusIcon from '../assets/icons/sparkle-plus.svg';
 import { getLang, t } from '../i18n/index';
 const lang = getLang(Astro);
 ---
@@ -35,13 +35,16 @@ const lang = getLang(Astro);
 		<nav class="min-h-0 flex-1 overflow-y-auto px-3 pb-3" aria-label={t(lang, 'chat.sidebar.conversations')}>
 			<ul id="conversation-list" class="flex flex-col gap-0.5"></ul>
 		</nav>
-		<div class="px-3 pb-2 pt-1">
+		<div class="flex flex-col gap-0.5 px-3 pb-3 pt-1">
 			<a href="/parametres" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
 				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SettingsIcon width="16" height="16" aria-hidden="true" /></span>
 				{t(lang, 'chat.sidebar.settings')}
 			</a>
+			<button id="add-model-btn" type="button" data-action="add-model" class="group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
+				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SparklePlusIcon width="16" height="16" aria-hidden="true" /></span>
+				{t(lang, 'chat.addModel.button')}
+			</button>
 		</div>
-		<ShutdownButton />
 	</div>
 </aside>
 <script is:inline>

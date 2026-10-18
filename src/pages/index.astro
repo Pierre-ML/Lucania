@@ -6,6 +6,8 @@ import MessageList from '../components/MessageList.astro';
 import Composer from '../components/Composer.astro';
 import ConfirmDialog from '../components/ConfirmDialog.astro';
 import MemoryProposal from '../components/MemoryProposal.astro';
+import ShutdownButton from '../components/ShutdownButton.astro';
+import AddModelDialog from '../components/AddModelDialog.astro';
 ---
 <Layout>
 	<div class="flex h-dvh overflow-hidden">
@@ -16,6 +18,8 @@ import MemoryProposal from '../components/MemoryProposal.astro';
 			<Composer />
 		</div>
 	</div>
+	<AddModelDialog />
+	<ShutdownButton />
 	<ConfirmDialog />
 	<MemoryProposal />
 </Layout>

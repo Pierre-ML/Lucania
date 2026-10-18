@@ -1,0 +1,12 @@
+---
+import PowerIcon from '../assets/icons/power.svg';
+import { getLang, t } from '../i18n/index';
+const lang = getLang(Astro);
+const label = t(lang, 'chat.engine.unavailable');
+---
+<div class="relative shrink-0">
+	<button id="power-btn" type="button" data-state="none" data-loading="false" aria-label={label} title={label} class="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-white/[0.07] focus-visible:outline-2 data-[state=ok]:text-emerald-500 data-[state=ok]:drop-shadow-[0_0_4px_rgb(16_185_129/0.55)] data-[state=partial]:text-amber-500 data-[loading=true]:animate-dot-pulse motion-reduce:animate-none">
+		<PowerIcon width="20" height="20" aria-hidden="true" />
+	</button>
+	<p id="power-note" role="status" aria-live="polite" hidden class="absolute right-0 top-full z-20 mt-2 w-max max-w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-fg shadow-[0_12px_32px_rgb(0_0_0/0.55)]"></p>
+</div>

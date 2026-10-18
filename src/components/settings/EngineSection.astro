@@ -26,6 +26,14 @@ const lang = getLang(Astro);
 				<dt class="text-muted">{t(lang, 'settings.engine.modelsDir')}</dt>
 				<dd id="engine-dir" class="rounded-md bg-code px-2 py-1 font-mono text-xs [overflow-wrap:anywhere]"></dd>
 			</div>
+			<div id="engine-crash-row" hidden class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+				<dt class="text-muted">{t(lang, 'settings.engine.crashLogs.title')}</dt>
+				<dd class="flex items-center gap-3">
+					<span id="engine-crash-count" class="font-medium"></span>
+					<button type="button" id="engine-crash-open" class={secondaryBtn}>{t(lang, 'settings.engine.crashLogs.open')}</button>
+				</dd>
+				<dd id="engine-crash-dir" class="basis-full rounded-md bg-code px-2 py-1 font-mono text-xs [overflow-wrap:anywhere]"></dd>
+			</div>
 		</dl>
 
 		<h3 class="mt-8 text-sm font-medium">{t(lang, 'settings.engine.modelsTitle')}</h3>

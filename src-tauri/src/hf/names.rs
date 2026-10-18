@@ -162,13 +162,30 @@ pub struct Group {
   pub size_bytes: u64,
 }
 
-/// Garde les .gguf hors projecteurs multimodaux (« mmproj »), regroupe les modèles découpés
+/// Fichier GGUF annexe, inutilisable seul comme modèle de chat (chemin complet dans le dépôt,
+/// casse ignorée) :
+/// - projecteur multimodal : « mmproj » ;
+/// - tête MTP (prédiction multi-jetons, à charger avec le modèle complet) : segment « mtp » ou
+///   « nextn » (dossier `MTP/`, `mtp-Qwen3.8-27B-Q4_0.gguf`…) ;
+/// - matrice d'importance de quantification : « imatrix » (`imatrix_unsloth.gguf`).
+///
+/// Les modèles « draft » (petits modèles pour le décodage spéculatif) restent proposés : ce sont
+/// des modèles complets. Les adaptateurs LoRA, sans nom normalisé, sont refusés au chargement
+/// par le moteur (`general.type = adapter`).
+pub fn is_annex_file(path: &str) -> bool {
+  let lower = path.to_ascii_lowercase();
+  lower.contains("mmproj")
+    || lower.contains("imatrix")
+    || lower.split(['/', '-', '_', '.', ' ']).any(|seg| seg == "mtp" || seg == "nextn")
+}
+
+/// Garde les .gguf hors fichiers annexes (`is_annex_file`), regroupe les modèles découpés
 /// (groupes incomplets ignorés) et trie par taille croissante.
 pub fn group_files(entries: &[(String, u64)]) -> Vec<Group> {
   let mut out = Vec::new();
   let mut splits: BTreeMap<(String, u32), BTreeMap<u32, (String, u64)>> = BTreeMap::new();
   for (path, size) in entries {
-    if !valid_file(path) || path.to_ascii_lowercase().contains("mmproj") {
+    if !valid_file(path) || is_annex_file(path) {
       continue;
     }
     match split_info(path) {
@@ -268,6 +285,11 @@ mod tests {
       e("Qwen3-4B-Q2_K.gguf", 100),
       e("mmproj-F16.gguf", 50),
       e("vision/MMPROJ-model.gguf", 50),
+      // Annexes du dépôt unsloth/Qwen3.8-27B-GGUF : tête MTP (le plus petit fichier, en tête de
+      // liste avant ce filtre) et matrice d'importance.
+      e("MTP/mtp-Qwen3.8-27B-Q4_0.gguf", 20),
+      e("imatrix_unsloth.gguf", 5),
+      e("Qwen3-4B-Q4_K_M.nextn.gguf", 5),
       e("BF16/big-BF16-00002-of-00002.gguf", 30),
       e("BF16/big-BF16-00001-of-00002.gguf", 500),
       // Groupe incomplet : ignoré
@@ -279,6 +301,31 @@ mod tests {
     assert_eq!(names, ["Qwen3-4B-Q2_K", "Qwen3-4B-Q8_0", "big-BF16"]);
     assert_eq!(groups[2].files, ["BF16/big-BF16-00001-of-00002.gguf", "BF16/big-BF16-00002-of-00002.gguf"]);
     assert_eq!(groups[2].size_bytes, 530);
+  }
+
+  #[test]
+  fn fichiers_annexes() {
+    for annex in [
+      "mmproj-F16.gguf",
+      "MTP/mtp-Qwen3.8-27B-Q4_0.gguf",
+      "mtp/model-Q4_0.gguf",
+      "Qwen3.8-27B-MTP-Q8_0.gguf",
+      "model_mtp.gguf",
+      "imatrix_unsloth.gguf",
+      "Qwen3-4B.imatrix.gguf",
+      "x-nextn-Q4_0.gguf",
+    ] {
+      assert!(is_annex_file(annex), "{annex}");
+    }
+    for model in [
+      "Qwen3.8-27B-Q4_0.gguf",
+      "BF16/Qwen3.8-27B-BF16-00001-of-00002.gguf",
+      "Qwen2.5-Coder-0.5B-Instruct-draft-Q8_0.gguf",
+      "smtp-helper-Q4_K_M.gguf",
+      "Mtproto-7B-Q4_0.gguf",
+    ] {
+      assert!(!is_annex_file(model), "{model}");
+    }
   }
 
   #[test]

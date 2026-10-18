@@ -5,6 +5,8 @@ fn main() {
     tauri_build::Attributes::new()
       .app_manifest(tauri_build::AppManifest::new().commands(&[
         "uninstall_app",
+        "app_crash_logs",
+        "app_open_crash_logs",
         "engine_info",
         "engine_list_models",
         "engine_status",

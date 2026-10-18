@@ -188,7 +188,6 @@
     "customizeFolder": "Personnalisation du dossier impossible : {message}"
   },
   "shutdown": {
-    "button": "Éteindre {name}",
     "title": "Éteindre {name} ?",
     "text": "La machine « {name} » va s’arrêter complètement.",
     "defaultTitle": "Éteindre la machine ?",
@@ -204,5 +203,53 @@
     "idle": "Aucun modèle chargé",
     "generating": "Génération…",
     "noModels": "Aucun modèle installé : placez un fichier .gguf dans le dossier des modèles (Paramètres › Moteur)."
+  },
+  "addModel": {
+    "button": "Ajouter un modèle",
+    "title": "Ajouter un modèle",
+    "description": "Cherche un modèle GGUF sur Hugging Face et télécharge-le pour l’utiliser avec le moteur local.",
+    "close": "Fermer",
+    "tokenLink": "Ouvrir Paramètres › Hugging Face (jeton d’accès)",
+    "parts": {
+      "one": "{count} partie",
+      "other": "{count} parties"
+    },
+    "search": {
+      "label": "Rechercher un modèle",
+      "placeholder": "Nom, auteur ou famille de modèles…",
+      "button": "Rechercher",
+      "loading": "Recherche en cours…",
+      "popular": "Les plus téléchargés",
+      "empty": "Aucun modèle trouvé.",
+      "stats": "{downloads} téléchargements · {likes} J’aime",
+      "gated": "Accès restreint"
+    },
+    "files": {
+      "loading": "Chargement des fichiers…",
+      "empty": "Aucun fichier GGUF dans ce dépôt.",
+      "download": "Télécharger",
+      "installed": "Installé"
+    },
+    "downloads": {
+      "title": "Téléchargements",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "cancel": "Annuler",
+      "keep": "Continuer",
+      "use": "Utiliser",
+      "cancelTitle": "Annuler le téléchargement ?",
+      "cancelMessage": "Le téléchargement de « {name} » sera arrêté et les données déjà reçues seront supprimées.",
+      "state": {
+        "downloading": "Téléchargement…",
+        "paused": "En pause",
+        "completed": "Terminé",
+        "error": "Erreur"
+      }
+    }
+  },
+  "power": {
+    "noTarget": "Aucune machine distante à éteindre (Paramètres › Connexions)",
+    "clickToShutdown": "Cliquer pour éteindre {name}",
+    "error": "État du moteur indisponible"
   }
 }

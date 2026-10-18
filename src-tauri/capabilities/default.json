@@ -7,6 +7,8 @@
   "permissions": [
     "core:default",
     "allow-uninstall-app",
+    "allow-app-crash-logs",
+    "allow-app-open-crash-logs",
     "allow-engine-info",
     "allow-engine-list-models",
     "allow-engine-status",

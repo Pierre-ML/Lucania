@@ -16,14 +16,19 @@ use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{LlamaChatMessage, LlamaChatTemplate, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
-use llama_cpp_2::{LlamaBackendDeviceType, LogOptions, list_llama_ggml_backend_devices, send_logs_to_tracing};
+use llama_cpp_2::{LlamaBackendDeviceType, list_llama_ggml_backend_devices};
 
+use super::gguf;
 use super::types::{CUDA_BUILD, CacheType, ChatMessage, GenerateResult, LoadConfig, Sampling, StopReason};
 use super::utf8::Utf8Stream;
 use super::{Shared, log};
 
 /// Nombre de jetons récents pris en compte par la pénalité de répétition.
 const PENALTY_LAST_N: i32 = 64;
+
+/// Pile du thread du moteur : marge pour llama.cpp (modèles de chat Jinja, chargement), au-delà
+/// des 2 Mo par défaut des threads Rust. Mémoire réservée, pas engagée.
+const ENGINE_STACK: usize = 8 * 1024 * 1024;
 
 pub(crate) struct GenerateJob {
   pub request_id: String,
@@ -61,6 +66,7 @@ pub(crate) fn spawn(shared: Arc<Shared>, rx: Receiver<Command>) {
   let s = shared.clone();
   let started = std::thread::Builder::new()
     .name("lucania-engine".into())
+    .stack_size(ENGINE_STACK)
     .spawn(move || run(s, rx));
   if let Err(e) = started {
     shared.set_init(Err(format!("thread du moteur impossible à lancer : {e}")));
@@ -68,16 +74,18 @@ pub(crate) fn spawn(shared: Arc<Shared>, rx: Receiver<Command>) {
 }
 
 fn run(shared: Arc<Shared>, rx: Receiver<Command>) {
-  // Logs llama.cpp/ggml : sur stderr en debug, coupés en release.
-  if !cfg!(debug_assertions) {
-    send_logs_to_tracing(LogOptions::default().with_logs_enabled(false));
-  }
+  // Logs llama.cpp/ggml : tout sur stderr en debug ; avertissements et erreurs dans le journal
+  // de session.
+  crate::crashlog::install_llama_logs();
   let backend = match catch_unwind(LlamaBackend::init) {
     Ok(Ok(b)) => b,
     Ok(Err(e)) => return shared.set_init(Err(format!("initialisation de llama.cpp impossible : {e}"))),
     Err(_) => return shared.set_init(Err("initialisation de llama.cpp impossible".into())),
   };
   let gpu = detect_gpu(&backend);
+  // Le runtime CUDA a pu remplacer le filtre d'exceptions natif : on le réinstalle.
+  crate::crashlog::arm_exception_filter();
+  log(&format!("backend : {} (build {})", if gpu { "cuda" } else { "cpu" }, if CUDA_BUILD { "cuda" } else { "cpu" }));
   shared.set_init(Ok(gpu));
 
   let mut worker = Worker { backend, gpu, shared, loaded: None };
@@ -148,6 +156,9 @@ impl Worker {
     match cmd {
       Command::Load { id, path, config, reply } => {
         let r = self.guarded(|w| w.load(&id, &path, &config));
+        if let Err(e) = &r {
+          log(&format!("échec du chargement de « {id} » : {e}"));
+        }
         let _ = reply.send(r);
       }
       Command::Unload { reply } => {
@@ -159,7 +170,20 @@ impl Worker {
         let _ = reply.send(r);
       }
       Command::Generate { job, reply } => {
+        // Jamais le contenu des messages : seulement leur nombre et le résultat.
+        log(&format!("génération {} avec « {} » : début ({} messages)", job.request_id, job.model_id, job.messages.len()));
+        let start = std::time::Instant::now();
         let r = self.guarded(|w| w.generate(&job));
+        match &r {
+          Ok(g) => log(&format!(
+            "génération {} : fin, {} jetons en {:.1} s ({:?})",
+            job.request_id,
+            g.tokens,
+            start.elapsed().as_secs_f64(),
+            g.stop_reason
+          )),
+          Err(e) => log(&format!("génération {} : erreur : {e}", job.request_id)),
+        }
         let _ = reply.send(r);
       }
     }
@@ -205,6 +229,21 @@ impl Worker {
   }
 
   fn load_inner(&self, id: &str, path: &Path, config: &LoadConfig) -> Result<Loaded, String> {
+    // Refus propre des fichiers annexes (tête MTP, projecteur…) : llama.cpp peut les accepter
+    // puis faire une violation d'accès à la création du contexte, non rattrapable.
+    gguf::check_model(path)?;
+    log(&format!("chargement de « {id} » ({}) : {config:?}", path.display()));
+    let start = std::time::Instant::now();
+    let loaded = self.load_devices(id, path, config)?;
+    log(&format!(
+      "« {id} » chargé en {:.1} s ({})",
+      start.elapsed().as_secs_f64(),
+      if loaded.no_gpu { "CPU seul".to_string() } else { format!("GPU, nGpuLayers {}", config.n_gpu_layers) }
+    ));
+    Ok(loaded)
+  }
+
+  fn load_devices(&self, id: &str, path: &Path, config: &LoadConfig) -> Result<Loaded, String> {
     if CUDA_BUILD && !self.gpu && config.n_gpu_layers > 0 {
       log("aucun GPU CUDA utilisable : chargement sur le CPU");
     }

@@ -35,9 +35,10 @@ pub enum Event {
 
 pub type EventSink = Box<dyn Fn(Event) + Send + Sync>;
 
-/// Journal (stderr). Le jeton n'y figure jamais.
+/// Journal (stderr et journal de session). Le jeton n'y figure jamais.
 pub(crate) fn log(msg: &str) {
   eprintln!("[hf] {msg}");
+  crate::crashlog::note(&format!("[hf] {msg}"));
 }
 
 /// Verrou tolérant : un thread qui a paniqué ne bloque pas les suivants.
@@ -193,6 +194,12 @@ impl Hf {
     }
     if let Some(bad) = files.iter().find(|f| !names::valid_file(f)) {
       return Err(format!("Fichier invalide : « {bad} »"));
+    }
+    if let Some(annex) = files.iter().find(|f| names::is_annex_file(f)) {
+      return Err(format!(
+        "« {} » est un fichier annexe (tête MTP, projecteur de vision ou imatrix) : il ne peut pas servir seul de modèle de chat.",
+        names::display_name(annex)
+      ));
     }
     files.sort();
     files.dedup();
@@ -579,6 +586,8 @@ mod tests {
     assert!(hf.download("a/b".into(), vec![]).is_err());
     assert!(hf.download("a/b".into(), vec!["../a.gguf".into()]).is_err());
     assert!(hf.download("a/b".into(), (0..11).map(|i| format!("{i}.gguf")).collect()).is_err());
+    let annex = hf.download("unsloth/Qwen3.8-27B-GGUF".into(), vec!["MTP/mtp-Qwen3.8-27B-Q4_0.gguf".into()]);
+    assert!(annex.unwrap_err().contains("fichier annexe"));
     assert!(hf.pause("inconnu").is_err());
     assert!(hf.list_downloads().is_empty());
   }

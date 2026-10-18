@@ -3,6 +3,7 @@
 //! - `worker` : thread dédié qui possède le backend, le modèle et les contextes ;
 //! - `commands` : commandes Tauri appelées par les pages (contrat JSON camelCase) ;
 //! - `models` : dossier des modèles GGUF (liste, résolution sûre des identifiants) ;
+//! - `gguf` : lecture de l'en-tête GGUF, refus des fichiers annexes avant llama.cpp ;
 //! - `types` : structures échangées et réglages par défaut ;
 //! - `utf8` : découpage UTF-8 correct du flux de jetons.
 //!
@@ -10,6 +11,7 @@
 //! hors du thread principal par les commandes.
 
 pub mod commands;
+mod gguf;
 mod models;
 mod types;
 mod utf8;
@@ -36,9 +38,11 @@ pub enum Event {
 
 pub type EventSink = Box<dyn Fn(Event) + Send + Sync>;
 
-/// Journal du moteur (stderr ; invisible dans l'app installée, sans console).
+/// Journal du moteur : stderr (invisible dans l'app installée, sans console) et journal de
+/// session `logs-crash/session.log`.
 pub(crate) fn log(msg: &str) {
   eprintln!("[moteur] {msg}");
+  crate::crashlog::note(&format!("[moteur] {msg}"));
 }
 
 /// Verrou tolérant : un thread qui a paniqué ne bloque pas les suivants.

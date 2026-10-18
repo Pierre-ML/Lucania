@@ -22,7 +22,7 @@
     "modelsDir": "Dossier des modèles",
     "modelsTitle": "Modèles installés",
     "empty": "Aucun modèle trouvé dans ce dossier.",
-    "help": "Pour ajouter un modèle, télécharge-le depuis la section Hugging Face, ou copie un fichier .gguf dans le dossier des modèles ci-dessus, puis clique sur « Actualiser ».",
+    "help": "Pour ajouter un modèle, utilise « Ajouter un modèle » dans la barre latérale du chat, ou copie un fichier .gguf dans le dossier des modèles ci-dessus, puis clique sur « Actualiser ».",
     "unitGb": "Go",
     "unitMb": "Mo",
     "loaded": "Chargé",
@@ -33,6 +33,15 @@
       "button": "Supprimer",
       "title": "Supprimer le modèle ?",
       "message": "« {name} » sera supprimé de cet ordinateur. Cette action est définitive."
+    },
+    "crashLogs": {
+      "title": "Journaux de plantage",
+      "count": {
+        "zero": "Aucun rapport",
+        "one": "{count} rapport",
+        "other": "{count} rapports"
+      },
+      "open": "Ouvrir le dossier"
     }
   },
   "connections": {
@@ -161,11 +170,7 @@
   },
   "hf": {
     "title": "Hugging Face",
-    "description": "Cherche et télécharge des modèles GGUF depuis Hugging Face pour les utiliser avec le moteur local.",
-    "parts": {
-      "one": "{count} partie",
-      "other": "{count} parties"
-    },
+    "description": "Renseigne un jeton d’accès pour télécharger les modèles à accès restreint. Pour chercher et télécharger des modèles, utilise « Ajouter un modèle » dans la barre latérale du chat.",
     "token": {
       "title": "Jeton d’accès (facultatif)",
       "label": "Jeton Hugging Face",
@@ -178,39 +183,6 @@
       "saved": "Jeton enregistré",
       "help": "Nécessaire seulement pour les modèles à accès restreint. Le jeton n’est jamais réaffiché.",
       "link": "Créer un jeton sur Hugging Face"
-    },
-    "search": {
-      "title": "Rechercher un modèle",
-      "label": "Rechercher un modèle",
-      "placeholder": "Nom, auteur ou famille de modèles…",
-      "button": "Rechercher",
-      "loading": "Recherche en cours…",
-      "popular": "Les plus téléchargés",
-      "empty": "Aucun modèle trouvé.",
-      "stats": "{downloads} téléchargements · {likes} J’aime",
-      "gated": "Accès restreint"
-    },
-    "files": {
-      "loading": "Chargement des fichiers…",
-      "empty": "Aucun fichier GGUF dans ce dépôt.",
-      "download": "Télécharger",
-      "installed": "Installé"
-    },
-    "downloads": {
-      "title": "Téléchargements",
-      "pause": "Pause",
-      "resume": "Reprendre",
-      "cancel": "Annuler",
-      "keep": "Continuer",
-      "use": "Utiliser",
-      "cancelTitle": "Annuler le téléchargement ?",
-      "cancelMessage": "Le téléchargement de « {name} » sera arrêté et les données déjà reçues seront supprimées.",
-      "state": {
-        "downloading": "Téléchargement…",
-        "paused": "En pause",
-        "completed": "Terminé",
-        "error": "Erreur"
-      }
     }
   }
 }

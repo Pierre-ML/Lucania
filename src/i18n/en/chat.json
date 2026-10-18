@@ -188,7 +188,6 @@
     "customizeFolder": "Could not customize the folder: {message}"
   },
   "shutdown": {
-    "button": "Shut down {name}",
     "title": "Shut down {name}?",
     "text": "The machine “{name}” will shut down completely.",
     "defaultTitle": "Shut down the machine?",
@@ -204,5 +203,53 @@
     "idle": "No model loaded",
     "generating": "Generating…",
     "noModels": "No model installed: put a .gguf file in the models folder (Settings › Engine)."
+  },
+  "addModel": {
+    "button": "Add a model",
+    "title": "Add a model",
+    "description": "Search for a GGUF model on Hugging Face and download it to use with the local engine.",
+    "close": "Close",
+    "tokenLink": "Open Settings › Hugging Face (access token)",
+    "parts": {
+      "one": "{count} part",
+      "other": "{count} parts"
+    },
+    "search": {
+      "label": "Search for a model",
+      "placeholder": "Name, author or model family…",
+      "button": "Search",
+      "loading": "Searching…",
+      "popular": "Most downloaded",
+      "empty": "No model found.",
+      "stats": "{downloads} downloads · {likes} likes",
+      "gated": "Gated"
+    },
+    "files": {
+      "loading": "Loading files…",
+      "empty": "No GGUF file in this repository.",
+      "download": "Download",
+      "installed": "Installed"
+    },
+    "downloads": {
+      "title": "Downloads",
+      "pause": "Pause",
+      "resume": "Resume",
+      "cancel": "Cancel",
+      "keep": "Keep going",
+      "use": "Use",
+      "cancelTitle": "Cancel the download?",
+      "cancelMessage": "The download of “{name}” will stop and the data already received will be deleted.",
+      "state": {
+        "downloading": "Downloading…",
+        "paused": "Paused",
+        "completed": "Done",
+        "error": "Error"
+      }
+    }
+  },
+  "power": {
+    "noTarget": "No remote machine to shut down (Settings › Connections)",
+    "clickToShutdown": "Click to shut down {name}",
+    "error": "Engine status unavailable"
   }
 }

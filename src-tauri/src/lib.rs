@@ -1,5 +1,6 @@
 use tauri::Manager;
 
+mod crashlog;
 mod engine;
 mod hf;
 
@@ -157,6 +158,14 @@ fn uninstall_app(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  let context = tauri::generate_context!();
+  // Journaux de diagnostic (panique, abort de ggml, exception native) : installés avant tout le
+  // reste. Le journal de session n'est ouvert que dans `setup` (instance principale).
+  crashlog::init(
+    crashlog::default_dir(&context.config().identifier),
+    &context.package_info().version.to_string(),
+  );
+
   let builder = tauri::Builder::default();
 
   // Instance unique : doit être le PREMIER plugin enregistré. Une 2e instance transmet ses
@@ -176,6 +185,8 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .invoke_handler(tauri::generate_handler![
       uninstall_app,
+      crashlog::app_crash_logs,
+      crashlog::app_open_crash_logs,
       engine::commands::engine_info,
       engine::commands::engine_list_models,
       engine::commands::engine_status,
@@ -195,6 +206,8 @@ pub fn run() {
       hf::commands::hf_set_token,
     ])
     .setup(|app| {
+      crashlog::start_session();
+
       // Dossier de travail de l'utilisateur : Documents\Lucania
       if let Ok(docs) = app.path().document_dir() {
         let _ = std::fs::create_dir_all(docs.join("Lucania"));
@@ -223,7 +236,7 @@ pub fn run() {
     });
 
   builder
-    .build(tauri::generate_context!())
+    .build(context)
     .expect("error while building tauri application")
     .run(|_app, _event| {
       #[cfg(not(debug_assertions))]

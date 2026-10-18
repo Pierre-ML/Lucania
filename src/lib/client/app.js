@@ -18,7 +18,8 @@ import {
 } from './conversations.js';
 import { getMemory, addFact, extractFacts, getSystemMemory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
-import { initShutdown } from './shutdown.js';
+import { initShutdown, setPowerStatus } from './shutdown.js';
+import { initAddModel } from './hf-browser.js';
 import { initSidebar, closeSidebarMobile } from './sidebar.js';
 import { initModelPicker, syncModelPicker, setModelPickerData, parseModelRef, makeModelRef } from './model-picker.js';
 import { confirmDialog } from './dialog.js';
@@ -151,9 +152,6 @@ const newFolderBtn = $('new-folder-btn');
 const listEl = $('conversation-list');
 const chatTitle = $('chat-title');
 const select = /** @type {HTMLSelectElement} */ ($('model-select'));
-const statusDot = $('status-dot');
-const statusLabel = $('status-label');
-const statusIndicator = $('status-indicator');
 const scrollEl = $('messages-scroll');
 const messagesEl = $('messages');
 const emptyState = $('empty-state');
@@ -367,29 +365,12 @@ function showError(text) {
 /** @type {import('./engine.js').EngineStatus|null} */
 let engineStatus = null;
 
+/** Vrai si la lecture de l'état du moteur a échoué. */
+let engineStatusError = false;
+
+/** Pousse l'état du moteur vers le bouton marche/arrêt de l'en-tête. */
 function renderStatus() {
-  if (!engineAvailable()) {
-    statusDot.dataset.status = 'offline';
-    statusLabel.textContent = t('chat.engine.unavailable');
-    statusIndicator.title = '';
-    return;
-  }
-  if (!engineStatus) return; // « vérification… » tant que le premier état n'est pas arrivé
-  const s = engineStatus;
-  statusIndicator.title = s.loadedModel || '';
-  if (s.loading) {
-    statusDot.dataset.status = 'checking';
-    statusLabel.textContent = t('chat.engine.loading');
-  } else if (s.generating) {
-    statusDot.dataset.status = 'online';
-    statusLabel.textContent = t('chat.engine.generating');
-  } else if (s.loadedModel) {
-    statusDot.dataset.status = 'online';
-    statusLabel.textContent = t('chat.engine.ready');
-  } else {
-    statusDot.dataset.status = 'none';
-    statusLabel.textContent = t('chat.engine.idle');
-  }
+  setPowerStatus({ engineAvailable: engineAvailable(), status: engineStatus, error: engineStatusError });
 }
 
 /** Lit l'état du moteur puis s'abonne à ses changements. */
@@ -401,10 +382,13 @@ async function initEngineStatus() {
     renderStatus();
     await onEngineStatus((s) => {
       engineStatus = s;
+      engineStatusError = false;
       renderStatus();
     });
   } catch (err) {
     console.warn(err);
+    engineStatusError = true;
+    renderStatus();
   }
 }
 
@@ -2006,6 +1990,7 @@ async function send() {
 /* ---------- Démarrage ---------- */
 
 initShutdown();
+initAddModel({ onChange: () => refreshModels() });
 initSidebar();
 initModelPicker();
 renderMemoryToggles();
