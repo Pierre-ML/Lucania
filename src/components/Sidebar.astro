@@ -7,8 +7,8 @@ import { getLang, t } from '../i18n/index';
 const lang = getLang(Astro);
 ---
 <div id="sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-black/70 backdrop-blur-[2px] data-[open=true]:block md:hidden!"></div>
-<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 shrink-0 -translate-x-full overflow-hidden border-r border-border bg-sidebar data-[open=true]:translate-x-0 md:static md:translate-x-0 transition-[width,transform,visibility] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:data-[collapsed=true]:invisible md:data-[collapsed=true]:w-0 md:data-[collapsed=true]:border-r-0">
-	<div class="flex h-full w-64 flex-col">
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full overflow-hidden border-r border-border bg-sidebar data-[open=true]:translate-x-0 md:static md:translate-x-0 transition-[width,transform,visibility] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:data-[collapsed=true]:invisible md:data-[collapsed=true]:w-0 md:data-[collapsed=true]:border-r-0">
+	<div class="flex h-full min-h-0 w-64 shrink-0 flex-col">
 		<div class="flex flex-col gap-3 p-4 pb-2">
 			<div class="flex h-9 items-center gap-2 px-1.5 text-fg">
 				<svg viewBox="0 0 64 64" fill="none" class="size-6 shrink-0" aria-hidden="true" focusable="false">
@@ -35,15 +35,15 @@ const lang = getLang(Astro);
 		<nav class="min-h-0 flex-1 overflow-y-auto px-3 pb-3" aria-label={t(lang, 'chat.sidebar.conversations')}>
 			<ul id="conversation-list" class="flex flex-col gap-0.5"></ul>
 		</nav>
-		<div class="flex flex-col gap-0.5 px-3 pb-3 pt-1">
-			<a href="/parametres" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
-				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SettingsIcon width="16" height="16" aria-hidden="true" /></span>
-				{t(lang, 'chat.sidebar.settings')}
-			</a>
+		<div class="mt-auto flex shrink-0 flex-col gap-0.5 px-3 pb-3 pt-1">
 			<button id="add-model-btn" type="button" data-action="add-model" class="group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
 				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SparklePlusIcon width="16" height="16" aria-hidden="true" /></span>
 				{t(lang, 'chat.addModel.button')}
 			</button>
+			<a href="/parametres" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
+				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SettingsIcon width="16" height="16" aria-hidden="true" /></span>
+				{t(lang, 'chat.sidebar.settings')}
+			</a>
 		</div>
 	</div>
 </aside>

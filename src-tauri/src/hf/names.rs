@@ -179,6 +179,14 @@ pub fn is_annex_file(path: &str) -> bool {
     || lower.split(['/', '-', '_', '.', ' ']).any(|seg| seg == "mtp" || seg == "nextn")
 }
 
+/// Indice (non bloquant) qu'un fichier proposé est peut-être une annexe : chemin contenant
+/// « draft », « mtp », « nextn » ou « assistant-head », casse ignorée. Un « draft » peut être un
+/// vrai petit modèle : seule la vérification de l'en-tête (`hf::check`) tranche.
+pub fn annex_hint(path: &str) -> bool {
+  let lower = path.to_ascii_lowercase();
+  ["draft", "mtp", "nextn", "assistant-head"].iter().any(|w| lower.contains(w))
+}
+
 /// Garde les .gguf hors fichiers annexes (`is_annex_file`), regroupe les modèles découpés
 /// (groupes incomplets ignorés) et trie par taille croissante.
 pub fn group_files(entries: &[(String, u64)]) -> Vec<Group> {
@@ -326,6 +334,25 @@ mod tests {
     ] {
       assert!(!is_annex_file(model), "{model}");
     }
+  }
+
+  #[test]
+  fn indice_annexe() {
+    for hinted in [
+      "Qwen3.8-27B-Uncensored-draft-Q4_0.gguf",
+      "Qwen2.5-Coder-0.5B-Instruct-DRAFT-Q8_0.gguf",
+      "MTP/model-Q4_0.gguf",
+      "x-NextN-Q4_0.gguf",
+      "gemma-Assistant-Head-Q8_0.gguf",
+    ] {
+      assert!(annex_hint(hinted), "{hinted}");
+    }
+    for plain in ["Qwen3-4B-Q4_K_M.gguf", "BF16/Qwen3.8-27B-BF16-00001-of-00002.gguf", "assistant-7B-Q4_0.gguf"] {
+      assert!(!annex_hint(plain), "{plain}");
+    }
+    // Simple indice : les « draft » restent proposés.
+    let groups = group_files(&[("m-draft-Q4_0.gguf".to_string(), 1)]);
+    assert_eq!(groups.len(), 1);
   }
 
   #[test]

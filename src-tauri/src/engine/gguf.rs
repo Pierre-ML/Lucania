@@ -1,10 +1,14 @@
-//! Lecture de l'en-tête GGUF (métadonnées et noms de tenseurs, jamais les poids) pour refuser,
+//! Lecture de l'en-tête GGUF (métadonnées et infos de tenseurs, jamais les poids) pour refuser,
 //! avant llama.cpp, les fichiers qui ne sont pas des modèles de langage autonomes.
 //!
 //! Raison : llama.cpp accepte certains fichiers annexes (ex. tête MTP « mtp-*.gguf » : seule la
 //! dernière couche et les tenseurs `nextn.*`) puis lit des tenseurs absents à la création du
 //! contexte : violation d'accès, l'app se ferme sans message. Le parseur est écrit en Rust pur :
 //! un fichier malformé donne une erreur, jamais un arrêt du processus.
+//!
+//! Deux sources : un fichier local (`check_model`, avant chargement) ou le début d'un fichier
+//! distant lu par requêtes Range (`parse_header`, avant téléchargement : `hf::check`). Les mêmes
+//! règles (`check_kind`, `check_tensors`) servent aux deux.
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -32,10 +36,13 @@ enum Value {
   Array,
 }
 
+/// En-tête lu : métadonnées, noms des tenseurs et nombre total de paramètres (somme des
+/// éléments des tenseurs).
 #[derive(Debug, Default)]
-struct Header {
+pub(crate) struct Header {
   kv: HashMap<String, Value>,
   tensors: Vec<String>,
+  n_params: u64,
 }
 
 impl Header {
@@ -53,52 +60,109 @@ impl Header {
       _ => None,
     }
   }
+
+  /// Nombre de parties d'un modèle découpé (1 s'il ne l'est pas).
+  pub(crate) fn split_count(&self) -> u64 {
+    self.uint("split.count").unwrap_or(1).max(1)
+  }
 }
 
-/// Lecteur borné par la taille du fichier : un saut ou une lecture au-delà échoue.
-struct Reader {
-  inner: BufReader<File>,
+/// Échec de lecture d'un en-tête.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum HeaderError {
+  /// Tampon partiel épuisé avant la fin de l'en-tête : il faut lire la suite du fichier.
+  Incomplete,
+  /// Fichier invalide (message court, sans nom de fichier).
+  Invalid(String),
+}
+
+impl From<&str> for HeaderError {
+  fn from(e: &str) -> Self {
+    HeaderError::Invalid(e.to_string())
+  }
+}
+
+impl From<String> for HeaderError {
+  fn from(e: String) -> Self {
+    HeaderError::Invalid(e)
+  }
+}
+
+fn truncated() -> HeaderError {
+  "en-tête tronqué".into()
+}
+
+enum Source<'a> {
+  File(BufReader<File>),
+  /// Début du fichier (tout ou partie).
+  Mem(&'a [u8]),
+}
+
+/// Lecteur borné par la taille du fichier : un saut ou une lecture au-delà échoue. Sur un tampon
+/// partiel, une lecture au-delà du tampon (mais dans le fichier) donne `Incomplete`.
+struct Reader<'a> {
+  src: Source<'a>,
   pos: u64,
   len: u64,
 }
 
-impl Reader {
-  fn read<const N: usize>(&mut self) -> Result<[u8; N], String> {
+impl Reader<'_> {
+  /// Position de fin d'une lecture de `n` octets, après contrôle des bornes.
+  fn reserve(&self, n: u64) -> Result<u64, HeaderError> {
+    let end = self.pos.checked_add(n).filter(|&e| e <= self.len).ok_or_else(truncated)?;
+    if let Source::Mem(b) = &self.src {
+      if end > b.len() as u64 {
+        return Err(HeaderError::Incomplete);
+      }
+    }
+    Ok(end)
+  }
+
+  fn bytes(&mut self, out: &mut [u8]) -> Result<(), HeaderError> {
+    let end = self.reserve(out.len() as u64)?;
+    match &mut self.src {
+      Source::File(f) => f.read_exact(out).map_err(|_| truncated())?,
+      // Bornes vérifiées par `reserve`.
+      Source::Mem(b) => out.copy_from_slice(&b[self.pos as usize..end as usize]),
+    }
+    self.pos = end;
+    Ok(())
+  }
+
+  fn read<const N: usize>(&mut self) -> Result<[u8; N], HeaderError> {
     let mut b = [0u8; N];
-    self.inner.read_exact(&mut b).map_err(|_| "en-tête tronqué".to_string())?;
-    self.pos += N as u64;
+    self.bytes(&mut b)?;
     Ok(b)
   }
 
-  fn u32(&mut self) -> Result<u32, String> {
+  fn u32(&mut self) -> Result<u32, HeaderError> {
     Ok(u32::from_le_bytes(self.read()?))
   }
 
-  fn u64(&mut self) -> Result<u64, String> {
+  fn u64(&mut self) -> Result<u64, HeaderError> {
     Ok(u64::from_le_bytes(self.read()?))
   }
 
-  fn skip(&mut self, n: u64) -> Result<(), String> {
-    let end = self.pos.checked_add(n).filter(|&e| e <= self.len).ok_or("en-tête tronqué")?;
-    let step = i64::try_from(n).map_err(|_| "en-tête tronqué")?;
-    self.inner.seek_relative(step).map_err(|e| format!("lecture impossible : {e}"))?;
+  fn skip(&mut self, n: u64) -> Result<(), HeaderError> {
+    let end = self.reserve(n)?;
+    if let Source::File(f) = &mut self.src {
+      let step = i64::try_from(n).map_err(|_| truncated())?;
+      f.seek_relative(step).map_err(|e| format!("lecture impossible : {e}"))?;
+    }
     self.pos = end;
     Ok(())
   }
 
   /// Chaîne GGUF (u64 + octets) ; `None` si plus longue que `max` (alors sautée).
-  fn string(&mut self, max: u64) -> Result<Option<String>, String> {
+  fn string(&mut self, max: u64) -> Result<Option<String>, HeaderError> {
     let n = self.u64()?;
     if n > max {
       self.skip(n)?;
       return Ok(None);
     }
-    if self.pos + n > self.len {
-      return Err("en-tête tronqué".into());
-    }
+    self.reserve(n)?;
     let mut b = vec![0u8; n as usize];
-    self.inner.read_exact(&mut b).map_err(|_| "en-tête tronqué".to_string())?;
-    self.pos += n;
+    self.bytes(&mut b)?;
     Ok(Some(String::from_utf8_lossy(&b).into_owned()))
   }
 
@@ -113,7 +177,7 @@ impl Reader {
     }
   }
 
-  fn value(&mut self, t: u32) -> Result<Value, String> {
+  fn value(&mut self, t: u32) -> Result<Value, HeaderError> {
     Ok(match t {
       0 => Value::UInt(self.read::<1>()?[0] as u64),
       1 => Value::Int(self.read::<1>()?[0] as i8 as i64),
@@ -140,7 +204,7 @@ impl Reader {
           }
         } else {
           let size = Self::scalar_size(et).ok_or_else(|| format!("type de tableau inconnu ({et})"))?;
-          self.skip(n.checked_mul(size).ok_or("en-tête tronqué")?)?;
+          self.skip(n.checked_mul(size).ok_or_else(truncated)?)?;
         }
         Value::Array
       }
@@ -150,46 +214,82 @@ impl Reader {
         self.skip(8)?;
         Value::Other
       }
-      _ => return Err(format!("type de valeur inconnu ({t})")),
+      _ => return Err(format!("type de valeur inconnu ({t})").into()),
     })
+  }
+
+  /// Métadonnées et infos de tenseurs (versions 2 et 3).
+  fn header(&mut self) -> Result<Header, HeaderError> {
+    if &self.read::<4>()? != MAGIC {
+      return Err("signature GGUF absente".into());
+    }
+    let version = self.u32()?;
+    if !(2..=3).contains(&version) {
+      return Err(format!("version GGUF {version} non prise en charge").into());
+    }
+    let n_tensors = self.u64()?;
+    let n_kv = self.u64()?;
+    if n_tensors > MAX_TENSORS || n_kv > MAX_KV {
+      return Err("en-tête incohérent".into());
+    }
+    let mut h = Header::default();
+    for _ in 0..n_kv {
+      let key = self.string(MAX_KEY_LEN)?.ok_or("clé trop longue")?;
+      let t = self.u32()?;
+      let v = self.value(t)?;
+      h.kv.insert(key, v);
+    }
+    for _ in 0..n_tensors {
+      let name = self.string(MAX_KEY_LEN)?.ok_or("nom de tenseur trop long")?;
+      let n_dims = self.u32()?;
+      if n_dims > MAX_DIMS {
+        return Err("tenseur incohérent".into());
+      }
+      let mut elements: u64 = 1;
+      for _ in 0..n_dims {
+        elements = elements.saturating_mul(self.u64()?);
+      }
+      // Type et décalage des données : inutiles ici.
+      self.skip(4 + 8)?;
+      h.n_params = h.n_params.saturating_add(elements);
+      h.tensors.push(name);
+    }
+    Ok(h)
   }
 }
 
-/// Lit les métadonnées et les noms de tenseurs d'un fichier GGUF (versions 2 et 3).
+/// Lit l'en-tête d'un fichier GGUF local.
 fn read_header(path: &Path) -> Result<Header, String> {
   let file = File::open(path).map_err(|e| format!("ouverture impossible : {e}"))?;
   let len = file.metadata().map_err(|e| format!("lecture impossible : {e}"))?.len();
-  let mut r = Reader { inner: BufReader::with_capacity(1 << 16, file), pos: 0, len };
-  if &r.read::<4>()? != MAGIC {
-    return Err("signature GGUF absente".into());
-  }
-  let version = r.u32()?;
-  if !(2..=3).contains(&version) {
-    return Err(format!("version GGUF {version} non prise en charge"));
-  }
-  let n_tensors = r.u64()?;
-  let n_kv = r.u64()?;
-  if n_tensors > MAX_TENSORS || n_kv > MAX_KV {
-    return Err("en-tête incohérent".into());
-  }
-  let mut h = Header::default();
-  for _ in 0..n_kv {
-    let key = r.string(MAX_KEY_LEN)?.ok_or("clé trop longue")?;
-    let t = r.u32()?;
-    let v = r.value(t)?;
-    h.kv.insert(key, v);
-  }
-  for _ in 0..n_tensors {
-    let name = r.string(MAX_KEY_LEN)?.ok_or("nom de tenseur trop long")?;
-    let n_dims = r.u32()?;
-    if n_dims > MAX_DIMS {
-      return Err("tenseur incohérent".into());
-    }
-    // Dimensions, type, décalage : inutiles ici.
-    r.skip(u64::from(n_dims) * 8 + 4 + 8)?;
-    h.tensors.push(name);
-  }
-  Ok(h)
+  let mut r = Reader { src: Source::File(BufReader::with_capacity(1 << 16, file)), pos: 0, len };
+  r.header().map_err(|e| match e {
+    HeaderError::Invalid(e) => e,
+    // Impossible sur un fichier : toute lecture est bornée par sa taille.
+    HeaderError::Incomplete => "en-tête tronqué".into(),
+  })
+}
+
+/// Lit l'en-tête depuis le début d'un fichier (`buf`, éventuellement partiel) dont la taille
+/// totale est `total_len`. `Incomplete` : il faut un tampon plus long.
+pub(crate) fn parse_header(buf: &[u8], total_len: u64) -> Result<Header, HeaderError> {
+  let mut r = Reader { src: Source::Mem(buf), pos: 0, len: total_len.max(buf.len() as u64) };
+  r.header()
+}
+
+/// Message d'un fichier illisible (`name` : nom du fichier sans dossier).
+pub(crate) fn invalid_message(name: &str, e: &str) -> String {
+  format!("« {name} » n'est pas un fichier GGUF valide ({e}).")
+}
+
+/// Message d'une partie absente d'un modèle découpé.
+pub(crate) fn missing_part_message(name: &str, part: &str) -> String {
+  format!("Partie manquante du modèle « {name} » : « {part} ».")
+}
+
+/// Message d'un nom de modèle découpé non reconnu.
+pub(crate) fn split_name_message(name: &str) -> String {
+  format!("« {name} » : nom de modèle découpé non reconnu.")
 }
 
 /// Parties d'un modèle découpé (`xxx-00001-of-0000N.gguf`) : toutes, dans l'ordre. `None` si le
@@ -212,42 +312,36 @@ fn display(path: &Path) -> String {
   path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
-/// Vérifie qu'un GGUF est un modèle de langage autonome avant de le confier à llama.cpp.
-pub fn check_model(path: &Path) -> Result<(), String> {
-  let name = display(path);
-  let unreadable = |e: String| format!("« {name} » n'est pas un fichier GGUF valide ({e}).");
-  let annex = |what: &str| format!("« {name} » n'est pas un modèle de chat autonome (fichier annexe : {what}).");
-  let h = read_header(path).map_err(unreadable)?;
+fn annex(name: &str, what: &str) -> String {
+  format!("« {name} » n'est pas un modèle de chat autonome (fichier annexe : {what}).")
+}
 
+/// Première série de règles, sur l'en-tête de la première partie seule : type de fichier et
+/// architecture. Renvoie l'architecture.
+pub(crate) fn check_kind(name: &str, h: &Header) -> Result<String, String> {
   if let Some(kind) = h.str("general.type") {
     match kind {
       "model" => {}
-      "mmproj" => return Err(annex("projecteur de vision")),
-      "adapter" => return Err(annex("adaptateur LoRA")),
-      "imatrix" => return Err(annex("matrice d'importance de quantification")),
-      other => return Err(annex(&format!("type « {other} »"))),
+      "mmproj" => return Err(annex(name, "projecteur de vision")),
+      "adapter" => return Err(annex(name, "adaptateur LoRA")),
+      "imatrix" => return Err(annex(name, "matrice d'importance de quantification")),
+      other => return Err(annex(name, &format!("type « {other} »"))),
     }
   }
   let Some(arch) = h.str("general.architecture").map(str::to_string) else {
     return Err(format!("« {name} » n'indique pas d'architecture : ce n'est pas un modèle de langage."));
   };
   if arch == "clip" {
-    return Err(annex("projecteur de vision"));
+    return Err(annex(name, "projecteur de vision"));
   }
+  Ok(arch)
+}
 
-  // Tenseurs de toutes les parties d'un modèle découpé (chaque partie a son propre en-tête).
-  let mut tensors: HashSet<String> = h.tensors.iter().cloned().collect();
-  let count = h.uint("split.count").unwrap_or(1);
-  if count > 1 {
-    let parts = split_paths(path, count).ok_or_else(|| format!("« {name} » : nom de modèle découpé non reconnu."))?;
-    for part in parts.iter().skip(1) {
-      if !part.is_file() {
-        return Err(format!("Partie manquante du modèle « {name} » : « {} ».", display(part)));
-      }
-      let ph = read_header(part).map_err(|e| format!("« {} » n'est pas un fichier GGUF valide ({e}).", display(part)))?;
-      tensors.extend(ph.tensors);
-    }
-  }
+/// Seconde série de règles, sur les tenseurs de toutes les parties : vocabulaire et couches du
+/// tronc. `first` porte les métadonnées, `others` : en-têtes des parties suivantes.
+pub(crate) fn check_tensors(name: &str, arch: &str, first: &Header, others: &[Header]) -> Result<(), String> {
+  let tensors: HashSet<&str> =
+    first.tensors.iter().chain(others.iter().flat_map(|h| h.tensors.iter())).map(String::as_str).collect();
 
   if !tensors.contains("token_embd.weight") {
     return Err(format!("« {name} » ne contient pas de table de vocabulaire (token_embd) : ce n'est pas un modèle de chat autonome."));
@@ -256,20 +350,82 @@ pub fn check_model(path: &Path) -> Result<(), String> {
   // Couches du tronc : toutes doivent être présentes. Les têtes MTP (`<arch>.nextn_predict_layers`)
   // sont comptées dans block_count mais facultatives.
   let blocks: HashSet<u64> = tensors.iter().filter_map(|t| block_index(t)).collect();
-  let block_count = h.uint(&format!("{arch}.block_count")).unwrap_or(0);
-  let nextn = h.uint(&format!("{arch}.nextn_predict_layers")).unwrap_or(0);
+  let block_count = first.uint(&format!("{arch}.block_count")).unwrap_or(0);
+  let nextn = first.uint(&format!("{arch}.nextn_predict_layers")).unwrap_or(0);
   let trunk = block_count.saturating_sub(nextn);
   if !blocks.is_empty() && trunk > 0 {
     let present = blocks.iter().filter(|&&b| b < trunk).count() as u64;
     if present < trunk {
       let mtp = tensors.iter().any(|t| t.contains(".nextn.")) || present == 0;
       if mtp {
-        return Err(annex("tête MTP de prédiction multi-jetons, à utiliser avec le modèle complet"));
+        return Err(annex(name, "tête MTP de prédiction multi-jetons, à utiliser avec le modèle complet"));
       }
       return Err(format!("« {name} » est incomplet : {} couche(s) sur {trunk} absentes du fichier.", trunk - present));
     }
   }
   Ok(())
+}
+
+/// Caractéristiques lues dans l'en-tête (affichage).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct ModelInfo {
+  pub architecture: Option<String>,
+  pub block_count: Option<u64>,
+  pub context_length: Option<u64>,
+  /// Somme des éléments des tenseurs de toutes les parties ; à défaut, `general.size_label`.
+  pub param_count: Option<u64>,
+}
+
+/// « 27B » -> 27e9, « 0.6B », « 8x7B » -> 56e9, « 235B-A22B » -> 235e9, « 125M ».
+fn parse_size_label(label: &str) -> Option<u64> {
+  let head = label.trim().split(['-', ' ']).next()?;
+  let (mult, size) = match head.split_once(['x', 'X']) {
+    Some((n, s)) => (n.parse::<f64>().ok()?, s),
+    None => (1.0, head),
+  };
+  let unit = match size.chars().last()?.to_ascii_uppercase() {
+    'K' => 1e3,
+    'M' => 1e6,
+    'B' => 1e9,
+    'T' => 1e12,
+    _ => return None,
+  };
+  let n: f64 = size[..size.len() - 1].parse().ok()?;
+  let v = mult * n * unit;
+  (v.is_finite() && v >= 1.0 && v < 1e16).then_some(v.round() as u64)
+}
+
+pub(crate) fn model_info(first: &Header, others: &[Header]) -> ModelInfo {
+  let arch = first.str("general.architecture").map(str::to_string);
+  let key = |k: &str| arch.as_deref().and_then(|a| first.uint(&format!("{a}.{k}")));
+  let summed = others.iter().fold(first.n_params, |acc, h| acc.saturating_add(h.n_params));
+  ModelInfo {
+    block_count: key("block_count"),
+    context_length: key("context_length"),
+    param_count: (summed > 0).then_some(summed).or_else(|| first.str("general.size_label").and_then(parse_size_label)),
+    architecture: arch,
+  }
+}
+
+/// Vérifie qu'un GGUF est un modèle de langage autonome avant de le confier à llama.cpp.
+pub fn check_model(path: &Path) -> Result<(), String> {
+  let name = display(path);
+  let h = read_header(path).map_err(|e| invalid_message(&name, &e))?;
+  let arch = check_kind(&name, &h)?;
+
+  // En-têtes des autres parties d'un modèle découpé (chaque partie a son propre en-tête).
+  let mut others = Vec::new();
+  let count = h.split_count();
+  if count > 1 {
+    let parts = split_paths(path, count).ok_or_else(|| split_name_message(&name))?;
+    for part in parts.iter().skip(1) {
+      if !part.is_file() {
+        return Err(missing_part_message(&name, &display(part)));
+      }
+      others.push(read_header(part).map_err(|e| invalid_message(&display(part), &e))?);
+    }
+  }
+  check_tensors(&name, &arch, &h, &others)
 }
 
 #[cfg(test)]
@@ -432,6 +588,63 @@ mod tests {
     assert!(e.contains("Partie manquante") && e.contains("big-00002-of-00002.gguf"), "{e}");
     std::fs::write(d.0.join("big-00002-of-00002.gguf"), &p2).unwrap();
     assert_eq!(check_model(&first), Ok(()));
+  }
+
+  #[test]
+  fn tampon_partiel() {
+    let mut kv = base("llama", 2);
+    kv.push(("llama.context_length", Value::UInt(4096)));
+    let b = gguf(&kv, &["token_embd.weight", "blk.0.a.weight", "blk.1.a.weight"]);
+    let total = b.len() as u64 + 1000; // données des tenseurs après l'en-tête
+    // Tout préfixe strict : « données insuffisantes », jamais une erreur de format.
+    for n in 0..b.len() {
+      assert_eq!(parse_header(&b[..n], total).unwrap_err(), HeaderError::Incomplete, "préfixe de {n} octets");
+    }
+    let h = parse_header(&b, total).unwrap();
+    assert_eq!(h.tensors.len(), 3);
+    assert_eq!(check_kind("m.gguf", &h).as_deref(), Ok("llama"));
+    assert_eq!(check_tensors("m.gguf", "llama", &h, &[]), Ok(()));
+    let info = model_info(&h, &[]);
+    assert_eq!(info.architecture.as_deref(), Some("llama"));
+    assert_eq!((info.block_count, info.context_length, info.param_count), (Some(2), Some(4096), Some(48)));
+    // Fichier réellement plus court que l'en-tête : tronqué, pas « insuffisant ».
+    let e = parse_header(&b[..b.len() - 3], b.len() as u64 - 3).unwrap_err();
+    assert_eq!(e, HeaderError::Invalid("en-tête tronqué".into()));
+    assert!(matches!(parse_header(b"GGUX\0\0\0\0", 1 << 20), Err(HeaderError::Invalid(e)) if e.contains("signature")));
+    // Longueur de chaîne démesurée dans un tampon partiel : erreur immédiate, pas d'attente.
+    let mut big = b"GGUF".to_vec();
+    big.extend(3u32.to_le_bytes());
+    big.extend(0u64.to_le_bytes());
+    big.extend(1u64.to_le_bytes());
+    big.extend(u64::MAX.to_le_bytes());
+    assert!(matches!(parse_header(&big, 1 << 30), Err(HeaderError::Invalid(_))));
+  }
+
+  #[test]
+  fn tete_mtp_depuis_tampon() {
+    let mut kv = base("qwen35", 65);
+    kv.push(("qwen35.nextn_predict_layers", Value::UInt(1)));
+    let b = gguf(&kv, &["token_embd.weight", "blk.64.attn_q.weight", "blk.64.nextn.eh_proj.weight"]);
+    let h = parse_header(&b, 1 << 30).unwrap();
+    let arch = check_kind("draft.gguf", &h).unwrap();
+    let e = check_tensors("draft.gguf", &arch, &h, &[]).unwrap_err();
+    // Même message que check_model.
+    let d = dir("mtp-tampon");
+    assert_eq!(check(&d, "draft.gguf", &b).unwrap_err(), e);
+    assert!(e.contains("tête MTP"), "{e}");
+  }
+
+  #[test]
+  fn etiquette_de_taille() {
+    assert_eq!(parse_size_label("27B"), Some(27_000_000_000));
+    assert_eq!(parse_size_label("0.6B"), Some(600_000_000));
+    assert_eq!(parse_size_label("8x7B"), Some(56_000_000_000));
+    assert_eq!(parse_size_label("235B-A22B"), Some(235_000_000_000));
+    assert_eq!(parse_size_label("125M"), Some(125_000_000));
+    assert_eq!(parse_size_label("grand"), None);
+    assert_eq!(parse_size_label(""), None);
+    let h = parse_header(&gguf(&[("general.architecture", st("llama")), ("general.size_label", st("4B"))], &[]), 1 << 20).unwrap();
+    assert_eq!(model_info(&h, &[]).param_count, Some(4_000_000_000));
   }
 
   /// Test manuel : LUCANIA_TEST_GGUF=<fichier> cargo test --lib gguf -- --ignored --nocapture

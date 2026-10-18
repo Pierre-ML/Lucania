@@ -224,11 +224,25 @@
       "stats": "{downloads} downloads · {likes} likes",
       "gated": "Gated"
     },
+    "families": {
+      "label": "Model families"
+    },
+    "profile": {
+      "label": "Profile: {profile}",
+      "edit": "edit"
+    },
+    "hideTooBig": "Hide models that are too big",
     "files": {
       "loading": "Loading files…",
       "empty": "No GGUF file in this repository.",
       "download": "Download",
-      "installed": "Installed"
+      "installed": "Installed",
+      "checking": "Checking…",
+      "annex": "Likely auxiliary file",
+      "annexHint": "This file looks like an auxiliary file (for example an image projector or an embeddings file) rather than a complete text model. It is being checked before download.",
+      "notStandalone": "Not a complete model",
+      "contextTokens": "{n} tokens of context",
+      "allHidden": "Every file in this repository is too big for this PC (“Hide models that are too big” is on)."
     },
     "downloads": {
       "title": "Downloads",

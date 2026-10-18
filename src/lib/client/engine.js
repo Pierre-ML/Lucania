@@ -11,6 +11,8 @@ import { t } from './i18n.js';
  * @typedef {{ loadedModel: string|null, loading: boolean, generating: boolean }} EngineStatus
  * @typedef {{ name: string, sizeBytes: number, modified: string }} CrashLogFile
  * @typedef {{ dir: string, files: CrashLogFile[] }} CrashLogs
+ * @typedef {{ name: string, vramTotalBytes: number, vramFreeBytes: number|null }} SystemGpu
+ * @typedef {{ ramTotalBytes: number, ramAvailableBytes: number, gpus: SystemGpu[], source: 'llama'|'nvidia-smi'|'none' }} SystemHardware
  */
 
 /** Vrai si la page tourne dans la fenêtre Tauri (et non dans un simple navigateur). */
@@ -125,6 +127,15 @@ export async function useModel(id) {
   } catch {
     /* stockage indisponible : le modèle reste chargé */
   }
+}
+
+/**
+ * Mémoire vive et cartes graphiques de cet ordinateur.
+ * @returns {Promise<SystemHardware>}
+ */
+export async function getSystemHardware() {
+  requireEngine();
+  return invoke('system_hardware');
 }
 
 /**

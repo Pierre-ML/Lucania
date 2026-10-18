@@ -6,7 +6,8 @@ import { t } from './i18n.js';
 
 /**
  * @typedef {{ id: string, author: string, downloads: number, likes: number, lastModified: string|null, gated: boolean }} HfRepo
- * @typedef {{ name: string, files: string[], sizeBytes: number, quant: string|null, installed: boolean }} HfFile
+ * @typedef {{ name: string, files: string[], sizeBytes: number, quant: string|null, installed: boolean, annexHint: boolean }} HfFile
+ * @typedef {{ standalone: boolean, reason: string|null, architecture: string|null, blockCount: number|null, contextLength: number|null, paramCount: number|null }} HfFileCheck
  * @typedef {'downloading'|'paused'|'completed'|'error'} DownloadState
  * @typedef {{ id: string, repo: string, files: string[], modelId: string, state: DownloadState, downloadedBytes: number, totalBytes: number|null, speedBps: number, error: string|null }} DownloadInfo
  * @typedef {{ hasToken: boolean, user: string|null }} TokenStatus
@@ -48,6 +49,28 @@ export async function listRepoFiles(repo) {
   requireTauri();
   const list = await invoke('hf_list_files', { repo });
   return Array.isArray(list) ? list : [];
+}
+
+/**
+ * Lit l'en-tête d'un fichier GGUF du dépôt (sans le télécharger) pour savoir s'il s'agit d'un modèle complet.
+ * @param {string} repo
+ * @param {string[]} files fichier ou parties d'un modèle découpé
+ * @returns {Promise<HfFileCheck>}
+ */
+export async function checkFile(repo, files) {
+  requireTauri();
+  return invoke('hf_check_file', { repo, files });
+}
+
+/**
+ * Avatars des organisations / auteurs (30 noms au plus par appel).
+ * @param {string[]} names
+ * @returns {Promise<Record<string, string|null>>} URL de données (data:) ou null
+ */
+export async function getAvatars(names) {
+  requireTauri();
+  const map = await invoke('hf_avatars', { names });
+  return map && typeof map === 'object' ? map : {};
 }
 
 /**

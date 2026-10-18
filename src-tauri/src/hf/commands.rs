@@ -5,7 +5,9 @@
 use tauri::{AppHandle, Emitter, State};
 
 use super::types::DownloadRemoved;
-use super::{DownloadInfo, Event, EventSink, Hf, RepoModel, SearchResult, TokenStatus, log};
+use std::collections::HashMap;
+
+use super::{DownloadInfo, Event, EventSink, FileCheck, Hf, RepoModel, SearchResult, TokenStatus, log};
 
 pub const EVENT_DOWNLOAD: &str = "hf://download";
 pub const EVENT_REMOVED: &str = "hf://download-removed";
@@ -33,9 +35,26 @@ pub async fn hf_list_files(hf: State<'_, Hf>, repo: String) -> Result<Vec<RepoMo
   hf.list_files(repo).await
 }
 
+/// Vérifie l'en-tête du fichier sur Hugging Face, puis démarre le téléchargement (refusé, sans
+/// rien écrire, si le fichier n'est pas un modèle de chat autonome).
 #[tauri::command]
 pub async fn hf_download(hf: State<'_, Hf>, repo: String, files: Vec<String>) -> Result<String, String> {
-  hf.download(repo, files)
+  let hf = hf.inner().clone();
+  hf.download(repo, files).await
+}
+
+/// Vérification à distance de l'en-tête GGUF (sans téléchargement).
+#[tauri::command]
+pub async fn hf_check_file(hf: State<'_, Hf>, repo: String, files: Vec<String>) -> Result<FileCheck, String> {
+  let hf = hf.inner().clone();
+  hf.check_file(repo, files).await
+}
+
+/// Logos des auteurs ou organisations (30 noms au plus) : data URL ou null.
+#[tauri::command]
+pub async fn hf_avatars(hf: State<'_, Hf>, names: Vec<String>) -> Result<HashMap<String, Option<String>>, String> {
+  let hf = hf.inner().clone();
+  hf.avatars(names).await
 }
 
 #[tauri::command]

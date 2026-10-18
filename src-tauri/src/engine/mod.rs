@@ -11,7 +11,7 @@
 //! hors du thread principal par les commandes.
 
 pub mod commands;
-mod gguf;
+pub(crate) mod gguf;
 mod models;
 mod types;
 mod utf8;

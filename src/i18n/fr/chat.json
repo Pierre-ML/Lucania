@@ -224,11 +224,25 @@
       "stats": "{downloads} téléchargements · {likes} J’aime",
       "gated": "Accès restreint"
     },
+    "families": {
+      "label": "Familles de modèles"
+    },
+    "profile": {
+      "label": "Profil : {profile}",
+      "edit": "modifier"
+    },
+    "hideTooBig": "Masquer les modèles trop gros",
     "files": {
       "loading": "Chargement des fichiers…",
       "empty": "Aucun fichier GGUF dans ce dépôt.",
       "download": "Télécharger",
-      "installed": "Installé"
+      "installed": "Installé",
+      "checking": "Vérification…",
+      "annex": "Annexe probable",
+      "annexHint": "Ce fichier ressemble à un fichier annexe (par exemple un projecteur d’images ou un fichier d’embeddings) et non à un modèle de texte complet. Vérification en cours avant le téléchargement.",
+      "notStandalone": "Pas un modèle complet",
+      "contextTokens": "{n} jetons de contexte",
+      "allHidden": "Tous les fichiers de ce dépôt sont trop gros pour ce PC (option « Masquer les modèles trop gros » activée)."
     },
     "downloads": {
       "title": "Téléchargements",

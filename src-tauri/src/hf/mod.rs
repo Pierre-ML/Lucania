@@ -3,6 +3,8 @@
 //!
 //! - `api` : appels HTTP (seul hôte appelé : huggingface.co, redirections vers son CDN) ;
 //! - `download` : tâche de téléchargement (fichier `.part`, reprise par Range) ;
+//! - `check` : vérification à distance de l'en-tête GGUF avant téléchargement ;
+//! - `avatars` : logos des auteurs et organisations ;
 //! - `names` : validation des entrées et noms de fichiers GGUF (fonctions pures) ;
 //! - `types` : structures échangées avec les pages ;
 //! - `commands` : commandes Tauri.
@@ -13,6 +15,8 @@
 
 pub mod commands;
 mod api;
+mod avatars;
+mod check;
 mod download;
 mod names;
 mod types;
@@ -25,7 +29,7 @@ use reqwest::Client;
 use tauri::Manager;
 use tokio::sync::Notify;
 
-pub use types::{DownloadInfo, DownloadState, RepoModel, SearchResult, TokenStatus};
+pub use types::{DownloadInfo, DownloadState, FileCheck, RepoModel, SearchResult, TokenStatus};
 
 /// Événements relayés aux pages par `commands::emitter`.
 pub enum Event {
@@ -68,6 +72,12 @@ struct Inner {
   /// Verrou d'écriture par identifiant de téléchargement (conservé après annulation, pour
   /// qu'un nouveau téléchargement attende la fin du nettoyage).
   file_locks: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+  /// `<app_local_data_dir>/hf-cache` : vérifications d'en-têtes et logos.
+  cache_dir: PathBuf,
+  checks: Mutex<check::Cache>,
+  /// Une écriture de `checks.json` à la fois.
+  checks_write: tokio::sync::Mutex<()>,
+  avatars: Mutex<avatars::Cache>,
   sink: EventSink,
 }
 
@@ -117,6 +127,10 @@ impl Hf {
         user: Mutex::new(user),
         downloads: Mutex::new(downloads),
         file_locks: Mutex::new(HashMap::new()),
+        cache_dir: data_dir.join("hf-cache"),
+        checks: Mutex::new(check::Cache::default()),
+        checks_write: tokio::sync::Mutex::new(()),
+        avatars: Mutex::new(avatars::Cache::default()),
         sink,
       }),
     }
@@ -169,6 +183,7 @@ impl Hf {
       .map(|g| RepoModel {
         quant: names::quant(&g.name).or_else(|| names::quant(&g.files[0])),
         installed: self.installed(&repo, &g.files),
+        annex_hint: names::annex_hint(&g.files[0]),
         name: g.name,
         files: g.files,
         size_bytes: g.size_bytes,
@@ -184,8 +199,49 @@ impl Hf {
     lock(&self.inner.downloads).iter().map(|e| e.info.clone()).collect()
   }
 
-  /// Démarre un téléchargement, ou reprend un téléchargement connu (en pause ou en erreur).
-  pub fn download(&self, repo: String, mut files: Vec<String>) -> Result<String, String> {
+  /// Refus immédiat d'un démarrage (liste verrouillée) : fichiers pris par un autre
+  /// téléchargement, déjà en cours ou déjà installé.
+  fn start_refusal(list: &[Entry], id: &str, repo: &str, files: &[String], installed: bool) -> Option<&'static str> {
+    let conflict = list.iter().any(|e| {
+      e.info.id != id
+        && e.info.repo == repo
+        && e.info.state != DownloadState::Completed
+        && e.info.files.iter().any(|f| files.contains(f))
+    });
+    if conflict {
+      return Some("Un autre téléchargement utilise déjà ces fichiers.");
+    }
+    match list.iter().find(|e| e.info.id == id).map(|e| e.info.state) {
+      Some(DownloadState::Downloading) => Some("Ce téléchargement est déjà en cours."),
+      Some(DownloadState::Completed) | None if installed => Some("Ce modèle est déjà installé."),
+      _ => None,
+    }
+  }
+
+  /// Vérification à distance (en-tête GGUF) d'un modèle du dépôt : est-il un modèle de chat
+  /// autonome ? Erreur si la vérification est impossible (réseau, accès…).
+  pub async fn check_file(&self, repo: String, files: Vec<String>) -> Result<FileCheck, String> {
+    check::check(self, &repo, &files).await
+  }
+
+  /// Logos des auteurs ou organisations (data URL ou null).
+  pub async fn avatars(&self, names: Vec<String>) -> Result<HashMap<String, Option<String>>, String> {
+    avatars::avatars(self, names).await
+  }
+
+  /// Vérifie l'en-tête avant tout téléchargement : refus (même message qu'au chargement) si le
+  /// fichier n'est pas un modèle de chat autonome, ou si la vérification est impossible.
+  async fn verify_before_download(&self, repo: &str, files: &[String]) -> Result<(), String> {
+    match check::check(self, repo, files).await {
+      Ok(c) if c.standalone => Ok(()),
+      Ok(c) => Err(c.reason.unwrap_or_else(|| "Ce fichier n'est pas un modèle de chat autonome.".into())),
+      Err(e) => Err(format!("Vérification du fichier impossible, téléchargement non lancé : {e}")),
+    }
+  }
+
+  /// Démarre un téléchargement, ou reprend un téléchargement connu (en pause ou en erreur), après
+  /// vérification à distance de l'en-tête : rien n'est écrit pour un fichier refusé.
+  pub async fn download(&self, repo: String, mut files: Vec<String>) -> Result<String, String> {
     if !names::valid_repo(&repo) {
       return Err(format!("Dépôt invalide : « {repo} »"));
     }
@@ -207,33 +263,25 @@ impl Hf {
       names::dest_path(self.models_dir(), &repo, f)?;
     }
     let id = format!("{repo}/{}", files[0]);
+    // Refus évidents d'abord, sans appel réseau.
+    if let Some(e) = Self::start_refusal(&lock(&self.inner.downloads), &id, &repo, &files, self.installed(&repo, &files)) {
+      return Err(e.into());
+    }
+    self.verify_before_download(&repo, &files).await?;
+    // L'état a pu changer pendant la vérification : nouveau contrôle sous le verrou.
     let installed = self.installed(&repo, &files);
 
     let snapshot = {
       let mut list = lock(&self.inner.downloads);
-      let conflict = list.iter().any(|e| {
-        e.info.id != id
-          && e.info.repo == repo
-          && e.info.state != DownloadState::Completed
-          && e.info.files.iter().any(|f| files.contains(f))
-      });
-      if conflict {
-        return Err("Un autre téléchargement utilise déjà ces fichiers.".into());
+      if let Some(e) = Self::start_refusal(&list, &id, &repo, &files, installed) {
+        return Err(e.into());
       }
       let index = match list.iter().position(|e| e.info.id == id) {
         Some(i) => {
-          match list[i].info.state {
-            DownloadState::Downloading => return Err("Ce téléchargement est déjà en cours.".into()),
-            DownloadState::Completed if installed => return Err("Ce modèle est déjà installé.".into()),
-            _ => {}
-          }
           list[i].info.files = files;
           i
         }
         None => {
-          if installed {
-            return Err("Ce modèle est déjà installé.".into());
-          }
           list.push(Entry {
             info: DownloadInfo {
               id: id.clone(),
@@ -529,9 +577,9 @@ mod tests {
       let models = hf.list_files(repo.into()).await.expect("fichiers");
       let split = models.iter().find(|m| m.files.len() == 3 && m.name == "stories15M-q8_0").expect("modèle découpé");
       eprintln!("{} {:?} {} octets {:?}", split.name, split.files, split.size_bytes, split.quant);
-      let id = hf.download(repo.into(), split.files.clone()).expect("démarrage");
+      let id = hf.download(repo.into(), split.files.clone()).await.expect("démarrage");
       assert_eq!(id, format!("{repo}/{}", split.files[0]));
-      assert!(hf.download(repo.into(), split.files.clone()).is_err(), "déjà en cours");
+      assert!(hf.download(repo.into(), split.files.clone()).await.is_err(), "déjà en cours");
 
       let wait = |cond: &dyn Fn(&DownloadInfo) -> bool, secs: u64| {
         let deadline = Instant::now() + Duration::from_secs(secs);
@@ -563,13 +611,13 @@ mod tests {
         assert!(p.is_file() && !names::part_path(&p).exists(), "{f}");
       }
       assert!(hf.list_files(repo.into()).await.unwrap().iter().any(|m| m.files == split.files && m.installed));
-      assert!(hf.download(repo.into(), split.files.clone()).is_err(), "déjà installé");
+      assert!(hf.download(repo.into(), split.files.clone()).await.is_err(), "déjà installé");
       let n = lock(&events).iter().filter(|d| d.id == id).count();
       eprintln!("{n} événements émis");
 
       // Annulation : plus de .part ni de dossier vide.
       let single = vec!["tinyllamas/stories260K-infill.gguf".to_string()];
-      let id2 = hf.download(repo.into(), single.clone()).unwrap();
+      let id2 = hf.download(repo.into(), single.clone()).await.unwrap();
       hf.cancel(&id2).await.unwrap();
       assert!(state(&hf, &id2).is_none());
       let p = names::dest_path(&root, repo, &single[0]).unwrap();
@@ -582,11 +630,13 @@ mod tests {
   fn validation_des_demandes() {
     let root = std::env::temp_dir().join(format!("lucania-hf-valid-{}", std::process::id()));
     let hf = Hf::new(root.clone(), &root, "test", Box::new(|_| {}));
-    assert!(hf.download("pas-un-depot".into(), vec!["a.gguf".into()]).is_err());
-    assert!(hf.download("a/b".into(), vec![]).is_err());
-    assert!(hf.download("a/b".into(), vec!["../a.gguf".into()]).is_err());
-    assert!(hf.download("a/b".into(), (0..11).map(|i| format!("{i}.gguf")).collect()).is_err());
-    let annex = hf.download("unsloth/Qwen3.8-27B-GGUF".into(), vec!["MTP/mtp-Qwen3.8-27B-Q4_0.gguf".into()]);
+    // Refus avant tout appel réseau.
+    let dl = |repo: &str, files: Vec<String>| tauri::async_runtime::block_on(hf.download(repo.into(), files));
+    assert!(dl("pas-un-depot", vec!["a.gguf".into()]).is_err());
+    assert!(dl("a/b", vec![]).is_err());
+    assert!(dl("a/b", vec!["../a.gguf".into()]).is_err());
+    assert!(dl("a/b", (0..11).map(|i| format!("{i}.gguf")).collect()).is_err());
+    let annex = dl("unsloth/Qwen3.8-27B-GGUF", vec!["MTP/mtp-Qwen3.8-27B-Q4_0.gguf".into()]);
     assert!(annex.unwrap_err().contains("fichier annexe"));
     assert!(hf.pause("inconnu").is_err());
     assert!(hf.list_downloads().is_empty());

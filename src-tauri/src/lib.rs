@@ -2,6 +2,7 @@ use tauri::Manager;
 
 mod crashlog;
 mod engine;
+mod hardware;
 mod hf;
 
 #[cfg(not(debug_assertions))]
@@ -204,6 +205,9 @@ pub fn run() {
       hf::commands::hf_list_downloads,
       hf::commands::hf_token_status,
       hf::commands::hf_set_token,
+      hf::commands::hf_check_file,
+      hf::commands::hf_avatars,
+      hardware::system_hardware,
     ])
     .setup(|app| {
       crashlog::start_session();

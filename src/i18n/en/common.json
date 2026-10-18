@@ -1,4 +1,22 @@
 {
   "cancel": "Cancel",
-  "delete": "Delete"
+  "delete": "Delete",
+  "fit": {
+    "gpu": "Fits on the GPU",
+    "gpuHint": "The model fits in your graphics card memory: this is the fastest case.",
+    "mixed": "GPU + RAM (slower)",
+    "mixedHint": "The model does not fit entirely in the graphics card: part of it goes through system memory, which slows generation down.",
+    "cpu": "CPU only (slow)",
+    "cpuHint": "No usable graphics card: the model runs on the processor with system memory. It works but stays slow.",
+    "tooBig": "Too big for this PC",
+    "tooBigHint": "The model exceeds the available memory (VRAM + 70% of RAM): it may fail to load."
+  },
+  "hardware": {
+    "line": "{gpu} · {ram} of RAM",
+    "gpuVram": "{name} · {vram} of VRAM",
+    "noGpu": "No GPU",
+    "gpuGeneric": "GPU",
+    "unknown": "Hardware not detected",
+    "detecting": "detecting hardware…"
+  }
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-system-hardware"
+description = "Enables the system_hardware command without any pre-configured scope."
+commands.allow = ["system_hardware"]
+
+[[permission]]
+identifier = "deny-system-hardware"
+description = "Denies the system_hardware command without any pre-configured scope."
+commands.deny = ["system_hardware"]

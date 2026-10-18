@@ -24,6 +24,9 @@ fn main() {
         "hf_list_downloads",
         "hf_token_status",
         "hf_set_token",
+        "hf_check_file",
+        "hf_avatars",
+        "system_hardware",
       ])),
   )
   .unwrap()

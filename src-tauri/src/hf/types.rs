@@ -1,6 +1,6 @@
 //! Types échangés avec les pages (JSON en camelCase).
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +24,9 @@ pub struct RepoModel {
   pub size_bytes: u64,
   pub quant: Option<String>,
   pub installed: bool,
+  /// Indice tiré du nom (« draft », « mtp », « nextn », « assistant-head ») : le fichier est
+  /// peut-être une annexe. Simple indice, le fichier reste proposé.
+  pub annex_hint: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -62,4 +65,18 @@ pub struct TokenStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct DownloadRemoved {
   pub id: String,
+}
+
+/// Résultat de la vérification à distance d'un fichier GGUF (`hf_check_file`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileCheck {
+  /// Modèle de chat utilisable seul.
+  pub standalone: bool,
+  /// Raison du refus (même texte que le refus au chargement), null si autonome.
+  pub reason: Option<String>,
+  pub architecture: Option<String>,
+  pub block_count: Option<u64>,
+  pub context_length: Option<u64>,
+  pub param_count: Option<u64>,
 }

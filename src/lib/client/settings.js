@@ -18,6 +18,19 @@ import {
   deleteModel,
 } from './engine.js';
 import { errorMessage, onDownload } from './hf.js';
+import {
+  GPU_PRESETS,
+  RAM_OPTIONS_GB,
+  buildFitBadge,
+  describeProfile,
+  estimateFit,
+  formatBytes,
+  getDetectedHardware,
+  getManualHardware,
+  onHardwareChange,
+  clearManualHardware,
+  setManualHardware,
+} from './hardware.js';
 import { invoke } from '@tauri-apps/api/core';
 import { confirmDialog } from './dialog.js';
 import { t, getLang, setLang } from './i18n.js';
@@ -257,6 +270,8 @@ let loadedModelId = null;
 let loadingModelId = null;
 let engineLoadingAny = false;
 let engineSubscribed = false;
+/** Profil matériel utilisé pour les badges de compatibilité (null tant que la détection n'a pas répondu). @type {import('./hardware.js').HardwareProfile|null} */
+let hwProfile = null;
 
 /** @param {string} msg */
 function showEngineError(msg) {
@@ -348,6 +363,7 @@ function buildModelItem(model) {
     badge.textContent = t('settings.engine.loaded');
     head.append(badge);
   }
+  if (hwProfile && hwProfile.known) head.append(buildFitBadge(estimateFit(model.sizeBytes, hwProfile)));
   const meta = document.createElement('p');
   meta.className = 'mt-0.5 truncate font-mono text-[11px] text-muted';
   meta.textContent = `${formatSize(model.sizeBytes)} · ${model.id}`;
@@ -469,6 +485,145 @@ byId('engine-crash-open')?.addEventListener('click', async (e) => {
 });
 
 engineRefreshBtn?.addEventListener('click', loadEngine);
+
+// ---------- Moteur : mon matériel (détecté ou saisi à la main) ----------
+
+const hwRamEl = byId('hw-ram');
+const hwGpuEl = byId('hw-gpu');
+const hwUsedEl = byId('hw-used');
+const hwToggleBtn = /** @type {HTMLButtonElement|null} */ (byId('hw-manual-toggle'));
+const hwFormEl = byId('hw-form');
+const hwRamSelect = /** @type {HTMLSelectElement|null} */ (byId('hw-ram-select'));
+const hwGpuSelect = /** @type {HTMLSelectElement|null} */ (byId('hw-gpu-select'));
+const hwVramWrap = byId('hw-vram-wrap');
+const hwVramInput = /** @type {HTMLInputElement|null} */ (byId('hw-vram-input'));
+const hwErrorEl = byId('hw-error');
+const hwSaveBtn = byId('hw-save');
+const hwResetBtn = byId('hw-reset');
+const HW_NONE = 'none';
+const HW_OTHER = 'other';
+const GIB = 1024 ** 3;
+
+/** @param {string} value @param {string} label */
+function hwOption(value, label) {
+  const o = document.createElement('option');
+  o.value = value;
+  o.textContent = label;
+  return o;
+}
+
+function buildHardwareOptions() {
+  if (!hwRamSelect || !hwGpuSelect) return;
+  const gb = t('settings.engine.unitGb');
+  hwRamSelect.replaceChildren(...RAM_OPTIONS_GB.map((n) => hwOption(String(n), `${n} ${gb}`)));
+  hwGpuSelect.replaceChildren(
+    hwOption(HW_NONE, t('settings.engine.hardware.noGpuOption')),
+    ...GPU_PRESETS.map((g, i) => hwOption(String(i), `${g.name} · ${g.vramGb} ${gb}`)),
+    hwOption(HW_OTHER, t('settings.engine.hardware.otherGpu')),
+  );
+}
+
+/** @param {string} msg */
+function setHwError(msg) {
+  if (!hwErrorEl) return;
+  hwErrorEl.textContent = msg;
+  hwErrorEl.hidden = !msg;
+}
+
+function syncVramField() {
+  if (hwVramWrap && hwGpuSelect) hwVramWrap.hidden = hwGpuSelect.value !== HW_OTHER;
+}
+
+/** Préremplit le formulaire avec le profil manuel, sinon avec les valeurs détectées. */
+async function fillHardwareForm() {
+  if (!hwRamSelect || !hwGpuSelect || !hwVramInput) return;
+  const manual = getManualHardware();
+  const base = manual || (await getDetectedHardware());
+  const ramGb = base.ramBytes / GIB;
+  if (ramGb > 0) {
+    let best = RAM_OPTIONS_GB[0];
+    for (const n of RAM_OPTIONS_GB) if (Math.abs(n - ramGb) < Math.abs(best - ramGb)) best = n;
+    hwRamSelect.value = String(best);
+  }
+  const vramGb = Math.round(base.vramBytes / GIB);
+  const preset = GPU_PRESETS.findIndex((g) => g.vramGb === vramGb && g.name === base.gpuName);
+  if (vramGb <= 0) hwGpuSelect.value = HW_NONE;
+  else if (preset >= 0) hwGpuSelect.value = String(preset);
+  else {
+    hwGpuSelect.value = HW_OTHER;
+    hwVramInput.value = String(vramGb);
+  }
+  syncVramField();
+}
+
+async function loadHardware() {
+  if (!hwRamEl || !hwGpuEl || !hwUsedEl) return;
+  const detected = await getDetectedHardware();
+  const manual = getManualHardware();
+  hwProfile = manual || detected;
+  const unknown = t('settings.engine.hardware.notDetected');
+  hwRamEl.textContent = detected.known ? formatBytes(detected.ramBytes) : unknown;
+  if (!detected.known) hwGpuEl.textContent = unknown;
+  else if (detected.vramBytes > 0) {
+    hwGpuEl.textContent = t('common.hardware.gpuVram', {
+      name: detected.gpuName || t('common.hardware.gpuGeneric'),
+      vram: formatBytes(detected.vramBytes),
+    });
+  } else hwGpuEl.textContent = t('settings.engine.hardware.noGpuDetected');
+  hwUsedEl.textContent = manual
+    ? t('settings.engine.hardware.usedManual', { profile: describeProfile(manual) })
+    : t('settings.engine.hardware.usedAuto');
+  if (hwResetBtn) hwResetBtn.hidden = !manual;
+  renderModels();
+}
+
+function setupHardware() {
+  buildHardwareOptions();
+  hwToggleBtn?.addEventListener('click', async () => {
+    if (!hwFormEl) return;
+    const open = hwFormEl.hidden;
+    hwFormEl.hidden = !open;
+    hwToggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    setHwError('');
+    if (open) await fillHardwareForm();
+  });
+  hwGpuSelect?.addEventListener('change', () => {
+    syncVramField();
+    setHwError('');
+  });
+  hwSaveBtn?.addEventListener('click', () => {
+    if (!hwRamSelect || !hwGpuSelect || !hwVramInput || !hwFormEl || !hwToggleBtn) return;
+    let vramGb = 0;
+    let gpuName = '';
+    if (hwGpuSelect.value === HW_OTHER) {
+      vramGb = Number(hwVramInput.value);
+      if (!Number.isFinite(vramGb) || vramGb <= 0 || vramGb > 512) {
+        setHwError(t('settings.engine.hardware.vramInvalid'));
+        hwVramInput.focus();
+        return;
+      }
+    } else if (hwGpuSelect.value !== HW_NONE) {
+      const g = GPU_PRESETS[Number(hwGpuSelect.value)];
+      if (g) {
+        vramGb = g.vramGb;
+        gpuName = g.name;
+      }
+    }
+    setHwError('');
+    setManualHardware({ ramBytes: Number(hwRamSelect.value) * GIB, vramBytes: vramGb * GIB, gpuName });
+    hwFormEl.hidden = true;
+    hwToggleBtn.setAttribute('aria-expanded', 'false');
+  });
+  hwResetBtn?.addEventListener('click', () => {
+    clearManualHardware();
+    if (hwFormEl) hwFormEl.hidden = true;
+    hwToggleBtn?.setAttribute('aria-expanded', 'false');
+  });
+  onHardwareChange(loadHardware);
+  loadHardware();
+}
+
+setupHardware();
 
 // ---------- Liste des connexions ----------
 

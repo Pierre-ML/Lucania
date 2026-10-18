@@ -1,4 +1,22 @@
 {
   "cancel": "Annuler",
-  "delete": "Supprimer"
+  "delete": "Supprimer",
+  "fit": {
+    "gpu": "Tient sur le GPU",
+    "gpuHint": "Le modèle tient dans la mémoire de ta carte graphique : c’est le cas le plus rapide.",
+    "mixed": "GPU + RAM (plus lent)",
+    "mixedHint": "Le modèle ne tient pas entièrement dans la carte graphique : une partie passe par la mémoire vive, ce qui ralentit la génération.",
+    "cpu": "CPU seulement (lent)",
+    "cpuHint": "Pas de carte graphique utilisable : le modèle tourne sur le processeur, avec la mémoire vive. Cela fonctionne mais reste lent.",
+    "tooBig": "Trop gros pour ce PC",
+    "tooBigHint": "Le modèle dépasse la mémoire disponible (VRAM + 70 % de la RAM) : il risque de ne pas se charger."
+  },
+  "hardware": {
+    "line": "{gpu} · {ram} de RAM",
+    "gpuVram": "{name} · {vram} de VRAM",
+    "noGpu": "Aucun GPU",
+    "gpuGeneric": "GPU",
+    "unknown": "Matériel non détecté",
+    "detecting": "détection du matériel…"
+  }
 }

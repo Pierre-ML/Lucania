@@ -22,10 +22,10 @@ const MAX_PAGES: usize = 50;
 pub const ACCESS_DENIED: &str =
   "Accès refusé : ce modèle demande un jeton Hugging Face et l'acceptation de sa licence sur huggingface.co.";
 pub const FILE_NOT_FOUND: &str = "Fichier introuvable sur Hugging Face.";
-const REPO_NOT_FOUND: &str = "Dépôt introuvable sur Hugging Face (nom erroné ou dépôt privé).";
+pub const REPO_NOT_FOUND: &str = "Dépôt introuvable sur Hugging Face (nom erroné ou dépôt privé).";
 pub const TOKEN_REFUSED: &str = "Jeton Hugging Face refusé.";
 
-fn allowed_host(url: &Url) -> bool {
+pub fn allowed_host(url: &Url) -> bool {
   url.scheme() == "https"
     && url.host_str().is_some_and(|h| {
       let h = h.to_ascii_lowercase();
@@ -223,6 +223,120 @@ pub async fn list_tree(client: &Client, token: Option<&str>, repo: &str) -> Resu
       Some(n) => url = n,
       None => return Ok(out),
     }
+  }
+  Ok(out)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Infos de fichiers précis et lecture partielle
+// ---------------------------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct RawLfsOid {
+  oid: Option<String>,
+  size: u64,
+}
+
+#[derive(Deserialize)]
+struct RawPathInfo {
+  #[serde(rename = "type")]
+  kind: String,
+  path: String,
+  oid: Option<String>,
+  size: Option<u64>,
+  lfs: Option<RawLfsOid>,
+}
+
+/// Taille et empreinte (oid LFS, sinon oid git) d'un fichier du dépôt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PathInfo {
+  pub size: u64,
+  pub oid: String,
+}
+
+/// Infos de quelques fichiers (branche main) : `POST /api/models/<repo>/paths-info/main`. Les
+/// chemins absents du dépôt sont absents du résultat.
+pub async fn paths_info(
+  client: &Client,
+  token: Option<&str>,
+  repo: &str,
+  paths: &[String],
+) -> Result<std::collections::HashMap<String, PathInfo>, String> {
+  let mut segments = vec!["api", "models"];
+  segments.extend(repo.split('/'));
+  segments.extend(["paths-info", "main"]);
+  let url = hf_url(&segments)?;
+  let body = serde_json::json!({ "paths": paths, "expand": false });
+  let resp = with_token(client.post(url), token).json(&body).timeout(API_TIMEOUT).send().await.map_err(net_error)?;
+  let status = resp.status();
+  if status == StatusCode::UNAUTHORIZED && token.is_none() {
+    return Err(REPO_NOT_FOUND.into());
+  }
+  if !status.is_success() {
+    return Err(status_error(status, REPO_NOT_FOUND));
+  }
+  let raw: Vec<RawPathInfo> = resp.json().await.map_err(|_| "Infos du fichier illisibles.".to_string())?;
+  Ok(raw
+    .into_iter()
+    .filter(|e| e.kind == "file")
+    .map(|e| {
+      let (size, oid) = match e.lfs {
+        Some(l) => (l.size, l.oid.or(e.oid).unwrap_or_default()),
+        None => (e.size.unwrap_or(0), e.oid.unwrap_or_default()),
+      };
+      (e.path, PathInfo { size, oid })
+    })
+    .collect())
+}
+
+/// Lit les octets `[start, end)` d'un fichier (`Range`, redirections du client : mêmes hôtes
+/// que les téléchargements). Si le serveur ignore la plage (200), le début est sauté. La lecture
+/// s'arrête dès que la plage est reçue (la connexion est alors abandonnée).
+pub async fn fetch_range(client: &Client, token: Option<&str>, url: &Url, start: u64, end: u64) -> Result<Vec<u8>, String> {
+  use futures_util::StreamExt;
+  if end <= start {
+    return Ok(Vec::new());
+  }
+  let want = end - start;
+  let resp = with_token(client.get(url.clone()), token)
+    .header(reqwest::header::RANGE, format!("bytes={start}-{}", end - 1))
+    .send()
+    .await
+    .map_err(net_error)?;
+  let status = resp.status();
+  let mut skip = match status.as_u16() {
+    206 => {
+      let begin = resp
+        .headers()
+        .get(reqwest::header::CONTENT_RANGE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("bytes "))
+        .and_then(|v| v.split_once('-'))
+        .and_then(|(b, _)| b.trim().parse::<u64>().ok());
+      if begin != Some(start) {
+        return Err("Réponse partielle inattendue de Hugging Face.".into());
+      }
+      0
+    }
+    200 => start,
+    _ => return Err(status_error(status, FILE_NOT_FOUND)),
+  };
+  let mut out = Vec::with_capacity(want.min(64 << 20) as usize);
+  let mut stream = resp.bytes_stream();
+  while (out.len() as u64) < want {
+    let Some(chunk) = stream.next().await else { break };
+    let chunk = chunk.map_err(net_error)?;
+    let mut bytes = &chunk[..];
+    if skip > 0 {
+      let n = skip.min(bytes.len() as u64);
+      skip -= n;
+      bytes = &bytes[n as usize..];
+    }
+    let room = (want - out.len() as u64).min(bytes.len() as u64) as usize;
+    out.extend_from_slice(&bytes[..room]);
+  }
+  if (out.len() as u64) < want {
+    return Err("Lecture de l'en-tête interrompue (connexion coupée).".into());
   }
   Ok(out)
 }

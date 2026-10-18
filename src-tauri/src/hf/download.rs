@@ -20,7 +20,7 @@ use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::sync::Notify;
 
 use super::types::DownloadState;
-use super::{Hf, api, log, names};
+use super::{Hf, api, check, log, names};
 
 /// Intervalle minimal entre deux événements de progression d'un même téléchargement.
 const EMIT_EVERY: Duration = Duration::from_millis(250);
@@ -153,6 +153,17 @@ async fn transfer(ctx: &Ctx, repo: &str, files: &[String]) -> Result<Outcome, St
   let client = ctx.hf.client()?;
   let token = ctx.hf.token();
   let token = token.as_deref();
+
+  // En-tête vérifié avant d'écrire quoi que ce soit (résultat en cache après `Hf::download`) :
+  // couvre aussi les reprises de téléchargements antérieurs à cette vérification.
+  let Some(verdict) = ctx.or_stop(check::check(&ctx.hf, repo, files)).await else {
+    return Ok(Outcome::Stopped);
+  };
+  match verdict {
+    Ok(c) if c.standalone => {}
+    Ok(c) => return Err(c.reason.unwrap_or_else(|| "Ce fichier n'est pas un modèle de chat autonome.".into())),
+    Err(e) => return Err(format!("Vérification du fichier impossible : {e} Le téléchargement peut être repris.")),
+  }
 
   // Tailles attendues, lues dans la liste des fichiers du dépôt.
   let Some(tree) = ctx.or_stop(api::list_tree(&client, token, repo)).await else {
