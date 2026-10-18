@@ -66,7 +66,8 @@
     "unavailable": "{model} · unavailable",
     "unavailableOption": "{model} (unavailable)",
     "deletedConnection": "Deleted connection",
-    "unknownConnection": "Unknown connection"
+    "unknownConnection": "Unknown connection",
+    "localGroup": "This computer"
   },
   "messages": {
     "emptyTitle": "How can I help you?",
@@ -75,7 +76,7 @@
     "thinkingLabel": "Thinking",
     "thinkingDuration": "Thinking · {secs} s",
     "openSettings": "Open settings",
-    "noModelSelected": "No model selected: set up an Ollama server to start chatting."
+    "noModelSelected": "No model selected: put a .gguf file in the models folder (Settings › Engine)."
   },
   "thinking": {
     "phrases": [
@@ -189,11 +190,19 @@
   "shutdown": {
     "button": "Shut down {name}",
     "title": "Shut down {name}?",
-    "text": "The machine “{name}” will shut down completely. Ollama will be unreachable on this connection until it restarts.",
+    "text": "The machine “{name}” will shut down completely.",
     "defaultTitle": "Shut down the machine?",
-    "defaultText": "The machine will shut down completely. Ollama will be unreachable until it restarts.",
+    "defaultText": "The machine will shut down completely.",
     "confirm": "Shut down",
     "inProgress": "Shutting down…",
     "sent": "Command sent, {name} is shutting down."
+  },
+  "engine": {
+    "unavailable": "The engine is only available in the Lucania desktop app.",
+    "loading": "Loading model…",
+    "ready": "Model ready",
+    "idle": "No model loaded",
+    "generating": "Generating…",
+    "noModels": "No model installed: put a .gguf file in the models folder (Settings › Engine)."
   }
 }

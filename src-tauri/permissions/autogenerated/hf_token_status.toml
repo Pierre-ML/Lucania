@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hf-token-status"
+description = "Enables the hf_token_status command without any pre-configured scope."
+commands.allow = ["hf_token_status"]
+
+[[permission]]
+identifier = "deny-hf-token-status"
+description = "Denies the hf_token_status command without any pre-configured scope."
+commands.deny = ["hf_token_status"]

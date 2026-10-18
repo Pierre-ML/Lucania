@@ -38,10 +38,9 @@ const lang = getLang(Astro);
 
 	<template id="tpl-connection">
 		<li data-connection class="relative flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors duration-150 first:rounded-t-xl last:rounded-b-xl hover:bg-fg/[0.03]">
-			<span data-status-dot data-state="pending" aria-hidden="true" class="size-2 shrink-0 rounded-full bg-muted/40 data-[state=ok]:bg-emerald-500 data-[state=error]:bg-danger data-[state=pending]:animate-dot-pulse data-[state=pending]:bg-muted motion-reduce:animate-none"></span>
 			<div data-info class="min-w-0 flex-1 transition-opacity duration-150">
 				<p data-name class="truncate text-sm font-medium"></p>
-				<p data-meta role="status" aria-live="polite" class="mt-0.5 text-xs text-muted [overflow-wrap:anywhere]"></p>
+				<p data-meta class="mt-0.5 text-xs text-muted [overflow-wrap:anywhere]"></p>
 			</div>
 			<div data-stop class="flex shrink-0 items-center gap-1">
 				<Switch attrs={{ 'data-toggle': '' }} />
@@ -50,7 +49,6 @@ const lang = getLang(Astro);
 						<DotsHorizontalIcon aria-hidden="true" class="size-4" />
 					</button>
 					<div data-menu role="menu" hidden class="absolute right-0 top-full z-20 mt-1 w-40 origin-top-right animate-pop-in rounded-lg border border-border bg-surface p-1 data-flip:bottom-full data-flip:top-auto data-flip:mb-1 data-flip:mt-0 data-flip:origin-bottom-right motion-reduce:animate-none">
-						<button type="button" role="menuitem" data-test class={`${menuItem} text-fg`}>{t(lang, 'settings.connections.menu.test')}</button>
 						<button type="button" role="menuitem" data-edit class={`${menuItem} text-fg`}>{t(lang, 'settings.connections.menu.edit')}</button>
 						<button type="button" role="menuitem" data-delete class={`${menuItem} text-danger`}>{t(lang, 'settings.connections.menu.delete')}</button>
 					</div>

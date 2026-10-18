@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hf-cancel"
+description = "Enables the hf_cancel command without any pre-configured scope."
+commands.allow = ["hf_cancel"]
+
+[[permission]]
+identifier = "deny-hf-cancel"
+description = "Denies the hf_cancel command without any pre-configured scope."
+commands.deny = ["hf_cancel"]

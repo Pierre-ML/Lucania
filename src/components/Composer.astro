@@ -4,7 +4,6 @@ import StopIcon from '../assets/icons/stop.svg';
 import SparkleIcon from '../assets/icons/sparkle.svg';
 import ChevronDownIcon from '../assets/icons/chevron-down.svg';
 import LockIcon from '../assets/icons/lock.svg';
-import BrainIcon from '../assets/icons/brain.svg';
 import DatabaseIcon from '../assets/icons/database.svg';
 import SparklePlusIcon from '../assets/icons/sparkle-plus.svg';
 import { getLang, t } from '../i18n/index';
@@ -35,12 +34,6 @@ const lang = getLang(Astro);
 				</button>
 				<ul id="model-picker-menu" role="listbox" aria-label={t(lang, 'chat.composer.models')} tabindex="-1" class="hidden animate-pop-in motion-reduce:animate-none absolute bottom-full left-0 z-20 mb-2 max-h-72 min-w-64 max-w-[min(24rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-composer-border bg-composer-surface p-1 shadow-xl shadow-black/30 focus:outline-none"></ul>
 			</div>
-			<button id="think-toggle" type="button" aria-pressed="true" aria-label={t(lang, 'chat.composer.think')} title={t(lang, 'chat.composer.thinkOn')} class="group flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-1.5 text-composer-muted transition-colors motion-reduce:transition-none not-aria-disabled:not-aria-pressed:hover:text-composer-fg focus-visible:outline-2 aria-pressed:text-composer-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40">
-				<BrainIcon width="15" height="15" aria-hidden="true" class="shrink-0" />
-				<span aria-hidden="true" class="hidden text-[11px] leading-none sm:inline">{t(lang, 'chat.composer.thinkShort')}</span>
-				<span aria-hidden="true" class="relative block h-4 w-7 shrink-0 rounded-full bg-composer-fg/20 ease-out group-data-[animate=true]:transition-colors group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:bg-composer-fg"><span class="absolute left-0.5 top-0.5 block size-3 rounded-full bg-composer-muted ease-out group-data-[animate=true]:transition-[translate,background-color] group-data-[animate=true]:duration-150 motion-reduce:transition-none group-aria-pressed:translate-x-3 group-aria-pressed:bg-composer-surface"></span></span>
-				<span class="sr-only">{t(lang, 'chat.composer.think')}</span>
-			</button>
 			<button id="memory-use-toggle" type="button" aria-pressed="true" aria-label={t(lang, 'chat.composer.memoryUse')} title={t(lang, 'chat.composer.memoryUseOn')} class="group flex h-6.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-1.5 text-composer-muted transition-colors motion-reduce:transition-none not-aria-disabled:not-aria-pressed:hover:text-composer-fg focus-visible:outline-2 aria-pressed:text-composer-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40">
 				<DatabaseIcon width="15" height="15" aria-hidden="true" class="shrink-0" />
 				<span aria-hidden="true" class="hidden text-[11px] leading-none sm:inline">{t(lang, 'chat.composer.memoryUseShort')}</span>

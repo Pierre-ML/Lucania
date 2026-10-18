@@ -156,12 +156,6 @@ export function buildMemorySystemMessage(model: string, lang: 'fr' | 'en'): stri
 
 // ---- Extraction de faits ----
 
-const FACTS_SCHEMA = {
-  type: 'object',
-  properties: { facts: { type: 'array', items: { type: 'string' } } },
-  required: ['facts'],
-};
-
 function extractionPrompt(lang: 'fr' | 'en', known: string[]): string {
   const list = known.map((k) => `- ${k}`).join('\n');
   if (lang === 'en') {
@@ -214,57 +208,35 @@ function parseFacts(raw: unknown, known: string[]): string[] {
   return out;
 }
 
-export type ExtractResult = { ok: true; facts: string[] } | { ok: false; error: string };
+/** Nombre maximal de jetons à générer pour l'extraction. */
+export const EXTRACT_MAX_TOKENS = 512;
+
+export type ExtractPrompt =
+  | { skip: true }
+  | { skip: false; messages: { role: 'system' | 'user' | 'assistant'; content: string }[]; maxTokens: number };
 
 /**
- * Demande à Ollama (non-streaming) 0 à 3 faits durables à retenir. N'enregistre rien.
- * Renvoie { facts: [] } sans appeler Ollama si la mémoire ou l'extraction est désactivée pour ce modèle.
+ * Construit les messages d'extraction (aucun appel au modèle).
+ * Renvoie { skip: true } si la mémoire ou l'extraction est désactivée pour ce modèle.
  */
-export async function extractFacts(input: {
-  baseUrl: string;
-  model: string;
-  messages: ExtractMessage[];
-  lang: 'fr' | 'en';
-}): Promise<ExtractResult> {
-  const { baseUrl, model, lang } = input;
+export function buildExtractionMessages(input: { model: string; messages: ExtractMessage[]; lang: 'fr' | 'en' }): ExtractPrompt {
+  const { model, lang } = input;
   const settings = getMemorySettings(model);
-  if (!settings.enabled || !settings.autoExtract) return { ok: true, facts: [] };
-
+  if (!settings.enabled || !settings.autoExtract) return { skip: true };
   const known = listFacts(model).map((f) => f.content);
   const messages = input.messages.slice(-MAX_INPUT_MESSAGES).map((m) => ({
     role: m.role,
     content: m.content.slice(0, MAX_MESSAGE_LENGTH),
   }));
+  return {
+    skip: false,
+    messages: [{ role: 'system', content: extractionPrompt(lang, known) }, ...messages],
+    maxTokens: EXTRACT_MAX_TOKENS,
+  };
+}
 
-  const send = (withThink: boolean) =>
-    fetch(`${baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'system', content: extractionPrompt(lang, known) }, ...messages],
-        stream: false,
-        format: FACTS_SCHEMA,
-        ...(withThink && { think: false }),
-        options: { temperature: 0.2 },
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-
-  try {
-    let upstream = await send(true);
-    if (!upstream.ok && upstream.status === 400) {
-      const text = await upstream.text().catch(() => '');
-      if (/does not support thinking/i.test(text)) upstream = await send(false);
-      else return { ok: false, error: text.trim() || `Erreur Ollama (HTTP ${upstream.status})` };
-    }
-    if (!upstream.ok) {
-      const text = (await upstream.text().catch(() => '')).trim();
-      return { ok: false, error: text || `Erreur Ollama (HTTP ${upstream.status})` };
-    }
-    const data = (await upstream.json().catch(() => null)) as any;
-    return { ok: true, facts: parseFacts(data?.message?.content, known) };
-  } catch {
-    return { ok: false, error: 'Serveur injoignable' };
-  }
+/** Analyse le texte renvoyé par le modèle : 0 à 3 faits filtrés et dédoublonnés (faits connus inclus). */
+export function parseExtractedFacts(model: string, text: string): string[] {
+  const known = listFacts(model).map((f) => f.content);
+  return parseFacts(text, known);
 }

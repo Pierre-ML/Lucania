@@ -1,7 +1,7 @@
 [package]
 name = "lucania"
-version = "0.1.13"
-description = "Lucania - interface de chat pour modèles Ollama"
+version = "0.1.14"
+description = "Lucania - interface de chat locale pour modèles GGUF (llama.cpp)"
 authors = ["Pierre Mouilleseaux Lhuillier"]
 license = "MIT"
 repository = ""
@@ -22,6 +22,23 @@ tauri = { version = "2.12.1", features = [] }
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
+# Moteur llama.cpp intégré. Sans les features par défaut : pas d'OpenMP (évite la dépendance
+# à vcomp140.dll chez l'utilisateur), ggml utilise alors son propre pool de threads.
+llama-cpp-2 = { version = "0.1.160", default-features = false }
+# Accès direct aux constantes C (politique Flash Attention) ; même version que llama-cpp-2.
+llama-cpp-sys-2 = { version = "0.1.160", default-features = false }
+# Catalogue et téléchargement de modèles depuis Hugging Face (TLS rustls, sans OpenSSL).
+# Racines webpki ET magasin de certificats Windows : les antivirus qui analysent le HTTPS
+# (Norton Web Shield, etc.) présentent un certificat signé par leur propre autorité.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "rustls-tls-native-roots", "stream", "json"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+# Runtime déjà utilisé par Tauri : on active seulement les modules utiles aux téléchargements.
+tokio = { version = "1", features = ["sync", "time", "fs", "io-util", "macros"] }
+
+[features]
+# Build GPU NVIDIA : « npm run tauri:cuda » (dev) ou « npm run desktop:build:cuda ».
+# Sans cette feature, l'inférence se fait sur le CPU.
+cuda = ["llama-cpp-2/cuda"]
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

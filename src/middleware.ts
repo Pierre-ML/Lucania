@@ -6,7 +6,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' http://localhost:11434 ipc: http://ipc.localhost",
+  "connect-src 'self' ipc: http://ipc.localhost",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

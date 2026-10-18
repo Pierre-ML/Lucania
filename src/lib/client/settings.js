@@ -1,19 +1,27 @@
-// Page Paramètres : navigation par sections, apparence/langue + gestion des connexions Ollama.
+// Page Paramètres : navigation par sections, moteur local, apparence/langue + gestion des connexions (extinction à distance).
 import {
   listConnections,
   createConnection,
   updateConnection,
   deleteConnection,
-  testConnectionUrl,
-  testConnection,
 } from './connections.js';
+import {
+  engineAvailable,
+  getEngineInfo,
+  getEngineStatus,
+  listModels,
+  onEngineStatus,
+  useModel,
+  unloadModel,
+  deleteModel,
+} from './engine.js';
+import { errorMessage, onDownload } from './hf.js';
 import { invoke } from '@tauri-apps/api/core';
 import { confirmDialog } from './dialog.js';
 import { t, getLang, setLang } from './i18n.js';
 import { THEMES, getTheme, setTheme } from './theme.js';
 
 /** @typedef {import('./connections.js').Connection} Connection */
-/** @typedef {import('./connections.js').TestResult} TestResult */
 
 /** @param {string} sel @param {ParentNode} [root] */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -25,35 +33,13 @@ const emptyEl = byId('connections-empty');
 const loadingEl = byId('connections-loading');
 const feedbackEl = byId('connections-feedback');
 const tplConn = /** @type {HTMLTemplateElement} */ (byId('tpl-connection'));
-const tplChip = /** @type {HTMLTemplateElement} */ (byId('tpl-chip'));
-const tplDetected = /** @type {HTMLTemplateElement} */ (byId('tpl-detected'));
 
 const dlg = /** @type {HTMLDialogElement} */ (byId('connection-dialog'));
 const form = /** @type {HTMLFormElement} */ (byId('connection-form'));
 const titleEl = byId('cf-title');
 const errorBanner = byId('cf-error');
-const step1 = dlg.querySelector('[data-step="1"]');
-const step2 = dlg.querySelector('[data-step="2"]');
-const backBtn = /** @type {HTMLButtonElement} */ ($('[data-action="back"]', dlg));
-const hostInput = /** @type {HTMLInputElement} */ (byId('cf-host'));
-const customInput = /** @type {HTMLInputElement} */ (byId('cf-url'));
-const nameBtn = /** @type {HTMLButtonElement} */ (byId('cf-name-btn'));
-const nameText = byId('cf-name-text');
 const nameInput = /** @type {HTMLInputElement} */ (byId('cf-name'));
-const autoSwitch = /** @type {HTMLButtonElement} */ (byId('cf-auto'));
-const manualInput = /** @type {HTMLInputElement} */ (byId('cf-manual-input'));
-const manualList = byId('cf-manual-list');
-const statusEl = byId('cf-status');
-const statusDot = /** @type {HTMLElement} */ ($('[data-test-dot]', statusEl));
-const statusText = /** @type {HTMLElement} */ ($('[data-test-text]', statusEl));
-const statusHelp = /** @type {HTMLElement} */ ($('[data-test-help]', statusEl));
-const statusHelpText = /** @type {HTMLElement} */ ($('[data-test-help-text]', statusEl));
-const guideLink = /** @type {HTMLElement} */ ($('[data-guide]', statusEl));
-const statusModels = /** @type {HTMLElement} */ ($('[data-test-models]', statusEl));
-const retryBtn = /** @type {HTMLButtonElement} */ ($('[data-action="retry"]', statusEl));
-const tplPill = /** @type {HTMLTemplateElement} */ (byId('tpl-pill'));
-const detectedWrap = byId('cf-detected');
-const detectedList = byId('cf-detected-list');
+const kindSelect = /** @type {HTMLSelectElement} */ (byId('cf-kind'));
 const sdSwitch = /** @type {HTMLButtonElement} */ (byId('cf-sd-enabled'));
 const sdFields = byId('cf-sd-fields');
 const sdUrl = /** @type {HTMLInputElement} */ (byId('cf-sd-url'));
@@ -61,7 +47,6 @@ const sdMethod = /** @type {HTMLSelectElement} */ (byId('cf-sd-method'));
 const sdToken = /** @type {HTMLInputElement} */ (byId('cf-sd-token'));
 const sdClearWrap = byId('cf-sd-clear-wrap');
 const sdClear = /** @type {HTMLInputElement} */ (byId('cf-sd-clear'));
-const advanced = /** @type {HTMLDetailsElement} */ (byId('cf-advanced'));
 const saveBtn = /** @type {HTMLButtonElement} */ (byId('cf-save'));
 const saveLabel = byId('cf-save-label');
 
@@ -69,25 +54,15 @@ const saveLabel = byId('cf-save-label');
 let connections = [];
 /** @type {string|null} */
 let editingId = null;
-/** @type {string[]} */
-let manualModels = [];
-/** @type {'local'|'remote'|'custom'} */
-let mode = 'local';
-let nameTouched = false;
 let busy = false;
-let testSeq = 0;
-/** @type {ReturnType<typeof setTimeout>|undefined} */
-let testTimer;
-/** @type {string[]} */
-let detected = [];
 
-// ---------- Navigation par sections (#connexions, #apparence, #wireguard, #a-propos) ----------
+// ---------- Navigation par sections (#moteur, #connexions, #apparence, #a-propos…) ----------
 
 /** @type {HTMLElement[]} */
 const panels = [...document.querySelectorAll('[data-panel]')];
 /** @type {HTMLElement[]} */
 const navLinks = [...document.querySelectorAll('[data-nav]')];
-const DEFAULT_PANEL = 'connexions';
+const DEFAULT_PANEL = 'moteur';
 
 function showPanel() {
   let wanted = '';
@@ -205,8 +180,6 @@ const isOn = (sw) => sw.getAttribute('aria-checked') === 'true';
 /** @param {Element} sw @param {boolean} on */
 const setOn = (sw, on) => sw.setAttribute('aria-checked', on ? 'true' : 'false');
 
-autoSwitch.addEventListener('click', () => setOn(autoSwitch, !isOn(autoSwitch)));
-
 // ---------- Menu « ⋯ » (un seul ouvert à la fois) ----------
 
 /** @type {HTMLElement|null} */
@@ -250,6 +223,220 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ---------- Moteur : backend, dossier des modèles, modèles installés ----------
+
+const engineUnavailableEl = byId('engine-unavailable');
+const engineErrorEl = byId('engine-error');
+const engineInfoEl = byId('engine-info');
+const engineLoadingEl = byId('engine-loading');
+const engineBackendEl = byId('engine-backend');
+const engineDirEl = byId('engine-dir');
+const engineModelsEl = byId('engine-models');
+const engineEmptyEl = byId('engine-empty');
+const engineRefreshBtn = /** @type {HTMLButtonElement|null} */ (byId('engine-refresh'));
+
+/** Taille lisible (Mo / Go) selon la langue courante. @param {number} bytes */
+function formatSize(bytes) {
+  const nf = (/** @type {number} */ n) =>
+    new Intl.NumberFormat(getLang(), { maximumFractionDigits: n >= 100 ? 0 : 1 }).format(n);
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1) return `${nf(gb)} ${t('settings.engine.unitGb')}`;
+  return `${nf(bytes / 1024 ** 2)} ${t('settings.engine.unitMb')}`;
+}
+
+const modelBtn = 'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const modelBtnDanger = 'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-danger/40 px-3 text-xs font-medium text-danger transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+
+/** @type {{ id: string, name: string, sizeBytes: number }[]} */
+let engineModels = [];
+/** @type {string|null} */
+let loadedModelId = null;
+/** Modèle en cours de chargement lancé depuis cette page. @type {string|null} */
+let loadingModelId = null;
+let engineLoadingAny = false;
+let engineSubscribed = false;
+
+/** @param {string} msg */
+function showEngineError(msg) {
+  if (!engineErrorEl) return;
+  engineErrorEl.textContent = msg;
+  engineErrorEl.hidden = !msg;
+}
+
+/** @param {string} id */
+async function useEngineModel(id) {
+  showEngineError('');
+  loadingModelId = id;
+  renderModels();
+  try {
+    await useModel(id);
+    loadedModelId = id;
+  } catch (e) {
+    showEngineError(errorMessage(e));
+  } finally {
+    loadingModelId = null;
+    renderModels();
+  }
+}
+
+async function unloadEngineModel() {
+  showEngineError('');
+  try {
+    await unloadModel();
+    loadedModelId = null;
+  } catch (e) {
+    showEngineError(errorMessage(e));
+  }
+  renderModels();
+}
+
+/** @param {{ id: string, name: string }} model */
+async function deleteEngineModel(model) {
+  showEngineError('');
+  const ok = await confirmDialog({
+    title: t('settings.engine.delete.title'),
+    message: t('settings.engine.delete.message', { name: model.name }),
+  });
+  if (!ok) return;
+  try {
+    await deleteModel(model.id);
+    if (loadedModelId === model.id) loadedModelId = null;
+    try {
+      if (localStorage.getItem('lastModel') === 'local::' + model.id) localStorage.removeItem('lastModel');
+    } catch {
+      /* stockage indisponible */
+    }
+  } catch (e) {
+    showEngineError(errorMessage(e));
+  }
+  await refreshModels();
+}
+
+/** @param {string} label @param {string} cls @param {() => void} onClick @param {boolean} disabled */
+function buildModelBtn(label, cls, onClick, disabled) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = cls;
+  b.textContent = label;
+  b.disabled = disabled;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/** @param {{ id: string, name: string, sizeBytes: number }} model */
+function buildModelItem(model) {
+  const li = document.createElement('li');
+  li.className = 'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3';
+  li.dataset.modelId = model.id;
+  const isLoaded = loadedModelId === model.id;
+  const isLoading = loadingModelId === model.id;
+  const locked = loadingModelId !== null || engineLoadingAny;
+
+  const info = document.createElement('div');
+  info.className = 'min-w-0 flex-1';
+  const head = document.createElement('div');
+  head.className = 'flex min-w-0 items-center gap-2';
+  const name = document.createElement('span');
+  name.className = 'min-w-0 truncate font-mono text-sm';
+  name.textContent = model.name;
+  head.append(name);
+  if (isLoaded) {
+    const badge = document.createElement('span');
+    badge.className = 'shrink-0 rounded-full bg-fg/10 px-2 py-0.5 text-[11px] font-medium text-fg';
+    badge.textContent = t('settings.engine.loaded');
+    head.append(badge);
+  }
+  const meta = document.createElement('p');
+  meta.className = 'mt-0.5 truncate font-mono text-[11px] text-muted';
+  meta.textContent = `${formatSize(model.sizeBytes)} · ${model.id}`;
+  meta.title = model.id;
+  info.append(head, meta);
+
+  const actions = document.createElement('div');
+  actions.className = 'flex shrink-0 items-center gap-2';
+  actions.append(
+    buildModelBtn(
+      t(isLoading ? 'settings.engine.loading' : 'settings.engine.use'),
+      modelBtn,
+      () => useEngineModel(model.id),
+      locked,
+    ),
+  );
+  if (isLoaded) actions.append(buildModelBtn(t('settings.engine.unload'), modelBtn, unloadEngineModel, locked));
+  actions.append(buildModelBtn(t('settings.engine.delete.button'), modelBtnDanger, () => deleteEngineModel(model), locked));
+
+  li.append(info, actions);
+  return li;
+}
+
+function renderModels() {
+  if (!engineModelsEl || !engineEmptyEl) return;
+  engineModelsEl.replaceChildren(...engineModels.map(buildModelItem));
+  engineModelsEl.hidden = engineModels.length === 0;
+  engineEmptyEl.hidden = engineModels.length > 0;
+}
+
+async function refreshModels() {
+  try {
+    engineModels = await listModels();
+    try {
+      const st = await getEngineStatus();
+      loadedModelId = st.loadedModel;
+      engineLoadingAny = st.loading;
+    } catch {
+      /* l'état sera mis à jour par les événements */
+    }
+  } catch (e) {
+    showEngineError(errorMessage(e));
+  }
+  renderModels();
+}
+
+async function subscribeEngine() {
+  if (engineSubscribed) return;
+  engineSubscribed = true;
+  try {
+    await onEngineStatus((st) => {
+      loadedModelId = st.loadedModel;
+      engineLoadingAny = st.loading;
+      renderModels();
+    });
+    await onDownload((d) => {
+      if (d.state === 'completed') refreshModels();
+    });
+  } catch {
+    /* pas d'événements : le bouton Actualiser reste disponible */
+  }
+}
+
+async function loadEngine() {
+  if (!engineInfoEl || !engineUnavailableEl || !engineErrorEl || !engineLoadingEl || !engineBackendEl || !engineDirEl || !engineModelsEl || !engineEmptyEl) return;
+  showEngineError('');
+  if (!engineAvailable()) {
+    engineLoadingEl.hidden = true;
+    engineInfoEl.hidden = true;
+    engineUnavailableEl.textContent = t('chat.engine.unavailable');
+    engineUnavailableEl.hidden = false;
+    if (engineRefreshBtn) engineRefreshBtn.hidden = true;
+    return;
+  }
+  if (engineRefreshBtn) engineRefreshBtn.disabled = true;
+  try {
+    const [info] = await Promise.all([getEngineInfo(), refreshModels()]);
+    engineBackendEl.textContent = t(info.backend === 'cuda' ? 'settings.engine.backendCuda' : 'settings.engine.backendCpu');
+    engineDirEl.textContent = info.modelsDir;
+    engineInfoEl.hidden = false;
+    subscribeEngine();
+  } catch (e) {
+    showEngineError(errorMessage(e));
+  } finally {
+    engineLoadingEl.hidden = true;
+    if (engineRefreshBtn) engineRefreshBtn.disabled = false;
+  }
+}
+
+engineRefreshBtn?.addEventListener('click', loadEngine);
+
 // ---------- Liste des connexions ----------
 
 /** @param {string} msg */
@@ -270,13 +457,13 @@ function renderList() {
   for (const conn of connections) listEl.append(buildItem(conn));
 }
 
-/** @param {Connection} conn */
-function hostOf(conn) {
-  try {
-    return new URL(conn.baseUrl).host;
-  } catch {
-    return conn.baseUrl;
-  }
+/** Ligne de détail : type · état de l'extinction (ou « Désactivée »). @param {Connection} conn */
+function metaText(conn) {
+  const kind = t(conn.kind === 'local' ? 'settings.connections.kindLocal' : 'settings.connections.kindRemote');
+  const state = !conn.enabled
+    ? t('settings.connections.status.disabled')
+    : t(conn.shutdown.enabled ? 'settings.connections.shutdownOn' : 'settings.connections.shutdownOff');
+  return `${kind} · ${state}`;
 }
 
 /** @param {Connection} conn */
@@ -284,9 +471,8 @@ function buildItem(conn) {
   const frag = /** @type {DocumentFragment} */ (tplConn.content.cloneNode(true));
   const li = /** @type {HTMLElement} */ ($('[data-connection]', frag));
   li.dataset.id = conn.id;
-  const kindLabel = t(conn.kind === 'local' ? 'settings.connections.kindLocal' : 'settings.connections.kindRemote');
-  li.dataset.base = `${kindLabel} · ${hostOf(conn)}`;
   $('[data-name]', li).textContent = conn.name;
+  const meta = $('[data-meta]', li);
 
   const toggle = /** @type {HTMLButtonElement} */ ($('[data-toggle]', li));
   toggle.setAttribute('aria-label', t('settings.connections.toggleLabel', { name: conn.name }));
@@ -295,6 +481,7 @@ function buildItem(conn) {
   const applyToggle = (on) => {
     setOn(toggle, on);
     info.classList.toggle('opacity-50', !on);
+    meta.textContent = metaText(conn);
   };
   applyToggle(conn.enabled);
 
@@ -306,8 +493,6 @@ function buildItem(conn) {
       const updated = await updateConnection(conn.id, { enabled: next });
       Object.assign(conn, updated);
       applyToggle(updated.enabled);
-      if (updated.enabled) runStatus(li, conn);
-      else setStatus(li, 'off', t('settings.connections.status.disabled'));
     } catch (e) {
       showFeedback(e.message);
     } finally {
@@ -329,10 +514,6 @@ function buildItem(conn) {
     if (openWrap === wrap && next && !wrap.contains(next)) closeMenu();
   });
 
-  $('[data-test]', li).addEventListener('click', () => {
-    closeMenu({ restoreFocus: true });
-    runStatus(li, conn);
-  });
   $('[data-edit]', li).addEventListener('click', () => {
     closeMenu();
     openForm(conn);
@@ -358,37 +539,7 @@ function buildItem(conn) {
     openForm(conn);
   });
 
-  if (conn.enabled) runStatus(li, conn);
-  else setStatus(li, 'off', t('settings.connections.status.disabled'));
   return li;
-}
-
-/** @param {number} n */
-function modelsLabel(n) {
-  return t('settings.connections.models', { count: n });
-}
-
-/** @param {HTMLElement} li @param {'ok'|'error'|'pending'|'off'} state @param {string} text */
-function setStatus(li, state, text) {
-  $('[data-status-dot]', li).dataset.state = state;
-  $('[data-meta]', li).textContent = `${li.dataset.base} · ${text}`;
-}
-
-/** @param {HTMLElement} li @param {Connection} conn */
-async function runStatus(li, conn) {
-  setStatus(li, 'pending', t('settings.connections.status.testing'));
-  try {
-    const r = await testConnection(conn.id);
-    if (!li.isConnected) return;
-    if (r.ok) {
-      const models = modelsLabel(r.models.length);
-      setStatus(li, 'ok', t('settings.connections.status.ok', { ms: Math.round(r.latencyMs), models }));
-    } else {
-      setStatus(li, 'error', r.error || t('settings.connections.status.failed'));
-    }
-  } catch (e) {
-    if (li.isConnected) setStatus(li, 'error', e.message);
-  }
 }
 
 async function refresh() {
@@ -402,12 +553,7 @@ async function refresh() {
   renderShutdown();
 }
 
-// ---------- Formulaire (assistant en 2 étapes) ----------
-
-const OLLAMA_PORT = '11434';
-const LOCAL_URL = `http://localhost:${OLLAMA_PORT}`;
-const TEST_DEBOUNCE_MS = 600;
-const MAX_PILLS = 8;
+// ---------- Formulaire (nom, type, extinction à distance) ----------
 
 /** @param {string} field @param {string} [msg] */
 function setFieldError(field, msg = '') {
@@ -442,306 +588,35 @@ function isHttpUrl(value) {
   }
 }
 
-/**
- * Construit l'URL depuis la saisie. `addPort` : ajoute :11434 si aucun port.
- * Une URL complète http(s):// est respectée telle quelle.
- * @param {string} raw @param {boolean} addPort @returns {string|null}
- */
-function buildUrl(raw, addPort) {
-  const v = raw.trim();
-  if (!v || /\s/.test(v)) return null;
-  let candidate;
-  if (/^https?:\/\//i.test(v)) candidate = v;
-  else if (addPort) candidate = `http://${v}${/:\d+(\/.*)?$/.test(v) ? '' : `:${OLLAMA_PORT}`}`;
-  else candidate = `http://${v}`;
-  if (!isHttpUrl(candidate)) return null;
-  return candidate.replace(/\/+$/, '');
-}
-
-/** @returns {string|null} */
-function currentUrl() {
-  if (mode === 'local') return LOCAL_URL;
-  if (mode === 'remote') return buildUrl(hostInput.value, true);
-  return buildUrl(customInput.value, false);
-}
-
-/** @returns {string} */
-function autoName() {
-  if (mode === 'local') return t('settings.form.name.local');
-  const url = currentUrl();
-  let host = '';
-  if (url) {
-    try {
-      host = new URL(url).hostname;
-    } catch {
-      host = '';
-    }
-  }
-  if (mode === 'remote') return host ? t('settings.form.name.remote', { host }) : t('settings.form.name.remoteFallback');
-  return host || t('settings.form.name.customFallback');
-}
-
-/** @returns {string} */
-function finalName() {
-  return nameTouched && nameInput.value.trim() ? nameInput.value.trim() : autoName();
-}
-
-function refreshName() {
-  nameText.textContent = finalName();
-}
-
-function refreshSave() {
-  saveBtn.disabled = busy || !currentUrl();
-}
-
-/** @param {Element} el */
-function fadeIn(el) {
-  const node = /** @type {HTMLElement} */ (el);
-  node.dataset.enter = '';
-  node.hidden = false;
-  void node.offsetWidth;
-  delete node.dataset.enter;
-}
-
-function commitName() {
-  const v = nameInput.value.trim();
-  nameTouched = Boolean(v) && v !== autoName();
-  nameInput.hidden = true;
-  nameBtn.hidden = false;
-  refreshName();
-}
-
-function renderManual() {
-  manualList.replaceChildren();
-  for (const model of manualModels) {
-    const frag = /** @type {DocumentFragment} */ (tplChip.content.cloneNode(true));
-    $('[data-chip-label]', frag).textContent = model;
-    const btn = /** @type {HTMLButtonElement} */ ($('[data-chip-remove]', frag));
-    btn.setAttribute('aria-label', t('settings.form.advanced.remove', { model }));
-    btn.addEventListener('click', () => {
-      manualModels = manualModels.filter((m) => m !== model);
-      renderManual();
-      renderDetected();
-      manualInput.focus();
-    });
-    manualList.append(frag);
-  }
-}
-
-/** @param {string} raw @returns {boolean} */
-function addManual(raw) {
-  const name = raw.trim();
-  setFieldError('manual');
-  if (!name) return false;
-  if (manualModels.includes(name)) {
-    setFieldError('manual', t('settings.form.advanced.manualDuplicate'));
-    return false;
-  }
-  manualModels.push(name);
-  renderManual();
-  renderDetected();
-  return true;
-}
-
-function renderDetected() {
-  detectedList.replaceChildren();
-  detectedWrap.hidden = detected.length === 0;
-  for (const model of detected) {
-    const frag = /** @type {DocumentFragment} */ (tplDetected.content.cloneNode(true));
-    const btn = /** @type {HTMLButtonElement} */ ($('[data-detected]', frag));
-    const already = manualModels.includes(model);
-    btn.textContent = already ? `${model} ✓` : `+ ${model}`;
-    btn.disabled = already;
-    btn.setAttribute('aria-label', already ? t('settings.form.advanced.alreadyAdded', { model }) : t('settings.form.advanced.addModel', { model }));
-    btn.addEventListener('click', () => addManual(model));
-    detectedList.append(frag);
-  }
-}
-
-// --- Bloc d'état du test ---
-
-function hideStatus() {
-  statusEl.hidden = true;
-  detected = [];
-  renderDetected();
-}
-
-/** @param {'ok'|'error'|'pending'} state @param {string} text @param {string[]} [models] */
-function showStatus(state, text, models = []) {
-  statusEl.hidden = false;
-  statusDot.dataset.state = state;
-  statusText.textContent = text;
-  statusText.classList.toggle('text-muted', state === 'pending');
-  statusText.classList.toggle('text-danger', state === 'error');
-
-  retryBtn.hidden = state !== 'error';
-  statusHelp.hidden = state !== 'error';
-  if (state === 'error') {
-    statusHelpText.textContent =
-      mode === 'local'
-        ? t('settings.form.test.helpLocal')
-        : mode === 'remote'
-          ? t('settings.form.test.helpRemote')
-          : t('settings.form.test.helpCustom');
-    guideLink.hidden = mode !== 'remote';
-  }
-
-  statusModels.replaceChildren();
-  statusModels.hidden = models.length === 0;
-  for (const m of models.slice(0, MAX_PILLS)) {
-    const frag = /** @type {DocumentFragment} */ (tplPill.content.cloneNode(true));
-    $('li', frag).textContent = m;
-    statusModels.append(frag);
-  }
-  if (models.length > MAX_PILLS) {
-    const frag = /** @type {DocumentFragment} */ (tplPill.content.cloneNode(true));
-    $('li', frag).textContent = `+${models.length - MAX_PILLS}`;
-    statusModels.append(frag);
-  }
-}
-
-function cancelTest() {
-  clearTimeout(testTimer);
-  testSeq++;
-}
-
-async function runTest() {
-  clearTimeout(testTimer);
-  const url = currentUrl();
-  const seq = ++testSeq;
-  if (!url) {
-    hideStatus();
-    return;
-  }
-  showStatus('pending', mode === 'local' ? t('settings.form.test.searchingLocal') : t('settings.form.test.testing'));
-  try {
-    /** @type {TestResult} */
-    const r = await testConnectionUrl(url);
-    if (seq !== testSeq) return;
-    if (r.ok) {
-      showStatus('ok', t('settings.form.test.detected', { models: modelsLabel(r.models.length) }), r.models);
-      detected = r.models;
-    } else {
-      showStatus('error', r.error || t('settings.form.test.failed'));
-      detected = [];
-    }
-  } catch (err) {
-    if (seq !== testSeq) return;
-    showStatus('error', err.message || t('settings.form.test.failed'));
-    detected = [];
-  }
-  renderDetected();
-}
-
-/** Test différé après la dernière frappe ; invalide le test précédent. */
-function scheduleTest() {
-  cancelTest();
-  refreshName();
-  refreshSave();
-  hideStatus();
-  if (!currentUrl()) return;
-  testTimer = setTimeout(runTest, TEST_DEBOUNCE_MS);
-}
-
-// --- Étapes ---
-
-/** @param {'local'|'remote'|'custom'} next @param {{ focus?: boolean }} [opts] */
-function goStep2(next, { focus = true } = {}) {
-  mode = next;
-  for (const el of dlg.querySelectorAll('[data-only]')) {
-    /** @type {HTMLElement} */ (el).hidden = /** @type {HTMLElement} */ (el).dataset.only !== next;
-  }
-  step1.hidden = true;
-  fadeIn(step2);
-  backBtn.hidden = Boolean(editingId);
-  saveBtn.hidden = false;
-  clearErrors();
-  hideStatus();
-  refreshName();
-  refreshSave();
-  if (next === 'local' || currentUrl()) runTest();
-  if (focus) {
-    if (next === 'local') saveBtn.focus();
-    else (next === 'remote' ? hostInput : customInput).focus();
-  }
-}
-
-function goStep1() {
-  cancelTest();
-  clearErrors();
-  step2.hidden = true;
-  fadeIn(step1);
-  backBtn.hidden = true;
-  saveBtn.hidden = true;
-}
-
-/** @param {Connection} conn @returns {{ mode: 'local'|'remote'|'custom', host: string }} */
-function detectMode(conn) {
-  let u;
-  try {
-    u = new URL(conn.baseUrl);
-  } catch {
-    return { mode: 'custom', host: '' };
-  }
-  const standard = u.protocol === 'http:' && u.port === OLLAMA_PORT && u.pathname === '/' && !u.search;
-  const isLocalHost = u.hostname === 'localhost' || u.hostname === '127.0.0.1';
-  if (standard && isLocalHost) return { mode: 'local', host: '' };
-  if (standard && !isLocalHost) return { mode: 'remote', host: u.hostname };
-  return { mode: 'custom', host: '' };
-}
-
 /** @param {Connection|null} conn */
 function openForm(conn) {
   editingId = conn ? conn.id : null;
   busy = false;
-  cancelTest();
   clearErrors();
-  hideStatus();
-  manualInput.value = '';
-  hostInput.value = '';
-  customInput.value = '';
   sdToken.value = '';
   sdClear.checked = false;
-  nameInput.value = '';
-  nameInput.hidden = true;
-  nameBtn.hidden = false;
-  nameTouched = false;
+  nameInput.value = conn ? conn.name : '';
+  kindSelect.value = conn ? conn.kind : 'local';
   saveLabel.textContent = conn ? t('settings.form.save') : t('settings.form.add');
   titleEl.textContent = conn ? t('settings.form.titleEdit') : t('settings.form.titleAdd');
-  manualModels = conn ? [...conn.manualModels] : [];
-  renderManual();
 
   const hasToken = Boolean(conn?.shutdown.hasToken);
   if (conn) {
-    setOn(autoSwitch, conn.autoModels);
     setOn(sdSwitch, conn.shutdown.enabled);
     sdUrl.value = conn.shutdown.url || '';
     sdMethod.value = conn.shutdown.method || 'POST';
   } else {
-    setOn(autoSwitch, true);
     setOn(sdSwitch, false);
     sdUrl.value = '';
     sdMethod.value = 'POST';
   }
   sdFields.hidden = !isOn(sdSwitch);
-  sdToken.placeholder = hasToken ? t('settings.form.advanced.tokenSaved') : '';
+  sdToken.placeholder = hasToken ? t('settings.form.shutdown.tokenSaved') : '';
   sdClearWrap.hidden = !hasToken;
-  advanced.open = false;
+  saveBtn.disabled = false;
 
   dlg.showModal();
-  if (conn) {
-    const d = detectMode(conn);
-    mode = d.mode;
-    if (d.mode === 'remote') hostInput.value = d.host;
-    if (d.mode === 'custom') customInput.value = conn.baseUrl;
-    nameInput.value = conn.name;
-    nameTouched = conn.name !== autoName();
-    goStep2(d.mode);
-  } else {
-    mode = 'local';
-    goStep1();
-    /** @type {HTMLElement} */ ($('[data-kind="local"]', step1)).focus();
-  }
+  nameInput.focus();
 }
 
 function closeForm() {
@@ -749,61 +624,16 @@ function closeForm() {
 }
 
 dlg.addEventListener('close', () => {
-  cancelTest();
   busy = false;
 });
 
 for (const btn of document.querySelectorAll('[data-action="add-connection"]')) {
   btn.addEventListener('click', () => openForm(null));
 }
-for (const card of step1.querySelectorAll('[data-kind]')) {
-  card.addEventListener('click', () => {
-    goStep2(/** @type {'local'|'remote'|'custom'} */ (/** @type {HTMLElement} */ (card).dataset.kind));
-  });
-}
-backBtn.addEventListener('click', () => {
-  const was = mode;
-  goStep1();
-  /** @type {HTMLElement} */ ($(`[data-kind="${was}"]`, step1)).focus();
-});
 $('[data-action="cancel"]', dlg).addEventListener('click', closeForm);
-retryBtn.addEventListener('click', () => {
-  runTest();
-});
-guideLink.addEventListener('click', closeForm);
 
-hostInput.addEventListener('input', () => {
-  setFieldError('host');
-  scheduleTest();
-});
-customInput.addEventListener('input', () => {
-  setFieldError('url');
-  scheduleTest();
-});
-
-// Nom : ligne discrète, éditable au clic.
-nameBtn.addEventListener('click', () => {
-  nameInput.value = finalName();
-  nameBtn.hidden = true;
-  nameInput.hidden = false;
-  nameInput.focus();
-  nameInput.select();
-});
-nameInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    commitName();
-    nameBtn.focus();
-  }
-});
-nameInput.addEventListener('blur', commitName);
-
-manualInput.addEventListener('keydown', (e) => {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  if (addManual(manualInput.value)) manualInput.value = '';
-});
-
+nameInput.addEventListener('input', () => setFieldError('name'));
+sdUrl.addEventListener('input', () => setFieldError('shutdownUrl'));
 sdSwitch.addEventListener('click', () => {
   setOn(sdSwitch, !isOn(sdSwitch));
   sdFields.hidden = !isOn(sdSwitch);
@@ -811,22 +641,19 @@ sdSwitch.addEventListener('click', () => {
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (busy || step2.hidden) return;
+  if (busy) return;
   clearErrors();
-  if (!nameInput.hidden) commitName();
-  const baseUrl = currentUrl();
+  const name = nameInput.value.trim();
   const sdEnabled = isOn(sdSwitch);
   const sdUrlValue = sdUrl.value.trim();
 
-  if (!baseUrl) {
-    const field = mode === 'remote' ? 'host' : 'url';
-    setFieldError(field, mode === 'remote' ? t('settings.form.host.invalid') : t('settings.form.url.invalid'));
-    (mode === 'remote' ? hostInput : customInput).focus();
+  if (!name) {
+    setFieldError('name', t('settings.form.name.required'));
+    nameInput.focus();
     return;
   }
   if (sdEnabled && !isHttpUrl(sdUrlValue)) {
-    advanced.open = true;
-    setFieldError('shutdownUrl', t('settings.form.advanced.shutdownUrlInvalid'));
+    setFieldError('shutdownUrl', t('settings.form.shutdown.urlInvalid'));
     sdUrl.focus();
     return;
   }
@@ -837,11 +664,8 @@ form.addEventListener('submit', async (e) => {
   else if (sdToken.value) shutdown.token = sdToken.value;
 
   const input = {
-    name: finalName(),
-    kind: mode === 'local' ? 'local' : 'remote',
-    baseUrl,
-    autoModels: isOn(autoSwitch),
-    manualModels,
+    name,
+    kind: kindSelect.value === 'remote' ? 'remote' : 'local',
     shutdown,
   };
 
@@ -859,7 +683,7 @@ form.addEventListener('submit', async (e) => {
   } finally {
     busy = false;
     saveLabel.textContent = editingId ? t('settings.form.save') : t('settings.form.add');
-    refreshSave();
+    saveBtn.disabled = false;
   }
 });
 
@@ -1097,4 +921,5 @@ async function loadSystemInfo() {
 }
 
 loadSystemInfo();
+loadEngine();
 refresh();

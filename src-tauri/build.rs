@@ -3,7 +3,26 @@ fn main() {
   // `allow-<nom>` à déclarer dans capabilities/default.json.
   tauri_build::try_build(
     tauri_build::Attributes::new()
-      .app_manifest(tauri_build::AppManifest::new().commands(&["uninstall_app"])),
+      .app_manifest(tauri_build::AppManifest::new().commands(&[
+        "uninstall_app",
+        "engine_info",
+        "engine_list_models",
+        "engine_status",
+        "engine_load",
+        "engine_unload",
+        "engine_generate",
+        "engine_stop",
+        "engine_delete_model",
+        "hf_search",
+        "hf_list_files",
+        "hf_download",
+        "hf_pause",
+        "hf_resume",
+        "hf_cancel",
+        "hf_list_downloads",
+        "hf_token_status",
+        "hf_set_token",
+      ])),
   )
   .unwrap()
 }

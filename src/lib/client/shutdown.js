@@ -1,4 +1,4 @@
-// Extinction des machines : un bouton par connexion dont l'extinction est activée, puis dialogue de confirmation.
+// Extinction de la machine distante : un bouton (première connexion dont l'extinction est activée), puis dialogue de confirmation.
 import { listConnections } from './connections.js';
 import { t } from './i18n.js';
 import { svgIcon } from './icons.js';
@@ -17,7 +17,9 @@ async function renderShutdownButtons(zone, list, openDialog) {
   } catch {
     return; // on garde l'état précédent
   }
-  const eligible = (Array.isArray(connections) ? connections : []).filter((c) => c.shutdown && c.shutdown.enabled);
+  const all = Array.isArray(connections) ? connections : Array.isArray(connections?.connections) ? connections.connections : [];
+  // Le chat n'est plus lié à une connexion : un seul bouton, pour la première dont l'extinction est activée.
+  const eligible = all.filter((c) => c.shutdown && c.shutdown.enabled).slice(0, 1);
   list.replaceChildren();
   for (const c of eligible) {
     const b = document.createElement('button');

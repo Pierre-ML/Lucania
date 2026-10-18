@@ -4,42 +4,60 @@
   "back": "Retour au chat",
   "navLabel": "Sections des paramètres",
   "nav": {
+    "engine": "Moteur",
+    "hf": "Hugging Face",
     "connections": "Connexions",
     "memory": "Mémoire",
     "shutdown": "Extinction à distance",
     "appearance": "Apparence",
-    "wireguard": "Guide WireGuard",
     "about": "À propos"
   },
+  "engine": {
+    "title": "Moteur",
+    "description": "Le moteur qui fait tourner les modèles directement sur cet ordinateur.",
+    "refresh": "Actualiser",
+    "backend": "Calcul",
+    "backendCuda": "GPU (CUDA)",
+    "backendCpu": "CPU",
+    "modelsDir": "Dossier des modèles",
+    "modelsTitle": "Modèles installés",
+    "empty": "Aucun modèle trouvé dans ce dossier.",
+    "help": "Pour ajouter un modèle, télécharge-le depuis la section Hugging Face, ou copie un fichier .gguf dans le dossier des modèles ci-dessus, puis clique sur « Actualiser ».",
+    "unitGb": "Go",
+    "unitMb": "Mo",
+    "loaded": "Chargé",
+    "use": "Utiliser",
+    "loading": "Chargement…",
+    "unload": "Décharger",
+    "delete": {
+      "button": "Supprimer",
+      "title": "Supprimer le modèle ?",
+      "message": "« {name} » sera supprimé de cet ordinateur. Cette action est définitive."
+    }
+  },
   "connections": {
-    "title": "Connexions",
-    "description": "Les serveurs Ollama utilisés pour discuter, sur cet ordinateur ou à distance.",
+    "title": "Extinction à distance des machines",
+    "description": "Les machines que Lucania peut éteindre à distance : cet ordinateur ou un autre PC joignable sur ton réseau ou ton VPN.",
     "add": "Ajouter une connexion",
     "emptyTitle": "Aucune connexion",
-    "emptyText": "Ajoute Ollama sur cet ordinateur ou sur un serveur distant pour commencer à discuter.",
+    "emptyText": "Ajoute une machine pour pouvoir l’éteindre depuis la barre latérale.",
     "loading": "Chargement…",
     "kindLocal": "Local",
     "kindRemote": "Distant",
     "toggleLabel": "Activer la connexion {name}",
     "menu": {
-      "test": "Tester",
       "edit": "Modifier",
       "delete": "Supprimer"
     },
     "status": {
-      "disabled": "Désactivée",
-      "testing": "Test en cours…",
-      "failed": "Connexion impossible.",
-      "ok": "{ms} ms · {models}"
-    },
-    "models": {
-      "one": "{count} modèle",
-      "other": "{count} modèles"
+      "disabled": "Désactivée"
     },
     "delete": {
       "title": "Supprimer la connexion ?",
       "message": "« {name} » sera retirée. Tes conversations ne sont pas affectées."
-    }
+    },
+    "shutdownOn": "Extinction configurée",
+    "shutdownOff": "Extinction non configurée"
   },
   "memory": {
     "title": "Mémoire",
@@ -48,8 +66,8 @@
     "chooseModel": "Choisir un modèle",
     "otherModels": "Autres modèles avec mémoire",
     "noModelTitle": "Aucun modèle",
-    "noModelText": "Ajoute une connexion Ollama pour choisir un modèle et gérer sa mémoire.",
-    "noModelLink": "Aller aux connexions",
+    "noModelText": "Installe un modèle (Paramètres › Moteur) pour pouvoir gérer sa mémoire.",
+    "noModelLink": "Aller au moteur",
     "enabled": "Mémoire activée",
     "enabledHelp": "Les faits mémorisés sont donnés au modèle au début de chaque conversation.",
     "autoExtract": "Extraction automatique",
@@ -68,68 +86,26 @@
   "form": {
     "titleAdd": "Ajouter une connexion",
     "titleEdit": "Modifier la connexion",
-    "back": "Retour",
     "cancel": "Annuler",
     "save": "Enregistrer",
     "add": "Ajouter",
     "saving": "Enregistrement…",
     "adding": "Ajout…",
-    "step1": {
-      "question": "Où tourne ton modèle ?",
-      "localTitle": "Sur cet ordinateur",
-      "localText": "Ollama est installé ici.",
-      "remoteTitle": "Sur une autre machine",
-      "remoteText": "Un PC ou serveur joignable via ton VPN WireGuard ou ton réseau local.",
-      "custom": "Utiliser une URL personnalisée"
-    },
-    "localHint": "Aucun réglage nécessaire : on cherche Ollama sur le port par défaut.",
-    "host": {
-      "label": "Adresse IP ou nom de la machine",
-      "help": "Son adresse dans le tunnel WireGuard. Le port 11434 est ajouté automatiquement.",
-      "invalid": "Adresse invalide (ex. 10.0.0.2)."
-    },
-    "url": {
-      "label": "URL du serveur Ollama",
-      "invalid": "L'URL est invalide (ex. http://192.168.1.20:11434)."
-    },
-    "test": {
-      "searchingLocal": "Recherche d’Ollama sur cet ordinateur…",
-      "testing": "Test de la connexion…",
-      "detected": "✓ Ollama détecté · {models}",
-      "failed": "Connexion impossible.",
-      "helpLocal": "Lance Ollama puis réessaie. Tu peux aussi ajouter la connexion et le lancer plus tard.",
-      "helpRemote": "Le tunnel est-il actif ? ",
-      "helpCustom": "Vérifie l'adresse et que le serveur est lancé.",
-      "guide": "Voir le guide",
-      "retry": "Réessayer",
-      "modelsLabel": "Modèles détectés"
-    },
     "name": {
-      "label": "Nom :",
-      "edit": "Modifier le nom",
-      "inputLabel": "Nom de la connexion",
-      "local": "Cet ordinateur",
-      "remote": "Machine {host}",
-      "remoteFallback": "Autre machine",
-      "customFallback": "Connexion personnalisée"
+      "label": "Nom",
+      "required": "Le nom est obligatoire."
     },
-    "advanced": {
-      "summary": "Options avancées",
-      "autoLabel": "Détecter automatiquement les modèles",
-      "autoHelp": "Liste les modèles installés à chaque ouverture du sélecteur.",
-      "manualLabel": "Modèles ajoutés manuellement",
-      "manualPlaceholder": "Ex. llama3.2:3b, puis Entrée",
-      "manualDuplicate": "Ce modèle est déjà dans la liste.",
-      "manualListLabel": "Modèles ajoutés",
-      "remove": "Retirer {model}",
-      "detectedHint": "Détectés : clique pour ajouter.",
-      "alreadyAdded": "{model} déjà ajouté",
-      "addModel": "Ajouter {model}",
-      "shutdownLabel": "Extinction à distance",
-      "shutdownHelp": "Affiche un bouton « Éteindre » dans la barre latérale.",
-      "shutdownUrl": "URL du listener",
-      "shutdownUrlInvalid": "L'URL du listener doit commencer par http:// ou https://.",
-      "shutdownMethod": "Méthode HTTP",
+    "kind": {
+      "label": "Type",
+      "local": "Cet ordinateur",
+      "remote": "Une autre machine"
+    },
+    "shutdown": {
+      "label": "Extinction à distance",
+      "help": "Affiche un bouton « Éteindre » dans la barre latérale.",
+      "url": "URL du listener",
+      "urlInvalid": "L’URL du listener doit commencer par http:// ou https://.",
+      "method": "Méthode HTTP",
       "token": "Token (optionnel)",
       "tokenSaved": "•••••••• (enregistré, laisser vide pour conserver)",
       "tokenClear": "Effacer le token enregistré"
@@ -160,36 +136,9 @@
     "languageTitle": "Langue",
     "hint": "Le thème et la langue sont enregistrés sur cet appareil."
   },
-  "wireguard": {
-    "title": "Guide WireGuard",
-    "description": "Utiliser Ollama sur une autre machine, à travers un tunnel VPN.",
-    "step1": {
-      "title": "Installer WireGuard",
-      "before": "Sur ce PC et sur le serveur, depuis ",
-      "link": "wireguard.com/install",
-      "after": "."
-    },
-    "step2": {
-      "title": "Créer le tunnel",
-      "text": "Importe ou crée le tunnel dans le client officiel, puis active-le des deux côtés."
-    },
-    "step3": {
-      "title": "Rendre Ollama accessible au tunnel",
-      "text": "Sur le serveur, définis la variable d'environnement ci-dessous puis redémarre Ollama.",
-      "firewallBefore": "Autorise ensuite le port ",
-      "firewallAfter": " dans le pare-feu, uniquement pour l'interface WireGuard."
-    },
-    "step4": {
-      "title": "Ajouter la connexion ici",
-      "text": "Dans la section Connexions, clique sur « Ajouter une connexion » et choisis « Sur une autre machine ». Saisis l'IP du serveur dans le tunnel, par exemple :",
-      "done": "Le test de la connexion se lance tout seul : les modèles détectés s'affichent si tout fonctionne."
-    },
-    "securityTitle": "Sécurité.",
-    "security": "N'expose jamais le port 11434 sur Internet sans VPN : Ollama n'a pas d'authentification."
-  },
   "about": {
     "title": "À propos",
-    "description": "Lucania, interface de chat locale pour modèles Ollama.",
+    "description": "Lucania, interface de chat locale pour modèles de langage.",
     "version": "Version",
     "data": "Données",
     "dataBefore": "Les conversations sont stockées localement dans ",
@@ -208,6 +157,60 @@
       "dialogTitle": "Désinstaller Lucania ?",
       "dialogMessage": "Vos conversations et vos réglages seront définitivement supprimés. Cette action est irréversible.",
       "confirm": "Désinstaller"
+    }
+  },
+  "hf": {
+    "title": "Hugging Face",
+    "description": "Cherche et télécharge des modèles GGUF depuis Hugging Face pour les utiliser avec le moteur local.",
+    "parts": {
+      "one": "{count} partie",
+      "other": "{count} parties"
+    },
+    "token": {
+      "title": "Jeton d’accès (facultatif)",
+      "label": "Jeton Hugging Face",
+      "placeholder": "hf_…",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "clear": "Supprimer le jeton",
+      "none": "Aucun jeton",
+      "connected": "Connecté en tant que {user}",
+      "saved": "Jeton enregistré",
+      "help": "Nécessaire seulement pour les modèles à accès restreint. Le jeton n’est jamais réaffiché.",
+      "link": "Créer un jeton sur Hugging Face"
+    },
+    "search": {
+      "title": "Rechercher un modèle",
+      "label": "Rechercher un modèle",
+      "placeholder": "Nom, auteur ou famille de modèles…",
+      "button": "Rechercher",
+      "loading": "Recherche en cours…",
+      "popular": "Les plus téléchargés",
+      "empty": "Aucun modèle trouvé.",
+      "stats": "{downloads} téléchargements · {likes} J’aime",
+      "gated": "Accès restreint"
+    },
+    "files": {
+      "loading": "Chargement des fichiers…",
+      "empty": "Aucun fichier GGUF dans ce dépôt.",
+      "download": "Télécharger",
+      "installed": "Installé"
+    },
+    "downloads": {
+      "title": "Téléchargements",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "cancel": "Annuler",
+      "keep": "Continuer",
+      "use": "Utiliser",
+      "cancelTitle": "Annuler le téléchargement ?",
+      "cancelMessage": "Le téléchargement de « {name} » sera arrêté et les données déjà reçues seront supprimées.",
+      "state": {
+        "downloading": "Téléchargement…",
+        "paused": "En pause",
+        "completed": "Terminé",
+        "error": "Erreur"
+      }
     }
   }
 }

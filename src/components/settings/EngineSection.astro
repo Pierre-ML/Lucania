@@ -1,0 +1,37 @@
+---
+import { getLang, t } from '../../i18n/index';
+
+const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const lang = getLang(Astro);
+---
+<section aria-labelledby="engine-title">
+	<div class="flex items-start justify-between gap-4">
+		<div class="min-w-0">
+			<h2 id="engine-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.engine.title')}</h2>
+			<p class="mt-1 text-sm text-muted">{t(lang, 'settings.engine.description')}</p>
+		</div>
+		<button type="button" id="engine-refresh" class={secondaryBtn}>{t(lang, 'settings.engine.refresh')}</button>
+	</div>
+
+	<p id="engine-unavailable" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted"></p>
+	<p id="engine-error" role="status" aria-live="polite" hidden class="mt-4 rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+
+	<div id="engine-info" hidden>
+		<dl class="mt-6 divide-y divide-border rounded-xl border border-border text-sm">
+			<div class="flex items-center justify-between gap-4 px-4 py-3">
+				<dt class="text-muted">{t(lang, 'settings.engine.backend')}</dt>
+				<dd id="engine-backend" class="font-medium"></dd>
+			</div>
+			<div class="flex flex-col gap-1 px-4 py-3">
+				<dt class="text-muted">{t(lang, 'settings.engine.modelsDir')}</dt>
+				<dd id="engine-dir" class="rounded-md bg-code px-2 py-1 font-mono text-xs [overflow-wrap:anywhere]"></dd>
+			</div>
+		</dl>
+
+		<h3 class="mt-8 text-sm font-medium">{t(lang, 'settings.engine.modelsTitle')}</h3>
+		<ul id="engine-models" hidden class="mt-3 divide-y divide-border rounded-xl border border-border"></ul>
+		<p id="engine-empty" hidden class="mt-3 rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">{t(lang, 'settings.engine.empty')}</p>
+		<p class="mt-4 text-xs text-muted">{t(lang, 'settings.engine.help')}</p>
+	</div>
+	<p id="engine-loading" class="mt-6 text-sm text-muted">{t(lang, 'settings.connections.loading')}</p>
+</section>

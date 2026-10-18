@@ -7,6 +7,23 @@
   "permissions": [
     "core:default",
     "allow-uninstall-app",
+    "allow-engine-info",
+    "allow-engine-list-models",
+    "allow-engine-status",
+    "allow-engine-load",
+    "allow-engine-unload",
+    "allow-engine-generate",
+    "allow-engine-stop",
+    "allow-engine-delete-model",
+    "allow-hf-search",
+    "allow-hf-list-files",
+    "allow-hf-download",
+    "allow-hf-pause",
+    "allow-hf-resume",
+    "allow-hf-cancel",
+    "allow-hf-list-downloads",
+    "allow-hf-token-status",
+    "allow-hf-set-token",
     { "identifier": "opener:allow-open-url", "allow": [{ "url": "https://*" }] },
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
@@ -20,16 +37,7 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        { "name": "ollama-list", "cmd": "ollama", "args": ["list"] },
-        { "name": "ollama-ps", "cmd": "ollama", "args": ["ps"] },
-        { "name": "ollama-pull", "cmd": "ollama", "args": ["pull", { "validator": "^[a-zA-Z0-9._/:-]{1,200}$" }] },
         { "name": "explorer-docs", "cmd": "explorer", "args": [{ "validator": "^[A-Za-z]:\\\\Users\\\\[^\\\\]+\\\\Documents\\\\Lucania(\\\\[^\\\\.][^\\\\]*)*$" }] }
-      ]
-    },
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        { "name": "ollama-serve", "cmd": "ollama", "args": ["serve"] }
       ]
     }
   ]

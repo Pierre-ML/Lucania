@@ -40,7 +40,7 @@ export function getConversation(id) {
   return request(`/api/conversations/${encodeURIComponent(id)}`);
 }
 
-/** @param {{ connectionId: string, model: string, title?: string, folderId?: string|null, think?: boolean, useMemory?: boolean, learnMemory?: boolean }} data @returns {Promise<Conversation>} */
+/** @param {{ connectionId?: string|null, model: string, title?: string, folderId?: string|null, think?: boolean, useMemory?: boolean, learnMemory?: boolean }} data @returns {Promise<Conversation>} */
 export function createConversation({ connectionId, model, title, folderId, think, useMemory, learnMemory }) {
   return request('/api/conversations', {
     method: 'POST',

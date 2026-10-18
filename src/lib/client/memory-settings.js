@@ -1,5 +1,5 @@
 // Page Paramètres, onglet « Mémoire » : réglages et faits mémorisés, par modèle.
-import { listModels } from './connections.js';
+import { engineAvailable, listModels } from './engine.js';
 import { listMemoryModels, getMemory, addFact, updateFact, deleteFact, setMemorySettings } from './memory.js';
 import { t } from './i18n.js';
 import { svgIcon } from './icons.js';
@@ -309,17 +309,10 @@ function init(loadingEl, emptyEl, errorEl, mainEl, btnEl, menuEl, pickerEl, name
   async function start() {
     /** @type {string[]} */
     let serverModels = [];
-    /** @type {Map<string, { title: string, models: Set<string> }>} */
-    const byConn = new Map();
     try {
-      for (const m of await listModels()) {
-        serverModels.push(m.name);
-        const g = byConn.get(m.connectionId) || { title: m.connectionName, models: new Set() };
-        g.models.add(m.name);
-        byConn.set(m.connectionId, g);
-      }
+      if (engineAvailable()) serverModels = (await listModels()).map((m) => m.id);
     } catch {
-      /* serveurs injoignables : on garde les modèles qui ont déjà des faits */
+      /* moteur indisponible : on garde les modèles qui ont déjà des faits */
     }
     /** @type {string[]} */
     const memoryModels = [];
@@ -335,11 +328,8 @@ function init(loadingEl, emptyEl, errorEl, mainEl, btnEl, menuEl, pickerEl, name
     const onServer = new Set(serverModels);
     names = [...new Set([...serverModels, ...memoryModels])].sort(sort);
 
-    // Groupes : un par serveur (en-têtes seulement s'il y en a plusieurs), puis les modèles avec mémoire absents des serveurs.
-    groups = [...byConn.values()].map((g) => ({
-      title: byConn.size > 1 ? g.title : '',
-      models: [...g.models].sort(sort),
-    }));
+    // Groupes : les modèles installés, puis les modèles avec mémoire qui ne sont plus installés.
+    groups = serverModels.length ? [{ title: '', models: [...serverModels].sort(sort) }] : [];
     const others = [...new Set(memoryModels.filter((m) => !onServer.has(m)))].sort(sort);
     if (others.length) groups.push({ title: groups.length ? t('settings.memory.otherModels') : '', models: others });
 

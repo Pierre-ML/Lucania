@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-delete-model"
+description = "Enables the engine_delete_model command without any pre-configured scope."
+commands.allow = ["engine_delete_model"]
+
+[[permission]]
+identifier = "deny-engine-delete-model"
+description = "Denies the engine_delete_model command without any pre-configured scope."
+commands.deny = ["engine_delete_model"]

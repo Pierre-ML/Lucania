@@ -1,0 +1,305 @@
+//! Moteur d'inférence intégré (llama.cpp via le crate `llama-cpp-2`).
+//!
+//! - `worker` : thread dédié qui possède le backend, le modèle et les contextes ;
+//! - `commands` : commandes Tauri appelées par les pages (contrat JSON camelCase) ;
+//! - `models` : dossier des modèles GGUF (liste, résolution sûre des identifiants) ;
+//! - `types` : structures échangées et réglages par défaut ;
+//! - `utf8` : découpage UTF-8 correct du flux de jetons.
+//!
+//! `Engine` est la poignée partagée (clonable) : ses méthodes sont bloquantes et sont appelées
+//! hors du thread principal par les commandes.
+
+pub mod commands;
+mod models;
+mod types;
+mod utf8;
+mod worker;
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Sender};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::time::Duration;
+
+use tauri::Manager;
+
+pub use types::{ChatMessage, EngineInfo, EngineStatus, GenParams, GenerateResult, LoadOptions, ModelEntry, TokenEvent};
+use types::{LoadConfig, Sampling};
+use worker::{Command, GenerateJob};
+
+/// Événements émis par le moteur (relayés aux pages par `commands::emitter`).
+pub enum Event {
+  Token(TokenEvent),
+  Status(EngineStatus),
+}
+
+pub type EventSink = Box<dyn Fn(Event) + Send + Sync>;
+
+/// Journal du moteur (stderr ; invisible dans l'app installée, sans console).
+pub(crate) fn log(msg: &str) {
+  eprintln!("[moteur] {msg}");
+}
+
+/// Verrou tolérant : un thread qui a paniqué ne bloque pas les suivants.
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+  m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+const BUSY: &str = "Une génération est déjà en cours";
+const IN_USE: &str = "Impossible de supprimer un modèle en cours d'utilisation.";
+
+/// État partagé entre les commandes et le thread du moteur.
+pub(crate) struct Shared {
+  models_dir: PathBuf,
+  status: Mutex<EngineStatus>,
+  /// Demande d'arrêt de la génération en cours, lue à chaque jeton.
+  stop: AtomicBool,
+  /// Une génération est acceptée (de l'appel jusqu'à la réponse).
+  busy: AtomicBool,
+  current_request: Mutex<Option<String>>,
+  /// Dernières options de chargement réussies, par modèle.
+  last_config: Mutex<HashMap<String, LoadConfig>>,
+  /// Issue de l'initialisation du thread : Ok(gpu utilisable) ou message d'erreur.
+  init: Mutex<Option<Result<bool, String>>>,
+  init_cv: Condvar,
+  sink: EventSink,
+}
+
+impl Shared {
+  pub(crate) fn set_init(&self, r: Result<bool, String>) {
+    if let Err(e) = &r {
+      log(&format!("moteur indisponible : {e}"));
+    }
+    *lock(&self.init) = Some(r);
+    self.init_cv.notify_all();
+  }
+
+  /// Attend la fin de l'initialisation (30 s au plus).
+  fn wait_init(&self) -> Option<Result<bool, String>> {
+    let guard = lock(&self.init);
+    let (guard, _) = self
+      .init_cv
+      .wait_timeout_while(guard, Duration::from_secs(30), |v| v.is_none())
+      .unwrap_or_else(|e| e.into_inner());
+    guard.clone()
+  }
+
+  /// Modifie le statut et l'émet s'il a changé.
+  pub(crate) fn set_status(&self, f: impl FnOnce(&mut EngineStatus)) {
+    let changed = {
+      let mut s = lock(&self.status);
+      let before = s.clone();
+      f(&mut s);
+      (*s != before).then(|| s.clone())
+    };
+    if let Some(snapshot) = changed {
+      (self.sink)(Event::Status(snapshot));
+    }
+  }
+
+  pub(crate) fn emit_token(&self, request_id: &str, text: &str) {
+    (self.sink)(Event::Token(TokenEvent { request_id: request_id.to_string(), text: text.to_string() }));
+  }
+
+  fn down_error(&self) -> String {
+    match &*lock(&self.init) {
+      Some(Err(e)) => format!("Moteur indisponible : {e}"),
+      _ => "Le moteur s'est arrêté de façon inattendue.".into(),
+    }
+  }
+}
+
+/// Libère la réservation de génération quoi qu'il arrive.
+struct BusyGuard<'a>(&'a Shared);
+
+impl Drop for BusyGuard<'_> {
+  fn drop(&mut self) {
+    *lock(&self.0.current_request) = None;
+    self.0.busy.store(false, Ordering::SeqCst);
+  }
+}
+
+#[derive(Clone)]
+pub struct Engine {
+  shared: Arc<Shared>,
+  tx: Sender<Command>,
+}
+
+impl Engine {
+  /// Démarre le thread du moteur. `models_dir` doit déjà exister (sinon la liste est vide).
+  pub fn start(models_dir: PathBuf, sink: EventSink) -> Engine {
+    let shared = Arc::new(Shared {
+      models_dir,
+      status: Mutex::new(EngineStatus::default()),
+      stop: AtomicBool::new(false),
+      busy: AtomicBool::new(false),
+      current_request: Mutex::new(None),
+      last_config: Mutex::new(HashMap::new()),
+      init: Mutex::new(None),
+      init_cv: Condvar::new(),
+      sink,
+    });
+    let (tx, rx) = mpsc::channel();
+    worker::spawn(shared.clone(), rx);
+    Engine { shared, tx }
+  }
+
+  fn call<T>(&self, make: impl FnOnce(Sender<Result<T, String>>) -> Command) -> Result<T, String> {
+    let (reply, rx) = mpsc::channel();
+    self.tx.send(make(reply)).map_err(|_| self.shared.down_error())?;
+    rx.recv().map_err(|_| self.shared.down_error())?
+  }
+
+  pub fn info(&self) -> EngineInfo {
+    let gpu = matches!(self.shared.wait_init(), Some(Ok(true)));
+    EngineInfo {
+      backend: if gpu { "cuda" } else { "cpu" },
+      models_dir: self.shared.models_dir.to_string_lossy().into_owned(),
+    }
+  }
+
+  pub fn list_models(&self) -> Result<Vec<ModelEntry>, String> {
+    models::list_models(&self.shared.models_dir)
+  }
+
+  pub fn status(&self) -> EngineStatus {
+    lock(&self.shared.status).clone()
+  }
+
+  pub fn load(&self, model_id: String, options: Option<LoadOptions>) -> Result<(), String> {
+    let path = models::resolve_model(&self.shared.models_dir, &model_id)?;
+    let config = LoadConfig::from_options(&options.unwrap_or_default());
+    self.call(|reply| Command::Load { id: model_id.clone(), path, config: config.clone(), reply })?;
+    lock(&self.shared.last_config).insert(model_id, config);
+    Ok(())
+  }
+
+  pub fn unload(&self) -> Result<(), String> {
+    self.call(|reply| Command::Unload { reply })
+  }
+
+  pub fn generate(
+    &self,
+    request_id: String,
+    model_id: String,
+    messages: Vec<ChatMessage>,
+    params: Option<GenParams>,
+  ) -> Result<GenerateResult, String> {
+    if messages.is_empty() {
+      return Err("Aucun message à envoyer.".into());
+    }
+    if let Some(m) = messages.iter().find(|m| !matches!(m.role.as_str(), "system" | "user" | "assistant")) {
+      return Err(format!("Rôle de message invalide : « {} » (system, user ou assistant).", m.role));
+    }
+    let path = models::resolve_model(&self.shared.models_dir, &model_id)?;
+    let sampling = Sampling::from_params(&params.unwrap_or_default());
+
+    if self.shared.busy.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+      return Err(BUSY.into());
+    }
+    let _guard = BusyGuard(&self.shared);
+    self.shared.stop.store(false, Ordering::SeqCst);
+    *lock(&self.shared.current_request) = Some(request_id.clone());
+
+    let config = lock(&self.shared.last_config).get(&model_id).cloned().unwrap_or_default();
+    let job = Box::new(GenerateJob { request_id, model_id, path, config, messages, sampling });
+    self.call(|reply| Command::Generate { job, reply })
+  }
+
+  pub fn models_dir(&self) -> &Path {
+    &self.shared.models_dir
+  }
+
+  /// Supprime un modèle (toutes ses parties s'il est découpé), après l'avoir déchargé s'il était
+  /// chargé. Refusé pendant une génération ou un chargement qui le concerne.
+  pub fn delete_model(&self, model_id: &str) -> Result<(), String> {
+    let path = models::resolve_model(&self.shared.models_dir, model_id)?;
+    // Réserve le moteur : aucune génération ne peut démarrer pendant la suppression.
+    let reserved = self.shared.busy.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok();
+    let _guard = reserved.then(|| BusyGuard(&self.shared));
+    let status = self.status();
+    let is_loaded = status.loaded_model.as_deref() == Some(model_id);
+    if !reserved && (is_loaded || status.loading) {
+      return Err(IN_USE.into());
+    }
+    if is_loaded {
+      self.call(|reply| Command::Unload { reply })?;
+    }
+    models::delete_model_files(&self.shared.models_dir, &path)
+  }
+
+  /// Arrête la génération en cours ; sans effet si `request_id` désigne une autre requête.
+  pub fn stop(&self, request_id: Option<&str>) {
+    if !self.shared.busy.load(Ordering::SeqCst) {
+      return;
+    }
+    let current = lock(&self.shared.current_request);
+    if let (Some(wanted), Some(cur)) = (request_id, current.as_deref()) {
+      if wanted != cur {
+        return;
+      }
+    }
+    self.shared.stop.store(true, Ordering::SeqCst);
+  }
+}
+
+/// Crée le dossier des modèles et démarre le moteur (appelé depuis `setup`).
+pub fn setup(app: &tauri::App) {
+  let base = app
+    .path()
+    .app_local_data_dir()
+    .unwrap_or_else(|_| std::env::temp_dir().join("com.lucania.desktop"));
+  let models_dir = base.join("models");
+  if let Err(e) = std::fs::create_dir_all(&models_dir) {
+    log(&format!("création du dossier des modèles impossible ({}) : {e}", models_dir.display()));
+  }
+  let engine = Engine::start(models_dir, commands::emitter(app.handle().clone()));
+  app.manage(engine);
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  /// Test manuel (ignoré par défaut) : génère quelques jetons avec un vrai GGUF.
+  ///   LUCANIA_TEST_GGUF=C:\chemin\modele.gguf cargo test --lib engine -- --ignored --nocapture
+  /// Le fichier peut ne pas porter l'extension .gguf (ex. blob Ollama) : le test contourne la
+  /// résolution d'identifiant.
+  #[test]
+  #[ignore]
+  fn generation_reelle() {
+    let Ok(path) = std::env::var("LUCANIA_TEST_GGUF") else {
+      eprintln!("LUCANIA_TEST_GGUF non défini : test ignoré");
+      return;
+    };
+    let path = PathBuf::from(path);
+    let streamed = Arc::new(Mutex::new(String::new()));
+    let s2 = streamed.clone();
+    let sink: EventSink = Box::new(move |ev| match ev {
+      Event::Token(t) => lock(&s2).push_str(&t.text),
+      Event::Status(s) => eprintln!("[statut] {s:?}"),
+    });
+    let engine = Engine::start(std::env::temp_dir(), sink);
+    let info = engine.info();
+    eprintln!("backend = {}", info.backend);
+
+    let messages = vec![ChatMessage { role: "user".into(), content: "Dis bonjour en une phrase.".into() }];
+    let job = Box::new(GenerateJob {
+      request_id: "test".into(),
+      model_id: "test-model".into(),
+      path,
+      config: LoadConfig { n_ctx: 2048, ..LoadConfig::default() },
+      messages,
+      sampling: Sampling::from_params(&GenParams { max_tokens: Some(40), seed: Some(42), ..Default::default() }),
+    });
+    let start = std::time::Instant::now();
+    let r = engine.call(|reply| Command::Generate { job, reply }).expect("génération");
+    eprintln!("{} jetons en {:?}, arrêt {:?}\n---\n{}\n---", r.tokens, start.elapsed(), r.stop_reason, r.content);
+    assert!(r.tokens > 0);
+    assert!(!r.content.trim().is_empty());
+    assert_eq!(*lock(&streamed), r.content);
+    assert_eq!(engine.status().loaded_model.as_deref(), Some("test-model"));
+    assert!(!engine.status().generating);
+  }
+}

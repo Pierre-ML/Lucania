@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-generate"
+description = "Enables the engine_generate command without any pre-configured scope."
+commands.allow = ["engine_generate"]
+
+[[permission]]
+identifier = "deny-engine-generate"
+description = "Denies the engine_generate command without any pre-configured scope."
+commands.deny = ["engine_generate"]

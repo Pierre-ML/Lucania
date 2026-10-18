@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-list-models"
+description = "Enables the engine_list_models command without any pre-configured scope."
+commands.allow = ["engine_list_models"]
+
+[[permission]]
+identifier = "deny-engine-list-models"
+description = "Denies the engine_list_models command without any pre-configured scope."
+commands.deny = ["engine_list_models"]

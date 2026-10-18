@@ -96,7 +96,7 @@ function migrateJson(db: DatabaseSync) {
   }
 }
 
-// v5 : connexions multiples (serveurs Ollama). Appelée dans la transaction de migrateSchema.
+// v5 : connexions (extinction à distance). Appelée dans la transaction de migrateSchema.
 function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as unknown as { name: string }[];
   return cols.some((c) => c.name === column);
@@ -143,35 +143,26 @@ function migrateV5(db: DatabaseSync) {
   const count = db.prepare('SELECT COUNT(*) AS n FROM connections').get() as unknown as { n: number };
   if (Number(count.n) > 0) return;
 
-  // Connexion initiale : reprend l'ancienne configuration .env si elle existe.
+  // Connexion initiale : seulement si une extinction à distance est préconfigurée dans .env (dev).
   const e = envSeed();
+  if (!e.shutdownUrl) return;
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  const ins = db.prepare(
+  const token = e.shutdownToken && e.shutdownToken !== 'CHANGE_ME' ? e.shutdownToken : '';
+  db.prepare(
     `INSERT INTO connections (id, name, kind, base_url, enabled, auto_models, manual_models,
        shutdown_enabled, shutdown_url, shutdown_method, shutdown_token, position, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 1, 1, ?, ?, ?, ?, ?, 0, ?, ?)`,
+     VALUES (?, ?, 'remote', '', 1, 1, '[]', ?, ?, ?, ?, 0, ?, ?)`,
+  ).run(
+    id,
+    'Serveur distant',
+    token ? 1 : 0,
+    e.shutdownUrl.replace(/\/+$/, ''),
+    e.shutdownMethod.toUpperCase() === 'POST' ? 'POST' : 'GET',
+    token,
+    now,
+    now,
   );
-  if (e.ollamaUrl) {
-    const models = [...new Set(e.ollamaModels.filter((m) => m.length <= 200))].slice(0, 50);
-    const token = e.shutdownToken && e.shutdownToken !== 'CHANGE_ME' ? e.shutdownToken : '';
-    ins.run(
-      id,
-      'Serveur distant (WireGuard)',
-      'remote',
-      e.ollamaUrl.replace(/\/+$/, ''),
-      JSON.stringify(models),
-      token ? 1 : 0,
-      e.shutdownUrl.replace(/\/+$/, ''),
-      e.shutdownMethod.toUpperCase() === 'POST' ? 'POST' : 'GET',
-      token,
-      now,
-      now,
-    );
-  } else {
-    ins.run(id, 'Ollama sur cet ordinateur', 'local', 'http://localhost:11434', '[]', 0, '', 'GET', '', now, now);
-  }
-  db.prepare('UPDATE conversations SET connection_id = ? WHERE connection_id IS NULL').run(id);
   console.log('[db] connexion initiale créée (schéma v5)');
 }
 

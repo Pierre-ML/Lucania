@@ -67,7 +67,7 @@ log('2b/4 Scan anti-fuite (.env, IP, chemins utilisateur)...');
   for (const bad of ['data', '.env', '.env.production']) {
     if (fs.existsSync(path.join(appDir, bad))) fail(`"${bad}" ne doit jamais être copié dans resources/app.`);
   }
-  const GENERIC = new Set(['GET', 'POST', 'http://localhost:11434', 'true', 'false', 'localhost', '127.0.0.1']);
+  const GENERIC = new Set(['GET', 'POST', 'true', 'false', 'localhost', '127.0.0.1']);
   const needles = []; // { label, buf }
   const envFile = path.join(root, '.env');
   if (fs.existsSync(envFile)) {
@@ -124,7 +124,7 @@ let ok = true;
 try {
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline && exited === null && (await get('/')) !== 200) await sleep(300);
-  for (const p of ['/', '/parametres', '/api/status', '/api/connections', '/api/system']) {
+  for (const p of ['/', '/parametres', '/api/conversations', '/api/connections', '/api/system']) {
     const s = await get(p);
     log(`  GET ${p} -> ${s}`);
     if (s !== 200) ok = false;

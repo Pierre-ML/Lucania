@@ -21,9 +21,15 @@ export function sameOrigin(request: Request): boolean {
   }
 }
 
-/** Nom de modèle Ollama : chaîne non vide (après trim) de 200 caractères au plus. */
+/** Identifiant de modèle GGUF : chemin relatif (lettres, chiffres, . _ - + / espace ( )), 1 à 300 caractères. */
+const MODEL_RE = /^[A-Za-z0-9._+\-/ ()]+$/;
 export function validModel(m: unknown): m is string {
-  return typeof m === 'string' && m.trim().length > 0 && m.trim().length <= 200;
+  if (typeof m !== 'string') return false;
+  const t = m.trim();
+  if (t.length < 1 || t.length > 300) return false;
+  if (!MODEL_RE.test(t)) return false;
+  if (t.includes('..') || t.startsWith('/')) return false;
+  return true;
 }
 
 export function validTitle(t: unknown): t is string {

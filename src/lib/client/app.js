@@ -1,6 +1,5 @@
 // Orchestration de l'interface de chat.
-import { streamChat } from './ollama.js';
-import { getStatus, listModels } from './connections.js';
+import { streamChat, listModels, getEngineStatus, onEngineStatus, engineAvailable } from './engine.js';
 import {
   listConversations,
   getConversation,
@@ -13,12 +12,11 @@ import {
   updateFolder,
   deleteFolder,
   moveConversation,
-  setConversationThink,
   setConversationUseMemory,
   setConversationLearnMemory,
   setConversationPinned,
 } from './conversations.js';
-import { getMemory, addFact, extractFacts } from './memory.js';
+import { getMemory, addFact, extractFacts, getSystemMemory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
 import { initShutdown } from './shutdown.js';
 import { initSidebar, closeSidebarMobile } from './sidebar.js';
@@ -156,7 +154,6 @@ const select = /** @type {HTMLSelectElement} */ ($('model-select'));
 const statusDot = $('status-dot');
 const statusLabel = $('status-label');
 const statusIndicator = $('status-indicator');
-const statusLink = $('status-settings-link');
 const scrollEl = $('messages-scroll');
 const messagesEl = $('messages');
 const emptyState = $('empty-state');
@@ -164,7 +161,6 @@ const form = /** @type {HTMLFormElement} */ ($('composer-form'));
 const input = /** @type {HTMLTextAreaElement} */ ($('composer-input'));
 const sendBtn = /** @type {HTMLButtonElement} */ ($('send-btn'));
 const stopBtn = /** @type {HTMLButtonElement} */ ($('stop-btn'));
-const thinkToggle = /** @type {HTMLButtonElement|null} */ ($('think-toggle'));
 const memoryUseToggle = /** @type {HTMLButtonElement|null} */ ($('memory-use-toggle'));
 const memoryLearnToggle = /** @type {HTMLButtonElement|null} */ ($('memory-learn-toggle'));
 const memoryCard = $('memory-proposal');
@@ -187,10 +183,9 @@ let streaming = false;
 let abortController = null;
 let ignoreHash = false;
 let loadToken = 0;
-/** @type {{ online: boolean, connections: Array<{ id: string, name: string, kind: string, online: boolean, latencyMs?: number|null }> }} */
-let lastStatus = { online: false, connections: [] };
-let statusLoaded = false;
-/** @type {Array<{ connectionId: string, connectionName: string, kind: 'local'|'remote', name: string, source?: string, available: boolean }>} */
+/** Groupe unique des modèles du moteur embarqué (préfixe des références `local::<id>`). */
+const LOCAL_GROUP = 'local';
+/** @type {import('./engine.js').EngineModel[]} */
 let modelList = [];
 let modelsLoaded = false;
 
@@ -367,70 +362,74 @@ function showError(text) {
   scrollToBottom();
 }
 
-/* ---------- Statut des serveurs ---------- */
+/* ---------- État du moteur ---------- */
 
-const kindLabel = (kind) => (kind === 'local' || kind === 'remote' ? t(`chat.status.${kind}`) : kind);
-
-/** Description d'une connexion pour l'infobulle. @param {{ name: string, kind: string, online: boolean, latencyMs?: number|null }} c */
-function describeConnection(c) {
-  const kind = kindLabel(c.kind);
-  const state = c.online
-    ? typeof c.latencyMs === 'number'
-      ? t('chat.status.onlineLatency', { ms: Math.round(c.latencyMs) })
-      : t('chat.status.online')
-    : t('chat.status.offline');
-  return t('chat.status.connection', { name: c.name, kind, state });
-}
+/** @type {import('./engine.js').EngineStatus|null} */
+let engineStatus = null;
 
 function renderStatus() {
-  if (!statusLoaded) return;
-  const conns = lastStatus.connections;
-  statusLink.dataset.show = String(conns.length === 0);
-  if (conns.length === 0) {
-    statusDot.dataset.status = 'none';
-    statusLabel.textContent = t('chat.status.none');
+  if (!engineAvailable()) {
+    statusDot.dataset.status = 'offline';
+    statusLabel.textContent = t('chat.engine.unavailable');
     statusIndicator.title = '';
     return;
   }
-  const up = conns.filter((c) => c.online);
-  statusDot.dataset.status = up.length > 0 ? 'online' : 'offline';
-  statusIndicator.title = conns.map(describeConnection).join('\n');
-  const meta = modelMeta.get(select.value);
-  const selectedConn = meta ? conns.find((c) => c.id === meta.connectionId) : null;
-  if (meta && !meta.available && selectedConn && selectedConn.online) {
-    statusLabel.textContent = t('chat.status.modelUnavailable', { name: meta.connectionName });
-  } else if (conns.length === 1) {
-    statusLabel.textContent = up.length ? t('chat.status.connected', { name: conns[0].name }) : t('chat.status.unreachable', { name: conns[0].name });
+  if (!engineStatus) return; // « vérification… » tant que le premier état n'est pas arrivé
+  const s = engineStatus;
+  statusIndicator.title = s.loadedModel || '';
+  if (s.loading) {
+    statusDot.dataset.status = 'checking';
+    statusLabel.textContent = t('chat.engine.loading');
+  } else if (s.generating) {
+    statusDot.dataset.status = 'online';
+    statusLabel.textContent = t('chat.engine.generating');
+  } else if (s.loadedModel) {
+    statusDot.dataset.status = 'online';
+    statusLabel.textContent = t('chat.engine.ready');
   } else {
-    statusLabel.textContent = t('chat.status.serversConnected', { up: up.length, total: conns.length });
+    statusDot.dataset.status = 'none';
+    statusLabel.textContent = t('chat.engine.idle');
   }
 }
 
-async function refreshStatus() {
-  const [status, models] = await Promise.all([getStatus(), listModels().catch(() => null)]);
-  lastStatus = status;
-  statusLoaded = true;
-  if (models) modelList = models;
+/** Lit l'état du moteur puis s'abonne à ses changements. */
+async function initEngineStatus() {
+  renderStatus();
+  if (!engineAvailable()) return;
+  try {
+    engineStatus = await getEngineStatus();
+    renderStatus();
+    await onEngineStatus((s) => {
+      engineStatus = s;
+      renderStatus();
+    });
+  } catch (err) {
+    console.warn(err);
+  }
+}
+
+/** Relit la liste des modèles installés. */
+async function refreshModels() {
+  if (engineAvailable()) {
+    try {
+      modelList = await listModels();
+    } catch (err) {
+      console.warn(err); // on garde la liste précédente
+    }
+  }
   modelsLoaded = true;
-  updateModelSelect(); // reconstruit les options puis renderStatus()
+  updateModelSelect(); // reconstruit les options
 }
 
 /* ---------- Modèle ---------- */
 
-/** @type {Map<string, { connectionId: string, connectionName: string, kind: 'local'|'remote', online: boolean|null, available: boolean }>} */
+/** @type {Map<string, import('./model-picker.js').ModelMeta>} */
 let modelMeta = new Map();
-
-const connInfo = (id) => lastStatus.connections.find((c) => c.id === id) || null;
 
 /** Référence (valeur composite) du modèle de la conversation courante, ou null. */
 function currentRef() {
   if (!current || !current.model) return null;
-  let connectionId = current.connectionId || '';
-  if (!connectionId) {
-    const m = modelList.find((x) => x.name === current.model); // anciennes conversations sans connexion
-    if (m) connectionId = m.connectionId;
-  }
-  return makeModelRef(connectionId, current.model);
+  return makeModelRef(LOCAL_GROUP, current.model);
 }
 
 function selectDefaultModel() {
@@ -445,15 +444,9 @@ function selectDefaultModel() {
   else if (values.length) select.value = values.find((v) => modelMeta.get(v)?.available !== false) || values[0];
 }
 
-/** Reconstruit les options du <select> à partir de la liste des modèles (groupés par connexion). */
+/** Reconstruit les options du <select> à partir des modèles installés (un seul groupe : cet ordinateur). */
 function rebuildModelOptions() {
   const prev = select.value;
-  /** @type {Map<string, typeof modelList>} */
-  const groups = new Map();
-  for (const m of modelList) {
-    if (!groups.has(m.connectionId)) groups.set(m.connectionId, []);
-    groups.get(m.connectionId).push(m);
-  }
   const meta = new Map();
   const options = [];
   const add = (value, text, info) => {
@@ -464,29 +457,14 @@ function rebuildModelOptions() {
     opt.textContent = text;
     options.push(opt);
   };
-  for (const [connectionId, models] of groups) {
-    const ci = connInfo(connectionId);
-    for (const m of models) {
-      add(makeModelRef(connectionId, m.name), m.name, {
-        connectionId,
-        connectionName: m.connectionName,
-        kind: m.kind,
-        online: ci ? !!ci.online : null,
-        available: m.available !== false,
-      });
-    }
+  const groupName = t('chat.picker.localGroup');
+  for (const m of modelList) {
+    add(makeModelRef(LOCAL_GROUP, m.id), m.name, { groupName, name: m.name, available: true });
   }
   const ref = currentRef();
   if (ref && !meta.has(ref)) {
-    const { connectionId } = parseModelRef(ref);
-    const ci = connInfo(connectionId);
-    add(ref, t('chat.picker.unavailableOption', { model: current.model }), {
-      connectionId,
-      connectionName: ci ? ci.name : connectionId ? t('chat.picker.deletedConnection') : t('chat.picker.unknownConnection'),
-      kind: ci && ci.kind === 'remote' ? 'remote' : 'local',
-      online: ci ? !!ci.online : null,
-      available: false,
-    });
+    // Modèle d'une ancienne conversation, absent de la liste actuelle.
+    add(ref, t('chat.picker.unavailableOption', { model: current.model }), { groupName, available: false });
   }
   modelMeta = meta;
   select.replaceChildren(...options);
@@ -508,7 +486,6 @@ function updateModelSelect() {
     if (!current) selectDefaultModel();
   }
   syncModelPicker();
-  renderStatus();
   refreshMemoryAvailability();
 }
 
@@ -521,58 +498,7 @@ select.addEventListener('change', () => {
       /* ignore */
     }
   }
-  renderStatus();
 });
-
-/* ---------- Réflexion (think) ---------- */
-
-function loadLastThink() {
-  try {
-    return localStorage.getItem('lastThink') !== '0';
-  } catch {
-    return true;
-  }
-}
-
-let thinkEnabled = loadLastThink();
-
-function renderThinkToggle() {
-  if (!thinkToggle) return;
-  thinkToggle.setAttribute('aria-pressed', String(thinkEnabled));
-  thinkToggle.title = thinkEnabled
-    ? t('chat.composer.thinkOn')
-    : t('chat.composer.thinkOff');
-}
-
-if (thinkToggle) {
-  thinkToggle.addEventListener('click', async () => {
-    // La boule ne s'anime qu'après un clic réel (pas au chargement ni au changement de conversation).
-    thinkToggle.dataset.animate = 'true';
-    const previous = thinkEnabled;
-    thinkEnabled = !previous;
-    try {
-      localStorage.setItem('lastThink', thinkEnabled ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
-    renderThinkToggle();
-    const conv = current;
-    if (!conv) return;
-    conv.think = thinkEnabled;
-    try {
-      await setConversationThink(conv.id, thinkEnabled);
-      const summary = conversations.find((c) => c.id === conv.id);
-      if (summary) summary.think = thinkEnabled;
-    } catch (err) {
-      conv.think = previous;
-      if (current === conv) {
-        thinkEnabled = previous;
-        renderThinkToggle();
-      }
-      showError(t('chat.composer.thinkError', { message: err.message }));
-    }
-  });
-}
 
 /* ---------- Mémoire (utiliser / améliorer) ---------- */
 
@@ -871,12 +797,11 @@ if (memoryCard) {
 }
 
 /** Extraction en arrière-plan : ne bloque rien, aucune popup d'erreur. */
-async function learnFromExchange(conv, connectionId, model, userText, answer) {
+async function learnFromExchange(model, userText, answer) {
   try {
     const avail = await getMemoryAvailability(model);
     if (!avail.enabled || !avail.autoExtract) return;
     const facts = await extractFacts({
-      connectionId,
       model,
       messages: [
         { role: 'user', content: userText },
@@ -1792,8 +1717,6 @@ function newConversation() {
   messagesEl.replaceChildren();
   updateEmptyState();
   chatTitle.textContent = defaultTitle();
-  thinkEnabled = loadLastThink();
-  renderThinkToggle();
   useMemoryEnabled = loadLastUseMemory();
   learnMemoryEnabled = loadLastLearnMemory();
   renderMemoryToggles();
@@ -1811,8 +1734,6 @@ async function loadConversation(id) {
     current = conv;
     currentId = conv.id;
     chatTitle.textContent = conv.title || defaultTitle();
-    thinkEnabled = conv.think !== false;
-    renderThinkToggle();
     useMemoryEnabled = conv.useMemory !== false;
     learnMemoryEnabled = conv.learnMemory === true;
     renderMemoryToggles();
@@ -1887,9 +1808,13 @@ form.addEventListener('submit', (e) => {
 async function send() {
   const text = input.value.trim();
   if (!text || streaming) return;
-  const { connectionId, model } = parseModelRef(select.value);
-  if (!connectionId || !model) {
-    showSettingsError(t('chat.messages.noModelSelected'));
+  if (!engineAvailable()) {
+    showError(t('chat.engine.unavailable'));
+    return;
+  }
+  const { model } = parseModelRef(select.value);
+  if (!model) {
+    showSettingsError(modelsLoaded && modelList.length === 0 ? t('chat.engine.noModels') : t('chat.messages.noModelSelected'));
     return;
   }
   streaming = true; // verrou immédiat pendant la création
@@ -1897,8 +1822,7 @@ async function send() {
   // 1) Conversation
   if (!current) {
     try {
-      const conv = await createConversation({ connectionId, model, title: autoTitle(text),
-        think: thinkEnabled,
+      const conv = await createConversation({ model, title: autoTitle(text),
         useMemory: useMemoryEnabled,
         learnMemory: learnMemoryEnabled,
       });
@@ -1914,17 +1838,7 @@ async function send() {
       return;
     }
   }
-  if (!current.connectionId) {
-    // Ancienne conversation sans connexion : on la rattache à celle du modèle sélectionné.
-    try {
-      await updateConversation(current.id, { connectionId });
-      current.connectionId = connectionId;
-    } catch {
-      /* non bloquant */
-    }
-  }
   const conv = current;
-  const thinkForMessage = thinkEnabled;
   if (typeof conv.useMemory !== 'boolean') conv.useMemory = useMemoryEnabled;
   if (typeof conv.learnMemory !== 'boolean') conv.learnMemory = learnMemoryEnabled;
   const memoryForMessage = conv.useMemory;
@@ -2024,13 +1938,16 @@ async function send() {
   let finalResult = null;
   let failure = null;
   try {
+    /** @type {import('./engine.js').ChatMessage[]} */
+    const outgoing = conv.messages.map((m) => ({ role: m.role, content: m.content }));
+    if (memoryForMessage) {
+      const memory = await getSystemMemory(model);
+      if (memory) outgoing.unshift({ role: 'system', content: memory });
+    }
     finalResult = await streamChat({
-      connectionId,
       model,
-      messages: conv.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: outgoing,
       signal: controller.signal,
-      think: thinkForMessage,
-      memory: memoryForMessage,
       onUpdate: (r) => {
         latest = r;
         if (!frame) frame = requestAnimationFrame(paint);
@@ -2072,7 +1989,7 @@ async function send() {
     }
     // Amélioration de la mémoire : en arrière-plan, uniquement si la réponse est complète.
     if (!failure && !controller.signal.aborted && result.content && conv.learnMemory) {
-      learnFromExchange(conv, connectionId, model, text, result.content);
+      learnFromExchange(model, text, result.content);
     }
   } else {
     el.remove();
@@ -2091,17 +2008,17 @@ async function send() {
 initShutdown();
 initSidebar();
 initModelPicker();
-renderThinkToggle();
 renderMemoryToggles();
 updateModelSelect();
 updateSendBtn();
 updateEmptyState();
 
 (async () => {
-  refreshStatus();
-  setInterval(refreshStatus, 15000);
+  initEngineStatus();
+  refreshModels();
+  setInterval(refreshModels, 15000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') refreshStatus();
+    if (document.visibilityState === 'visible') refreshModels();
   });
   await refreshList();
   const id = hashId();

@@ -1,19 +1,20 @@
 {
   "name": "lucania",
-  "description": "Interface de chat web locale pour modèles Ollama (local ou via WireGuard)",
+  "description": "Lucania - interface de chat locale pour modèles GGUF (llama.cpp)",
   "license": "MIT",
   "author": "Pierre Mouilleseaux Lhuillier",
   "keywords": [
-    "ollama",
+    "llama.cpp",
+    "gguf",
     "llm",
     "chat",
     "local",
     "astro",
-    "wireguard"
+    "tauri"
   ],
   "private": true,
   "type": "module",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -28,6 +29,8 @@
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build && node scripts/build-updater.mjs && node scripts/name-installers.mjs",
+    "tauri:cuda": "tauri dev --features cuda",
+    "desktop:build:cuda": "node scripts/copy-cuda-dlls.mjs && tauri build --features cuda --config src-tauri/tauri.cuda.conf.json && node scripts/build-updater.mjs && node scripts/name-installers.mjs",
     "name:installers": "node scripts/name-installers.mjs",
     "build:updater": "node scripts/build-updater.mjs"
   },

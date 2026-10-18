@@ -1,5 +1,8 @@
 use tauri::Manager;
 
+mod engine;
+mod hf;
+
 #[cfg(not(debug_assertions))]
 mod sidecar {
   use std::net::{SocketAddr, TcpStream};
@@ -171,12 +174,40 @@ pub fn run() {
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_opener::init())
-    .invoke_handler(tauri::generate_handler![uninstall_app])
+    .invoke_handler(tauri::generate_handler![
+      uninstall_app,
+      engine::commands::engine_info,
+      engine::commands::engine_list_models,
+      engine::commands::engine_status,
+      engine::commands::engine_load,
+      engine::commands::engine_unload,
+      engine::commands::engine_generate,
+      engine::commands::engine_stop,
+      engine::commands::engine_delete_model,
+      hf::commands::hf_search,
+      hf::commands::hf_list_files,
+      hf::commands::hf_download,
+      hf::commands::hf_pause,
+      hf::commands::hf_resume,
+      hf::commands::hf_cancel,
+      hf::commands::hf_list_downloads,
+      hf::commands::hf_token_status,
+      hf::commands::hf_set_token,
+    ])
     .setup(|app| {
       // Dossier de travail de l'utilisateur : Documents\Lucania
       if let Ok(docs) = app.path().document_dir() {
         let _ = std::fs::create_dir_all(docs.join("Lucania"));
       }
+
+      // Moteur llama.cpp intégré (thread dédié) ; dossier des modèles :
+      // %LOCALAPPDATA%\com.lucania.desktop\models
+      engine::setup(app);
+
+      // Catalogue Hugging Face : téléchargements vers le même dossier des modèles, jeton dans
+      // %LOCALAPPDATA%\com.lucania.desktop\hf-token
+      let models_dir = app.state::<engine::Engine>().models_dir().to_path_buf();
+      hf::setup(app, models_dir);
 
       #[cfg(debug_assertions)]
       if let Some(w) = app.get_webview_window("main") {

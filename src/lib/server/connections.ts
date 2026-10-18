@@ -1,4 +1,5 @@
-// Connexions = serveurs Ollama configurés (table `connections`). Serveur uniquement.
+// Connexions = serveurs distants pour l'extinction à distance (table `connections`). Serveur uniquement.
+// Les colonnes base_url, auto_models et manual_models (héritage) restent en base mais ne sont plus exposées.
 // Le jeton d'extinction n'est JAMAIS renvoyé au client : seul `hasToken` est exposé.
 import crypto from 'node:crypto';
 import { getDb, withTransaction } from './db';
@@ -11,10 +12,7 @@ export interface Connection {
   id: string;
   name: string;
   kind: ConnectionKind;
-  baseUrl: string;
   enabled: boolean;
-  autoModels: boolean;
-  manualModels: string[];
   shutdown: { enabled: boolean; url: string; method: ShutdownMethod; hasToken: boolean };
   position: number;
   createdAt: string;
@@ -30,10 +28,7 @@ interface ConnRow {
   id: string;
   name: string;
   kind: ConnectionKind;
-  base_url: string;
   enabled: number;
-  auto_models: number;
-  manual_models: string;
   shutdown_enabled: number;
   shutdown_url: string;
   shutdown_method: string;
@@ -43,27 +38,15 @@ interface ConnRow {
   updated_at: string;
 }
 
-const SELECT = `SELECT id, name, kind, base_url, enabled, auto_models, manual_models, shutdown_enabled,
+const SELECT = `SELECT id, name, kind, enabled, shutdown_enabled,
   shutdown_url, shutdown_method, shutdown_token, position, created_at, updated_at FROM connections`;
-
-function parseModels(s: string): string[] {
-  try {
-    const a = JSON.parse(s);
-    return Array.isArray(a) ? a.filter((m): m is string => typeof m === 'string') : [];
-  } catch {
-    return [];
-  }
-}
 
 function toSecret(r: ConnRow): ConnectionSecret {
   return {
     id: r.id,
     name: r.name,
     kind: r.kind === 'remote' ? 'remote' : 'local',
-    baseUrl: r.base_url,
     enabled: Number(r.enabled) !== 0,
-    autoModels: Number(r.auto_models) !== 0,
-    manualModels: parseModels(r.manual_models),
     shutdown: {
       enabled: Number(r.shutdown_enabled) !== 0,
       url: r.shutdown_url,
@@ -80,7 +63,7 @@ function toSecret(r: ConnRow): ConnectionSecret {
 /** Retire le jeton : forme publique conforme au contrat. */
 export function publicConnection(c: ConnectionSecret): Connection {
   const { shutdownToken: _t, ...pub } = c;
-  return { ...pub, shutdown: { ...pub.shutdown }, manualModels: [...pub.manualModels] };
+  return { ...pub, shutdown: { ...pub.shutdown } };
 }
 
 export function listConnectionsSecret(): ConnectionSecret[] {
@@ -130,10 +113,7 @@ export function normalizeHttpUrl(v: unknown): string | null {
 export interface ConnectionChanges {
   name?: string;
   kind?: ConnectionKind;
-  baseUrl?: string;
   enabled?: boolean;
-  autoModels?: boolean;
-  manualModels?: string[];
   shutdownEnabled?: boolean;
   shutdownUrl?: string;
   shutdownMethod?: ShutdownMethod;
@@ -151,7 +131,6 @@ export function parseConnectionInput(
   if (creating) {
     if (body.name === undefined) return fail('Nom requis');
     if (body.kind === undefined) return fail('Type de connexion requis');
-    if (body.baseUrl === undefined) return fail('Adresse du serveur requise');
   }
   if (body.name !== undefined) {
     if (typeof body.name !== 'string' || body.name.trim().length < 1 || body.name.trim().length > 60)
@@ -162,32 +141,9 @@ export function parseConnectionInput(
     if (body.kind !== 'local' && body.kind !== 'remote') return fail('Type invalide (local ou remote)');
     v.kind = body.kind;
   }
-  if (body.baseUrl !== undefined) {
-    const u = normalizeHttpUrl(body.baseUrl);
-    if (!u) return fail('Adresse du serveur invalide (URL http:// ou https://)');
-    v.baseUrl = u;
-  }
   if (body.enabled !== undefined) {
     if (typeof body.enabled !== 'boolean') return fail('enabled invalide');
     v.enabled = body.enabled;
-  }
-  if (body.autoModels !== undefined) {
-    if (typeof body.autoModels !== 'boolean') return fail('autoModels invalide');
-    v.autoModels = body.autoModels;
-  }
-  if (body.manualModels !== undefined) {
-    const a = body.manualModels;
-    if (!Array.isArray(a)) return fail('manualModels invalide (liste attendue)');
-    if (a.length > 50) return fail('Trop de modèles manuels (50 au maximum)');
-    const out: string[] = [];
-    for (const m of a) {
-      if (typeof m !== 'string' || m.trim().length < 1 || m.trim().length > 200)
-        return fail('Nom de modèle invalide (1 à 200 caractères)');
-      const t = m.trim();
-      if (out.includes(t)) return fail(`Modèle en double : ${t}`);
-      out.push(t);
-    }
-    v.manualModels = out;
   }
   if (body.shutdown !== undefined) {
     const s = body.shutdown;
@@ -229,15 +185,12 @@ export function createConnection(v: ConnectionChanges): Connection {
     db.prepare(
       `INSERT INTO connections (id, name, kind, base_url, enabled, auto_models, manual_models,
          shutdown_enabled, shutdown_url, shutdown_method, shutdown_token, position, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, '', ?, 1, '[]', ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       v.name!,
       v.kind!,
-      v.baseUrl!,
       v.enabled === false ? 0 : 1,
-      v.autoModels === false ? 0 : 1,
-      JSON.stringify(v.manualModels ?? []),
       v.shutdownEnabled ? 1 : 0,
       v.shutdownUrl ?? '',
       v.shutdownMethod ?? 'GET',
@@ -256,16 +209,13 @@ export function updateConnection(id: string, v: ConnectionChanges): Connection |
     const cur = getConnectionSecret(id);
     if (!cur) return false;
     db.prepare(
-      `UPDATE connections SET name = ?, kind = ?, base_url = ?, enabled = ?, auto_models = ?, manual_models = ?,
+      `UPDATE connections SET name = ?, kind = ?, enabled = ?,
          shutdown_enabled = ?, shutdown_url = ?, shutdown_method = ?, shutdown_token = ?, updated_at = ?
        WHERE id = ?`,
     ).run(
       v.name ?? cur.name,
       v.kind ?? cur.kind,
-      v.baseUrl ?? cur.baseUrl,
       (v.enabled ?? cur.enabled) ? 1 : 0,
-      (v.autoModels ?? cur.autoModels) ? 1 : 0,
-      JSON.stringify(v.manualModels ?? cur.manualModels),
       (v.shutdownEnabled ?? cur.shutdown.enabled) ? 1 : 0,
       v.shutdownUrl ?? cur.shutdown.url,
       v.shutdownMethod ?? cur.shutdown.method,

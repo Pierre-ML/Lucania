@@ -1,4 +1,4 @@
-<div align="center"><img src="src/assets/logo/loup.svg" alt="Lucania" width="96" /><h1>Lucania</h1><p>Une interface de chat locale, façon Claude.ai, pour vos modèles Ollama.<br/>A local, Claude.ai-style chat interface for your Ollama models.</p>
+<div align="center"><img src="src/assets/logo/loup.svg" alt="Lucania" width="96" /><h1>Lucania</h1><p>Une interface de chat locale, façon Claude.ai, pour vos modèles GGUF.<br/>A local, Claude.ai-style chat interface for your GGUF models.</p>
 <a href="https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe"><b>⬇ Télécharger pour Windows · Download for Windows</b></a><br/><sub>setup pour installer · update pour mettre à jour / setup to install · update to update · <a href="https://github.com/Pierre-ML/Lucania/releases/latest">releases</a></sub></div>
 
 <p align="center">
@@ -18,7 +18,7 @@
 
 ## Présentation
 
-Lucania est une interface de chat **locale** pour les modèles [Ollama](https://ollama.com). Elle existe en application de bureau Windows (installateur `.exe`) et en version web.
+Lucania est une interface de chat **locale**. Elle embarque un moteur [llama.cpp](https://github.com/ggml-org/llama.cpp) qui exécute directement vos modèles GGUF, sans serveur externe. Elle existe en application de bureau Windows (installateur `.exe`).
 
 Vos conversations restent sur votre machine. Rien n'est envoyé dans le cloud.
 
@@ -28,8 +28,7 @@ Vos conversations restent sur votre machine. Rien n'est envoyé dans le cloud.
 - 📝 Rendu Markdown
 - 🧠 Mode réflexion (`think`), activable par conversation
 - 📁 Conversations : dossiers (glisser-déposer), épinglage, renommage, groupes par date
-- 🔌 Plusieurs connexions Ollama : machine locale ou serveur distant
-- 🔒 Serveur distant via un VPN WireGuard que vous gérez
+- 🦙 Moteur llama.cpp intégré : modèles GGUF, CPU ou GPU (CUDA)
 - ⏻ Extinction à distance d'un serveur
 - 🎨 13 thèmes
 - 🌍 Interface en français et en anglais
@@ -39,9 +38,8 @@ Vos conversations restent sur votre machine. Rien n'est envoyé dans le cloud.
 
 ## Installation
 
-1. Installez [Ollama](https://ollama.com), ou ayez accès à un serveur Ollama.
-2. Pour une première installation, téléchargez [`Lucania-Setup.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe) (lien direct, dernière release).
-3. Lancez l'installateur. Lucania s'installe pour votre compte Windows, dans `%LOCALAPPDATA%\Programs\Lucania`. Aucune autorisation administrateur n'est demandée.
+1. Pour une première installation, téléchargez [`Lucania-Setup.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe) (lien direct, dernière release).
+2. Lancez l'installateur. Lucania s'installe pour votre compte Windows, dans `%LOCALAPPDATA%\Programs\Lucania`. Aucune autorisation administrateur n'est demandée.
 
 Prérequis : Windows 10 ou 11 (64 bits).
 
@@ -51,13 +49,12 @@ Le nom du fichier ne change jamais : une seule exception dans votre antivirus su
 
 ## Premiers pas
 
-1. Ouvrez **Paramètres**.
-2. Ajoutez une **connexion** Ollama (la machine locale ou l'adresse d'un serveur).
-3. Revenez au chat, choisissez un modèle et écrivez.
+1. Copiez un ou plusieurs modèles `.gguf` dans `%LOCALAPPDATA%\com.lucania.desktop\models` (les sous-dossiers sont acceptés).
+2. Ouvrez Lucania, choisissez un modèle dans le chat et écrivez.
 
-## Serveur distant (WireGuard)
+## Accélération GPU
 
-Pour utiliser un serveur Ollama distant, connectez-vous à lui par un VPN WireGuard que vous gérez, puis ajoutez-le comme connexion. Voir [docs/wireguard.md](docs/wireguard.md).
+La release GitHub est compilée pour le CPU. Pour le GPU NVIDIA, compilez vous-même la variante CUDA (voir Développement). Elle nécessite CMake, LLVM et le CUDA Toolkit 12.8 ou plus récent.
 
 ## Mise à jour
 
@@ -77,12 +74,16 @@ Prérequis : Node 24 (le projet utilise `node:sqlite` ; `engines` exige au minim
 | --- | --- |
 | `npm install` | Installer les dépendances |
 | `npm run dev` | Serveur web de dev sur http://localhost:4748 |
-| `npm run tauri dev` | App de bureau en dev |
-| `npm run desktop:build` | Produire les deux exe Windows (`Lucania-Setup.exe` et `Lucania-Update.exe`, dans `bundle/release/`) |
+| `npm run tauri dev` | App de bureau en dev (nécessaire pour utiliser le chat) |
+| `npm run tauri:cuda` | App de bureau en dev avec le moteur CUDA |
+| `npm run desktop:build` | Produire les deux exe Windows (`Lucania-Setup.exe` et `Lucania-Update.exe`, dans `bundle/release/`), moteur CPU |
+| `npm run desktop:build:cuda` | Idem avec le moteur CUDA |
 | `npm run check` | Vérifier les types |
 | `npm run version:set X.Y.Z` | Mettre à jour la version partout |
 
-En développement, un fichier `.env` facultatif (non versionné) peut préremplir la première connexion avec `OLLAMA_URL`, `OLLAMA_MODELS`, `SHUTDOWN_URL`, `SHUTDOWN_METHOD` et `SHUTDOWN_TOKEN`. L'app distribuée démarre vierge et se configure dans Paramètres.
+`npm run dev` seul affiche l'interface mais le chat n'y fonctionne pas : le moteur est dans l'app de bureau, il faut `npm run tauri dev`.
+
+En développement, un fichier `.env` facultatif (non versionné) peut préremplir la première connexion d'extinction à distance avec `SHUTDOWN_URL`, `SHUTDOWN_METHOD` et `SHUTDOWN_TOKEN`. L'app distribuée démarre vierge et se configure dans Paramètres.
 
 ## Stack
 
@@ -105,7 +106,7 @@ Tout est local. Les données sont dans une base SQLite :
 
 ## Overview
 
-Lucania is a **local** chat interface for [Ollama](https://ollama.com) models. It comes as a Windows desktop app (`.exe` installer) and as a web version.
+Lucania is a **local** chat interface. It embeds a [llama.cpp](https://github.com/ggml-org/llama.cpp) engine that runs your GGUF models directly, with no external server. It comes as a Windows desktop app (`.exe` installer).
 
 Your conversations stay on your machine. Nothing is sent to the cloud.
 
@@ -115,8 +116,7 @@ Your conversations stay on your machine. Nothing is sent to the cloud.
 - 📝 Markdown rendering
 - 🧠 Thinking mode (`think`), toggled per conversation
 - 📁 Conversations: folders (drag and drop), pinning, renaming, date groups
-- 🔌 Multiple Ollama connections: local machine or remote server
-- 🔒 Remote server through a WireGuard VPN that you manage
+- 🦙 Built-in llama.cpp engine: GGUF models, CPU or GPU (CUDA)
 - ⏻ Remote shutdown of a server
 - 🎨 13 themes
 - 🌍 French and English interface
@@ -126,9 +126,8 @@ Coming soon: persistent memory per model (in development).
 
 ## Installation
 
-1. Install [Ollama](https://ollama.com), or have access to an Ollama server.
-2. For a first install, download [`Lucania-Setup.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe) (direct link, latest release).
-3. Run the installer. Lucania installs for your Windows account, in `%LOCALAPPDATA%\Programs\Lucania`. No administrator permission is asked.
+1. For a first install, download [`Lucania-Setup.exe`](https://github.com/Pierre-ML/Lucania/releases/latest/download/Lucania-Setup.exe) (direct link, latest release).
+2. Run the installer. Lucania installs for your Windows account, in `%LOCALAPPDATA%\Programs\Lucania`. No administrator permission is asked.
 
 Requirements: Windows 10 or 11 (64-bit).
 
@@ -138,13 +137,12 @@ The file name never changes: a single exception in your antivirus is enough for 
 
 ## Getting started
 
-1. Open **Settings**.
-2. Add an Ollama **connection** (the local machine or a server address).
-3. Go back to the chat, pick a model and start typing.
+1. Copy one or more `.gguf` models into `%LOCALAPPDATA%\com.lucania.desktop\models` (subfolders are accepted).
+2. Open Lucania, pick a model in the chat and start typing.
 
-## Remote server (WireGuard)
+## GPU acceleration
 
-To use a remote Ollama server, connect to it through a WireGuard VPN that you manage, then add it as a connection. See [docs/wireguard.md](docs/wireguard.md).
+The GitHub release is built for CPU. For an NVIDIA GPU, build the CUDA variant yourself (see Development). It requires CMake, LLVM and CUDA Toolkit 12.8 or newer.
 
 ## Updating
 
@@ -164,12 +162,16 @@ Requirements: Node 24 (the project uses `node:sqlite`; `engines` requires 22.12 
 | --- | --- |
 | `npm install` | Install dependencies |
 | `npm run dev` | Dev web server on http://localhost:4748 |
-| `npm run tauri dev` | Desktop app in dev |
-| `npm run desktop:build` | Build both Windows exes (setup and update) |
+| `npm run tauri dev` | Desktop app in dev (required to use the chat) |
+| `npm run tauri:cuda` | Desktop app in dev with the CUDA engine |
+| `npm run desktop:build` | Build both Windows exes (setup and update), CPU engine |
+| `npm run desktop:build:cuda` | Same with the CUDA engine |
 | `npm run check` | Type check |
 | `npm run version:set X.Y.Z` | Set the version everywhere |
 
-In development, an optional `.env` file (not versioned) can prefill the first connection with `OLLAMA_URL`, `OLLAMA_MODELS`, `SHUTDOWN_URL`, `SHUTDOWN_METHOD` and `SHUTDOWN_TOKEN`. The distributed app starts blank and is configured in Settings.
+`npm run dev` alone shows the interface but chat does not work there: the engine lives in the desktop app, use `npm run tauri dev`.
+
+In development, an optional `.env` file (not versioned) can prefill the first remote-shutdown connection with `SHUTDOWN_URL`, `SHUTDOWN_METHOD` and `SHUTDOWN_TOKEN`. The distributed app starts blank and is configured in Settings.
 
 ## Stack
 

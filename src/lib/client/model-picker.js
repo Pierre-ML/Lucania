@@ -2,13 +2,11 @@ import { t } from './i18n.js';
 import { svgIcon } from './icons.js';
 import checkRaw from '../../assets/icons/check.svg?raw';
 // Sélecteur de modèle personnalisé, synchronisé avec le <select id="model-select"> (source de vérité).
-// Valeur d'une option : `${connectionId}::${model}`. Le menu groupe les modèles par connexion.
+// Valeur d'une option : `${groupe}::${modèle}` (groupe `local` = « Cet ordinateur »). Le menu groupe les modèles.
 
 const CLS = {
   group: 'flex items-center gap-2 px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-composer-muted first:pt-1',
   groupName: 'min-w-0 truncate',
-  badge: 'shrink-0 rounded-full border border-composer-border px-1.5 py-px text-[10px] font-normal normal-case tracking-normal',
-  dot: 'size-1.5 shrink-0 rounded-full bg-composer-muted data-[online=true]:bg-emerald-500 data-[online=false]:bg-danger',
   empty: 'px-3 py-2 text-sm text-composer-muted',
   item: 'group flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-white/6 data-[active=true]:bg-white/6 data-[available=false]:opacity-50',
   text: 'min-w-0',
@@ -18,7 +16,7 @@ const CLS = {
 };
 
 /**
- * @typedef {{ connectionId: string, connectionName: string, kind: 'local'|'remote', online: boolean|null, available: boolean }} ModelMeta
+ * @typedef {{ groupName: string, name?: string, available: boolean }} ModelMeta
  */
 
 /** @type {HTMLSelectElement|null} */ let select = null;
@@ -31,20 +29,20 @@ let activeIndex = -1;
 let metaMap = new Map();
 let loaded = false;
 
-/** Sépare `connectionId::model` au PREMIER `::`. @param {string} v */
+/** Sépare `groupe::modèle` au PREMIER `::`. @param {string} v */
 export function parseModelRef(v) {
   const s = String(v || '');
   const i = s.indexOf('::');
-  if (i === -1) return { connectionId: '', model: s };
-  return { connectionId: s.slice(0, i), model: s.slice(i + 2) };
+  if (i === -1) return { group: '', model: s };
+  return { group: s.slice(0, i), model: s.slice(i + 2) };
 }
 
-/** @param {string} connectionId @param {string} model */
-export function makeModelRef(connectionId, model) {
-  return `${connectionId}::${model}`;
+/** @param {string} group @param {string} model */
+export function makeModelRef(group, model) {
+  return `${group}::${model}`;
 }
 
-/** Fournit au sélecteur les métadonnées (groupes, disponibilité). @param {Map<string, ModelMeta>} meta @param {boolean} isLoaded */
+/** Fournit au sélecteur les métadonnées (groupe, nom, disponibilité). @param {Map<string, ModelMeta>} meta @param {boolean} isLoaded */
 export function setModelPickerData(meta, isLoaded) {
   metaMap = meta;
   loaded = isLoaded;
@@ -55,17 +53,12 @@ export function setModelPickerData(meta, isLoaded) {
 function prettyModelName(id) {
   let s = String(id || '');
   s = s.slice(s.lastIndexOf('/') + 1);
-  let tag = '';
-  const i = s.indexOf(':');
-  if (i !== -1) {
-    tag = s.slice(i + 1);
-    s = s.slice(0, i);
-  }
-  s = s.replace(/[-_]+/g, ' ').trim();
-  s = s.charAt(0).toUpperCase() + s.slice(1);
-  if (tag && tag.toLowerCase() !== 'latest') s += ` · ${tag.toUpperCase()}`;
-  return s;
+  s = s.replace(/.gguf$/i, '').replace(/[-_]+/g, ' ').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+/** Nom affiché : celui fourni par le moteur, sinon un nom lisible dérivé de l'identifiant. @param {string} id @param {ModelMeta|undefined} m */
+const displayName = (id, m) => (m && m.name) || prettyModelName(id);
 
 const isOpen = () => !!menu && !menu.classList.contains('hidden');
 const items = () => (menu ? Array.from(menu.querySelectorAll('li[role="option"]')) : []);
@@ -75,16 +68,10 @@ function groupHeader(m) {
   const li = document.createElement('li');
   li.setAttribute('role', 'presentation');
   li.className = CLS.group;
-  const dot = document.createElement('span');
-  dot.className = CLS.dot;
-  dot.dataset.online = m.online === null ? 'unknown' : String(m.online);
   const name = document.createElement('span');
   name.className = CLS.groupName;
-  name.textContent = m.connectionName;
-  const badge = document.createElement('span');
-  badge.className = CLS.badge;
-  badge.textContent = m.kind === 'remote' ? t('chat.status.remote') : t('chat.status.local');
-  li.append(dot, name, badge);
+  name.textContent = m.groupName;
+  li.append(name);
   return li;
 }
 
@@ -106,8 +93,8 @@ function buildMenu() {
   values.forEach((v, i) => {
     const ref = parseModelRef(v);
     const m = metaMap.get(v);
-    if (m && lastGroup !== ref.connectionId) {
-      lastGroup = ref.connectionId;
+    if (m && lastGroup !== ref.group) {
+      lastGroup = ref.group;
       menu.appendChild(groupHeader(m));
     }
     const li = document.createElement('li');
@@ -121,7 +108,7 @@ function buildMenu() {
     text.className = CLS.text;
     const name = document.createElement('div');
     name.className = CLS.name;
-    name.textContent = prettyModelName(ref.model);
+    name.textContent = displayName(ref.model, m);
     const full = document.createElement('div');
     full.className = CLS.full;
     full.textContent = m && !m.available ? t('chat.picker.unavailable', { model: ref.model }) : ref.model;
@@ -185,13 +172,13 @@ export function syncModelPicker() {
   const hasModels = select.options.length > 0;
   const ref = parseModelRef(select.value);
   const meta = metaMap.get(select.value);
-  const where = meta ? ` — ${meta.connectionName}` : '';
+  const where = meta ? ` — ${meta.groupName}` : '';
   btn.dataset.empty = String(!hasModels);
   if (!hasModels) {
     label.textContent = loaded ? t('chat.picker.configure') : t('chat.picker.loading');
     btn.title = loaded ? t('chat.picker.configureHint') : '';
   } else {
-    label.textContent = prettyModelName(ref.model);
+    label.textContent = displayName(ref.model, meta);
     btn.title = select.disabled
       ? t('chat.picker.locked', { model: ref.model, where })
       : `${ref.model}${where}`;

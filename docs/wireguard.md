@@ -1,3 +1,5 @@
+> Ce guide décrit l'ancien fonctionnement avec Ollama ; il sera réécrit avec le mode serveur de Lucania.
+
 # Utiliser un serveur Ollama distant via WireGuard
 
 ## Principe

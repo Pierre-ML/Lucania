@@ -1,5 +1,5 @@
 // Serveur uniquement : ne jamais importer côté client.
-// Les connexions Ollama sont stockées en base (table `connections`) et gérées depuis la page
+// Les connexions (extinction à distance) sont stockées en base (table `connections`) et gérées depuis la page
 // Paramètres. Les variables d'environnement ne servent plus qu'à créer la connexion initiale
 // au premier démarrage (voir db.ts) : aucune valeur par défaut ici.
 //
@@ -28,8 +28,6 @@ const env = (k: string): string => {
 };
 
 export interface EnvSeed {
-  ollamaUrl: string;
-  ollamaModels: string[];
   shutdownUrl: string;
   shutdownMethod: string;
   shutdownToken: string;
@@ -38,11 +36,6 @@ export interface EnvSeed {
 /** Lecture brute (trim) des anciennes variables d'environnement ; chaînes vides si absentes (et toujours en mode desktop). */
 export function envSeed(): EnvSeed {
   return {
-    ollamaUrl: env('OLLAMA_URL'),
-    ollamaModels: env('OLLAMA_MODELS')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean),
     shutdownUrl: env('SHUTDOWN_URL'),
     shutdownMethod: env('SHUTDOWN_METHOD'),
     shutdownToken: env('SHUTDOWN_TOKEN'),

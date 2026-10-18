@@ -66,7 +66,8 @@
     "unavailable": "{model} · indisponible",
     "unavailableOption": "{model} (indisponible)",
     "deletedConnection": "Connexion supprimée",
-    "unknownConnection": "Connexion inconnue"
+    "unknownConnection": "Connexion inconnue",
+    "localGroup": "Cet ordinateur"
   },
   "messages": {
     "emptyTitle": "Comment puis-je vous aider ?",
@@ -75,7 +76,7 @@
     "thinkingLabel": "Réflexion",
     "thinkingDuration": "Réflexion · {secs} s",
     "openSettings": "Ouvrir les paramètres",
-    "noModelSelected": "Aucun modèle sélectionné : configurez un serveur Ollama pour discuter."
+    "noModelSelected": "Aucun modèle sélectionné : placez un fichier .gguf dans le dossier des modèles (Paramètres › Moteur)."
   },
   "thinking": {
     "phrases": [
@@ -189,11 +190,19 @@
   "shutdown": {
     "button": "Éteindre {name}",
     "title": "Éteindre {name} ?",
-    "text": "La machine « {name} » va s’arrêter complètement. Ollama sera injoignable sur cette connexion jusqu’au redémarrage.",
+    "text": "La machine « {name} » va s’arrêter complètement.",
     "defaultTitle": "Éteindre la machine ?",
-    "defaultText": "La machine va s’arrêter complètement. Ollama sera injoignable jusqu’au redémarrage.",
+    "defaultText": "La machine va s’arrêter complètement.",
     "confirm": "Éteindre",
     "inProgress": "Extinction…",
     "sent": "Commande envoyée, {name} s'éteint."
+  },
+  "engine": {
+    "unavailable": "Le moteur n’est disponible que dans l’application de bureau Lucania.",
+    "loading": "Chargement du modèle…",
+    "ready": "Modèle prêt",
+    "idle": "Aucun modèle chargé",
+    "generating": "Génération…",
+    "noModels": "Aucun modèle installé : placez un fichier .gguf dans le dossier des modèles (Paramètres › Moteur)."
   }
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hf-search"
+description = "Enables the hf_search command without any pre-configured scope."
+commands.allow = ["hf_search"]
+
+[[permission]]
+identifier = "deny-hf-search"
+description = "Denies the hf_search command without any pre-configured scope."
+commands.deny = ["hf_search"]

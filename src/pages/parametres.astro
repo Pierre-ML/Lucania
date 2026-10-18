@@ -4,9 +4,10 @@ import PowerSmallIcon from '../assets/icons/power-small.svg';
 import { getLang, t } from '../i18n/index';
 import Layout from '../layouts/Layout.astro';
 import ConfirmDialog from '../components/ConfirmDialog.astro';
+import EngineSection from '../components/settings/EngineSection.astro';
+import HfSection from '../components/settings/HfSection.astro';
 import ConnectionsSection from '../components/settings/ConnectionsSection.astro';
 import ConnectionForm from '../components/settings/ConnectionForm.astro';
-import WireguardGuide from '../components/settings/WireguardGuide.astro';
 import AppearanceSection from '../components/settings/AppearanceSection.astro';
 import AboutSection from '../components/settings/AboutSection.astro';
 import ShutdownSection from '../components/settings/ShutdownSection.astro';
@@ -14,11 +15,12 @@ import MemorySection from '../components/settings/MemorySection.astro';
 
 const lang = getLang(Astro);
 const tabs = [
+	{ id: 'moteur', label: t(lang, 'settings.nav.engine') },
+	{ id: 'huggingface', label: t(lang, 'settings.nav.hf') },
 	{ id: 'connexions', label: t(lang, 'settings.nav.connections') },
 	{ id: 'memoire', label: t(lang, 'settings.nav.memory') },
 	{ id: 'extinction', label: t(lang, 'settings.nav.shutdown'), icon: true },
-		{ id: 'apparence', label: t(lang, 'settings.nav.appearance') },
-	{ id: 'wireguard', label: t(lang, 'settings.nav.wireguard') },
+	{ id: 'apparence', label: t(lang, 'settings.nav.appearance') },
 	{ id: 'a-propos', label: t(lang, 'settings.nav.about') },
 ];
 const panel = 'animate-pop-in motion-reduce:animate-none';
@@ -41,11 +43,12 @@ const panel = 'animate-pop-in motion-reduce:animate-none';
 			</nav>
 
 			<div class="min-w-0 max-w-2xl">
-				<div data-panel="connexions" class={panel}><ConnectionsSection /></div>
+				<div data-panel="moteur" class={panel}><EngineSection /></div>
+				<div data-panel="huggingface" hidden class={panel}><HfSection /></div>
+				<div data-panel="connexions" hidden class={panel}><ConnectionsSection /></div>
 				<div data-panel="memoire" hidden class={panel}><MemorySection /></div>
 				<div data-panel="extinction" hidden class={panel}><ShutdownSection /></div>
 				<div data-panel="apparence" hidden class={panel}><AppearanceSection /></div>
-					<div data-panel="wireguard" hidden class={panel}><WireguardGuide /></div>
 				<div data-panel="a-propos" hidden class={panel}><AboutSection /></div>
 			</div>
 		</div>
@@ -55,4 +58,5 @@ const panel = 'animate-pop-in motion-reduce:animate-none';
 	<ConfirmDialog />
 	<script>import '../lib/client/settings.js';</script>
 	<script>import '../lib/client/memory-settings.js';</script>
+	<script>import '../lib/client/hf-settings.js';</script>
 </Layout>

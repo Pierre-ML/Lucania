@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-unload"
+description = "Enables the engine_unload command without any pre-configured scope."
+commands.allow = ["engine_unload"]
+
+[[permission]]
+identifier = "deny-engine-unload"
+description = "Denies the engine_unload command without any pre-configured scope."
+commands.deny = ["engine_unload"]

@@ -1,0 +1,17 @@
+# Variables lues par le script de build de llama-cpp-sys-2 (llama.cpp compilé via CMake).
+# Après modification : `cargo clean -p llama-cpp-sys-2` (le script ne surveille pas toutes ces
+# variables).
+[env]
+# CRT statique (/MT) pour llama.cpp, comme le reste de l'exe (tauri-build lie le runtime VC en
+# statique) : évite une dépendance à msvcp140.dll (redistribuable VC++) chez l'utilisateur.
+LLAMA_STATIC_CRT = "1"
+
+# Instructions CPU de llama.cpp. Sans elles (cible Rust x86-64 de base), ggml serait compilé en
+# SSE2 seul, plusieurs fois plus lent. Socle retenu : AVX2 + FMA + F16C (processeurs depuis 2013 :
+# Intel Haswell, AMD Excavator/Zen). Le code Rust, lui, reste en x86-64 de base.
+GGML_AVX = "ON"
+GGML_AVX2 = "ON"
+GGML_FMA = "ON"
+GGML_F16C = "ON"
+GGML_BMI2 = "ON"
+GGML_SSE42 = "ON"

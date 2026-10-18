@@ -1,4 +1,5 @@
 // Client API partagé pour la mémoire par modèle (utilisé par la page Paramètres et le chat).
+import { generateText } from './engine.js';
 
 /**
  * @typedef {Object} Fact
@@ -103,11 +104,30 @@ export function setMemorySettings(model, settings) {
 }
 
 /**
+ * Mémoire à injecter en message système avant l'envoi. Silencieux : renvoie null en cas d'échec.
+ * @param {string} model
+ * @returns {Promise<string|null>}
+ */
+export async function getSystemMemory(model) {
+  try {
+    const data = await request(`/api/memory/system?model=${encodeURIComponent(model)}`);
+    return data && typeof data.content === 'string' && data.content ? data.content : null;
+  } catch (err) {
+    console.warn(err);
+    return null;
+  }
+}
+
+/**
  * Propose 0 à 3 faits à partir d'un échange. Rien n'est enregistré.
- * @param {{ connectionId: string, model: string, messages: { role: 'user'|'assistant', content: string }[] }} input
+ * Le serveur prépare l'invite, le moteur local génère, le serveur analyse le texte produit.
+ * @param {{ model: string, messages: { role: 'user'|'assistant', content: string }[] }} input
  * @returns {Promise<string[]>}
  */
-export async function extractFacts({ connectionId, model, messages }) {
-  const data = await request('/api/memory/extract', jsonInit('POST', { connectionId, model, messages }));
+export async function extractFacts({ model, messages }) {
+  const prompt = await request('/api/memory/extract-prompt', jsonInit('POST', { model, messages }));
+  if (!prompt || prompt.skip) return [];
+  const text = await generateText({ model, messages: prompt.messages, maxTokens: prompt.maxTokens });
+  const data = await request('/api/memory/extract-parse', jsonInit('POST', { model, text }));
   return Array.isArray(data?.facts) ? data.facts : [];
 }
