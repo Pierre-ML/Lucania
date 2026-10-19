@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-discover"
+description = "Enables the remote_discover command without any pre-configured scope."
+commands.allow = ["remote_discover"]
+
+[[permission]]
+identifier = "deny-remote-discover"
+description = "Denies the remote_discover command without any pre-configured scope."
+commands.deny = ["remote_discover"]

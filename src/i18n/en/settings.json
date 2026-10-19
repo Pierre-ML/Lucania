@@ -292,31 +292,43 @@
   },
   "remote": {
     "title": "Remote access",
-    "description": "Use the power of another Lucania machine through a WireGuard tunnel, or share this one with your other devices.",
+    "description": "Link two Lucania machines: the tower runs the engine, the other machine uses it.",
     "client": {
-      "title": "Use another machine",
+      "title": "Use a tower from this machine",
       "description": "The chat stays the same: only the engine runs on the tower instead of this computer.",
-      "mode": {
-        "label": "Where does the engine run?",
-        "local": "Local (this computer)",
-        "remote": "Remote (a Lucania tower)"
+      "key": {
+        "label": "Tower code",
+        "placeholder": "Paste the tower code"
+      },
+      "network": {
+        "label": "Network",
+        "none": "No network detected"
+      },
+      "keyRequired": "Paste the tower code.",
+      "connect": "Connect",
+      "discovery": {
+        "searching": "Looking for the tower…",
+        "found": "Tower found: {name} ({ip})",
+        "notFound": "No tower found on this network. Check that server mode is on for the other machine, that both are on the same network and that the firewall allows Lucania.",
+        "invalidKey": "Invalid code."
+      },
+      "current": {
+        "url": "Tower address: {url}",
+        "backLocal": "Back to local",
+        "reloading": "Reloading…"
+      },
+      "advanced": {
+        "title": "Advanced options"
       },
       "url": {
-        "label": "Tower address",
+        "label": "Manual address",
+        "hint": "For WireGuard or another network.",
         "placeholder": "http://10.0.0.1:4750"
       },
-      "key": {
-        "label": "API key",
-        "placeholder": "Tower's key",
-        "savedPlaceholder": "Key saved"
-      },
-      "urlRequired": "Enter the tower's address.",
-      "test": "Test connection",
+      "urlRequired": "Enter the tower address.",
+      "test": "Test",
       "testing": "Testing…",
-      "save": "Save",
-      "saving": "Saving…",
-      "saved": "Settings saved.",
-      "reloading": "Reloading…",
+      "connectManual": "Connect with this address",
       "result": {
         "latency": "Latency",
         "latencyMs": "{ms} ms",
@@ -332,7 +344,6 @@
         "noModel": "None"
       },
       "state": {
-        "local": "Local mode: this computer's engine is used.",
         "connected": "Connected to the tower",
         "unreachable": "Tower unreachable: {error}",
         "unreachableNoError": "Tower unreachable"
@@ -344,17 +355,17 @@
       "step1": "Install WireGuard on both machines.",
       "step1Link": "wireguard.com/install",
       "step2": "Create the WireGuard tunnel: for example 10.0.0.1 for the tower and 10.0.0.2 for the laptop, then bring it up on both sides.",
-      "step3": "On the tower: Lucania › Remote access, pick the WireGuard interface, keep port 4750, generate the key, then enable server mode.",
-      "step3Firewall": "Windows asks to allow Lucania through the firewall: accept for private networks, or create an inbound TCP 4750 rule limited to the WireGuard interface.",
-      "step4": "On the laptop: choose Remote mode, enter the address http://10.0.0.1:4750, paste the key, test the connection, then save.",
+      "step3": "On the tower: Lucania › Remote access, in Advanced options pick the WireGuard interface, turn on server mode, then copy the code shown.",
+      "step3Firewall": "Windows asks to allow Lucania through the firewall: accept for private networks, or create inbound TCP 4750 and UDP 4751 (automatic search) rules limited to the chosen network.",
+      "step4": "On the laptop: paste the tower code. Automatic search rarely crosses WireGuard: in Advanced options, enter the address http://10.0.0.1:4750, then “Connect with this address”.",
       "step5": "The header dot follows the tower: gray when unreachable, orange with no model loaded, green when ready. Shutting the tower down uses Settings › Connections.",
       "security": "Security: the connection uses plain HTTP, with no encryption of its own. Use it ONLY inside the WireGuard tunnel; the key only travels through that tunnel.",
       "docs": "Full guide: docs/wireguard.md in the repository."
     }
   },
   "server": {
-    "title": "Share this machine (server mode)",
-    "description": "This computer becomes a tower: it makes its engine available to another Lucania. The screen is then reserved for server mode until you stop it.",
+    "title": "This machine is the tower (server)",
+    "description": "This computer shares its engine with another Lucania. The screen is then reserved for server mode until you stop it.",
     "interface": {
       "label": "Listening interface",
       "option": "{name} — {ip}",
@@ -369,27 +380,27 @@
       "label": "Port",
       "invalid": "Enter a port between 1024 and 65535."
     },
+    "advanced": {
+      "title": "Advanced options"
+    },
     "key": {
-      "label": "API key",
-      "set": "A key is configured",
-      "none": "No key",
-      "generate": "Generate a new key",
-      "shownLabel": "New key",
+      "label": "Tower code",
+      "help": "Paste this code on the other machine.",
+      "show": "Show",
+      "hide": "Hide",
       "copy": "Copy",
       "copied": "Copied",
-      "note": "Write it down now: it will not be shown again.",
+      "generate": "Generate a new code",
       "confirm": {
-        "title": "Generate a new key?",
-        "message": "The old key will stop working: machines using it will need the new one.",
+        "title": "Generate a new code?",
+        "message": "The old code will stop working: machines using it will need the new one.",
         "ok": "Generate"
       }
     },
     "start": "Enable server mode",
-    "starting": "Enabling…",
     "running": "Server mode is active on {address}.",
     "hint": {
-      "needKey": "Generate a key first to enable server mode.",
-      "needAck": "Tick \"I understand the risks\" to listen on all interfaces."
+      "needAck": "Tick “I understand the risks” to listen on all interfaces."
     },
     "errors": {
       "generic": "Something went wrong."

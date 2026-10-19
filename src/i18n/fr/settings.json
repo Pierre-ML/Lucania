@@ -292,31 +292,43 @@
   },
   "remote": {
     "title": "Accès distant",
-    "description": "Utilise la puissance d'une autre machine Lucania à travers un tunnel WireGuard, ou partage celle-ci avec tes autres appareils.",
+    "description": "Relie deux machines Lucania : la tour fait tourner le moteur, l'autre machine l'utilise.",
     "client": {
-      "title": "Utiliser une autre machine",
+      "title": "Utiliser une tour depuis cette machine",
       "description": "Le chat reste identique : seul le moteur tourne sur la tour au lieu de cet ordinateur.",
-      "mode": {
-        "label": "Où tourne le moteur ?",
-        "local": "Local (cet ordinateur)",
-        "remote": "Distant (une tour Lucania)"
+      "key": {
+        "label": "Code de la tour",
+        "placeholder": "Collez le code de la tour"
+      },
+      "network": {
+        "label": "Réseau",
+        "none": "Aucun réseau détecté"
+      },
+      "keyRequired": "Collez le code de la tour.",
+      "connect": "Connecter",
+      "discovery": {
+        "searching": "Recherche de la tour…",
+        "found": "Tour trouvée : {name} ({ip})",
+        "notFound": "Aucune tour trouvée sur ce réseau. Vérifiez que le mode serveur est activé sur l'autre machine, que les deux sont sur le même réseau et que le pare-feu autorise Lucania.",
+        "invalidKey": "Code invalide."
+      },
+      "current": {
+        "url": "Adresse de la tour : {url}",
+        "backLocal": "Revenir en local",
+        "reloading": "Rechargement…"
+      },
+      "advanced": {
+        "title": "Options avancées"
       },
       "url": {
-        "label": "Adresse de la tour",
+        "label": "Adresse manuelle",
+        "hint": "Pour WireGuard ou un autre réseau.",
         "placeholder": "http://10.0.0.1:4750"
       },
-      "key": {
-        "label": "Clé d'API",
-        "placeholder": "Clé de la tour",
-        "savedPlaceholder": "Clé enregistrée"
-      },
-      "urlRequired": "Indique l'adresse de la tour.",
-      "test": "Tester la connexion",
+      "urlRequired": "Indiquez l'adresse de la tour.",
+      "test": "Tester",
       "testing": "Test en cours…",
-      "save": "Enregistrer",
-      "saving": "Enregistrement…",
-      "saved": "Réglages enregistrés.",
-      "reloading": "Rechargement…",
+      "connectManual": "Connecter avec cette adresse",
       "result": {
         "latency": "Latence",
         "latencyMs": "{ms} ms",
@@ -332,7 +344,6 @@
         "noModel": "Aucun"
       },
       "state": {
-        "local": "Mode local : le moteur de cet ordinateur est utilisé.",
         "connected": "Connecté à la tour",
         "unreachable": "Tour injoignable : {error}",
         "unreachableNoError": "Tour injoignable"
@@ -344,17 +355,17 @@
       "step1": "Installe WireGuard sur les deux machines.",
       "step1Link": "wireguard.com/install",
       "step2": "Crée le tunnel WireGuard : par exemple 10.0.0.1 pour la tour et 10.0.0.2 pour le portable, puis active-le des deux côtés.",
-      "step3": "Sur la tour : Lucania › Accès distant, choisis l'interface WireGuard, garde le port 4750, génère la clé, puis active le mode serveur.",
-      "step3Firewall": "Windows demande d'autoriser Lucania dans le pare-feu : accepte pour les réseaux privés, ou crée une règle entrante TCP 4750 limitée à l'interface WireGuard.",
-      "step4": "Sur le portable : choisis le mode Distant, saisis l'adresse http://10.0.0.1:4750, colle la clé, teste la connexion, puis enregistre.",
+      "step3": "Sur la tour : Lucania › Accès distant, dans Options avancées, choisis l'interface WireGuard, active le mode serveur, puis copie le code affiché.",
+      "step3Firewall": "Windows demande d'autoriser Lucania dans le pare-feu : accepte pour les réseaux privés, ou crée des règles entrantes TCP 4750 et UDP 4751 (recherche automatique) limitées au réseau voulu.",
+      "step4": "Sur le portable : colle le code de la tour. La recherche automatique passe rarement par WireGuard : dans Options avancées, saisis l'adresse http://10.0.0.1:4750, puis « Connecter avec cette adresse ».",
       "step5": "La pastille de l'en-tête suit la tour : grise si elle est injoignable, orange sans modèle chargé, verte quand elle est prête. L'extinction de la tour utilise Paramètres › Connexions.",
       "security": "Sécurité : la connexion est en HTTP, sans chiffrement propre. À utiliser UNIQUEMENT dans le tunnel WireGuard ; la clé ne circule que dans ce tunnel.",
       "docs": "Guide complet : docs/wireguard.md du dépôt."
     }
   },
   "server": {
-    "title": "Partager cette machine (mode serveur)",
-    "description": "Cet ordinateur devient une tour : il met son moteur à disposition d'un autre Lucania. L'écran est alors réservé au mode serveur jusqu'à son arrêt.",
+    "title": "Cette machine est la tour (serveur)",
+    "description": "Cet ordinateur met son moteur à disposition d'un autre Lucania. L'écran est alors réservé au mode serveur jusqu'à son arrêt.",
     "interface": {
       "label": "Interface d'écoute",
       "option": "{name} — {ip}",
@@ -362,34 +373,34 @@
       "all": "Toutes les interfaces (0.0.0.0) — déconseillé"
     },
     "allowAll": {
-      "warning": "Écouter sur toutes les interfaces expose le moteur à tous les réseaux auxquels cet ordinateur est connecté, y compris Internet si le port est ouvert. Préfère l'interface WireGuard.",
+      "warning": "Écouter sur toutes les interfaces expose le moteur à tous les réseaux auxquels cet ordinateur est connecté, y compris Internet si le port est ouvert. Préférez l'interface WireGuard.",
       "confirm": "Je comprends les risques"
     },
     "port": {
       "label": "Port",
-      "invalid": "Indique un port compris entre 1024 et 65535."
+      "invalid": "Indiquez un port compris entre 1024 et 65535."
+    },
+    "advanced": {
+      "title": "Options avancées"
     },
     "key": {
-      "label": "Clé d'API",
-      "set": "Une clé est configurée",
-      "none": "Aucune clé",
-      "generate": "Générer une nouvelle clé",
-      "shownLabel": "Nouvelle clé",
+      "label": "Code de la tour",
+      "help": "Collez ce code sur l'autre machine.",
+      "show": "Afficher",
+      "hide": "Masquer",
       "copy": "Copier",
       "copied": "Copié",
-      "note": "Notez-la maintenant : elle ne sera plus affichée.",
+      "generate": "Générer un nouveau code",
       "confirm": {
-        "title": "Générer une nouvelle clé ?",
-        "message": "L'ancienne clé cessera de fonctionner : les machines qui l'utilisent devront recevoir la nouvelle.",
+        "title": "Générer un nouveau code ?",
+        "message": "L'ancien code cessera de fonctionner : les machines qui l'utilisent devront recevoir le nouveau.",
         "ok": "Générer"
       }
     },
     "start": "Activer le mode serveur",
-    "starting": "Activation…",
     "running": "Le mode serveur est actif sur {address}.",
     "hint": {
-      "needKey": "Génère d'abord une clé pour activer le mode serveur.",
-      "needAck": "Coche « Je comprends les risques » pour écouter sur toutes les interfaces."
+      "needAck": "Cochez « Je comprends les risques » pour écouter sur toutes les interfaces."
     },
     "errors": {
       "generic": "Une erreur est survenue."

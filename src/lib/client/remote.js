@@ -14,6 +14,8 @@ import { t } from './i18n.js';
  * @typedef {{ url: string, key?: string|null }} RemoteTestInput key null = clé enregistrée
  * @typedef {{ latencyMs: number, version: string, backend: 'cuda'|'cpu', gpuName: string|null, vramBytes: number|null, loadedModel: string|null }} RemoteTestResult
  * @typedef {{ mode: RemoteMode, connected: boolean, error: string|null }} RemoteState
+ * @typedef {{ key: string, interfaceIp: string }} RemoteDiscoverInput
+ * @typedef {{ url: string, name: string, ip: string, port: number }} RemoteDiscoverResult
  */
 
 /** Lève une erreur claire si la commande n'est pas joignable (navigateur simple). */
@@ -40,6 +42,13 @@ export async function getServerInterfaces() {
 export async function generateServerKey() {
   requireEngine();
   return invoke('server_generate_key');
+}
+
+/** Clé d'API actuelle du serveur (« code de la tour »), ou null si aucune n'a été générée.
+ * @returns {Promise<string|null>} */
+export async function getServerKey() {
+  requireEngine();
+  return invoke('server_get_key');
 }
 
 /** Démarre le mode serveur (la fenêtre passe en plein écran côté Rust).
@@ -91,6 +100,17 @@ export async function setRemoteConfig(input) {
 export async function testRemote(input) {
   requireEngine();
   return invoke('remote_test', { url: input.url, key: input.key ?? null });
+}
+
+/**
+ * Cherche la tour sur le réseau local à partir de son code. Rejette avec discovery_not_found,
+ * discovery_invalid_key ou un autre message.
+ * @param {RemoteDiscoverInput} input
+ * @returns {Promise<RemoteDiscoverResult>}
+ */
+export async function discoverRemote(input) {
+  requireEngine();
+  return invoke('remote_discover', { key: input.key, interfaceIp: input.interfaceIp });
 }
 
 /** @returns {Promise<RemoteState>} */

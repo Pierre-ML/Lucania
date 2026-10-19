@@ -9,6 +9,7 @@ mod hf;
 mod localfile;
 mod remote;
 mod server;
+mod updater;
 
 #[cfg(not(debug_assertions))]
 mod sidecar {
@@ -191,6 +192,8 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     .invoke_handler(tauri::generate_handler![
       uninstall_app,
+      updater::app_check_update,
+      updater::app_install_update,
       crashlog::app_crash_logs,
       crashlog::app_open_crash_logs,
       engine::commands::engine_info,
@@ -220,11 +223,13 @@ pub fn run() {
       server::server_get_config,
       server::server_interfaces,
       server::server_generate_key,
+      server::server_get_key,
       server::server_start,
       server::server_stop,
       remote::remote_get_config,
       remote::remote_set_config,
       remote::remote_test,
+      server::discovery::remote_discover,
       remote::remote_state,
     ])
     .setup(|app| {

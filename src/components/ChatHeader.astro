@@ -1,6 +1,7 @@
 ---
 import PanelLeftIcon from '../assets/icons/panel-left.svg';
 import PowerButton from './PowerButton.astro';
+import UpdateButton from './UpdateButton.astro';
 import { getLang, t } from '../i18n/index';
 const lang = getLang(Astro);
 ---
@@ -9,5 +10,6 @@ const lang = getLang(Astro);
 		<PanelLeftIcon width="20" height="20" aria-hidden="true" />
 	</button>
 	<h1 id="chat-title" class="min-w-0 flex-1 truncate px-1 text-sm font-medium tracking-tight">{t(lang, 'chat.header.defaultTitle')}</h1>
+	<UpdateButton />
 	<PowerButton />
 </header>

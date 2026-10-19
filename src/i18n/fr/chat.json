@@ -266,5 +266,18 @@
     "noTarget": "Aucune machine distante à éteindre (Paramètres › Connexions)",
     "clickToShutdown": "Cliquer pour éteindre {name}",
     "error": "État du moteur indisponible"
+  },
+  "update": {
+    "title": "Rechercher une mise à jour",
+    "available": "Mise à jour disponible : v{latest}",
+    "checking": "Vérification en cours…",
+    "upToDate": "Lucania est à jour (v{current}).",
+    "error": "Vérification impossible : {error}",
+    "downloading": "Téléchargement de la mise à jour…",
+    "confirm": {
+      "title": "Mettre à jour Lucania ?",
+      "message": "La version {latest} est disponible (installée : {current}). Lucania va se fermer pour installer la mise à jour.",
+      "ok": "Mettre à jour"
+    }
   }
 }

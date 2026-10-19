@@ -19,6 +19,7 @@ import {
 import { getMemory, addFact, extractFacts, getSystemMemory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
 import { initShutdown, setPowerStatus } from './shutdown.js';
+import { initUpdate } from './update.js';
 import { getRemoteState, onRemoteState } from './remote.js';
 import { initAddModel } from './hf-browser.js';
 import { initModelSettings, openModelSettings } from './model-settings.js';
@@ -2054,6 +2055,7 @@ async function send() {
 /* ---------- Démarrage ---------- */
 
 initShutdown();
+initUpdate();
 initAddModel({ onChange: () => refreshModels() });
 initModelSettings();
 initSidebar();

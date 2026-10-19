@@ -1,7 +1,8 @@
 // Écran du mode serveur (/serveur) : un seul bouton pour arrêter, et l'adresse d'écoute.
 import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
-import { getServerConfig, onServerState, stopServer } from './remote.js';
+import { getServerConfig, getServerKey, onServerState, stopServer } from './remote.js';
+import { initServerKeyField } from './server-key.js';
 
 /** @typedef {import('./remote.js').ServerConfig} ServerConfig */
 
@@ -11,6 +12,7 @@ const byId = (id) => document.getElementById(id);
 const stopBtn = /** @type {HTMLButtonElement|null} */ (byId('server-stop'));
 const addressEl = byId('server-address');
 const errorEl = byId('server-error');
+const keyField = initServerKeyField();
 
 let stopping = false;
 
@@ -68,6 +70,7 @@ async function init() {
   try {
     onServerState(sync).catch(() => {});
     sync(await getServerConfig());
+    keyField.setKey(await getServerKey());
   } catch (e) {
     showError(messageOf(e));
   }

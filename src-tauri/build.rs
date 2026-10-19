@@ -5,6 +5,8 @@ fn main() {
     tauri_build::Attributes::new()
       .app_manifest(tauri_build::AppManifest::new().commands(&[
         "uninstall_app",
+        "app_check_update",
+        "app_install_update",
         "app_crash_logs",
         "app_open_crash_logs",
         "engine_info",
@@ -34,11 +36,13 @@ fn main() {
         "server_get_config",
         "server_interfaces",
         "server_generate_key",
+        "server_get_key",
         "server_start",
         "server_stop",
         "remote_get_config",
         "remote_set_config",
         "remote_test",
+        "remote_discover",
         "remote_state",
       ])),
   )

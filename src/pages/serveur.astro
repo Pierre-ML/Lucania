@@ -1,5 +1,6 @@
 ---
 import { getLang, t } from '../i18n/index';
+import ServerKeyField from '../components/settings/ServerKeyField.astro';
 import Layout from '../layouts/Layout.astro';
 
 const lang = getLang(Astro);
@@ -8,6 +9,7 @@ const primaryBtn = 'inline-flex h-14 cursor-pointer items-center justify-center 
 <Layout title={t(lang, 'settings.server.screen.docTitle')}>
 	<main class="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-6 text-center">
 		<button type="button" id="server-stop" class={primaryBtn}>{t(lang, 'settings.server.screen.stop')}</button>
+		<ServerKeyField class="mt-6 w-full max-w-md text-left" />
 		<p id="server-address" class="text-xs text-muted [overflow-wrap:anywhere]"></p>
 		<p id="server-error" role="alert" hidden class="max-w-md text-sm text-danger"></p>
 	</main>

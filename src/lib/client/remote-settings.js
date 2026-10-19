@@ -1,20 +1,23 @@
-// Page Paramètres, section « Accès distant » : utiliser une tour (mode distant), partager cette machine (mode serveur), guide WireGuard.
+// Page Paramètres, section « Accès distant » : la tour (mode serveur) et l'utilisation d'une tour depuis cette machine, guide WireGuard.
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { confirmDialog } from './dialog.js';
 import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
 import {
+  discoverRemote,
   generateServerKey,
   getRemoteConfig,
   getRemoteState,
   getServerConfig,
   getServerInterfaces,
+  getServerKey,
   onRemoteState,
   onServerState,
   setRemoteConfig,
   startServer,
   testRemote,
 } from './remote.js';
+import { initServerKeyField } from './server-key.js';
 
 /**
  * @typedef {import('./remote.js').ServerConfig} ServerConfig
@@ -67,34 +70,34 @@ export function initRemoteSettings() {
     return;
   }
 
-  // Bloc client
+  // Carte client
+  const activeEl = byId('remote-active');
+  const stateEl = byId('remote-state');
+  const currentUrlEl = byId('remote-current-url');
+  const backLocalBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-back-local'));
   const form = byId('remote-form');
-  const modeInputs = /** @type {HTMLInputElement[]} */ ([...document.querySelectorAll('[data-remote-mode]')]);
-  const fieldsEl = byId('remote-fields');
-  const urlInput = /** @type {HTMLInputElement|null} */ (byId('remote-url'));
   const keyInput = /** @type {HTMLInputElement|null} */ (byId('remote-key'));
+  const networkSelect = /** @type {HTMLSelectElement|null} */ (byId('remote-network'));
+  const connectBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-connect'));
+  const statusEl = byId('remote-status');
+  const errorEl = byId('remote-error');
+  const urlInput = /** @type {HTMLInputElement|null} */ (byId('remote-url'));
   const testBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-test'));
+  const manualBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-connect-manual'));
   const testResult = byId('remote-test-result');
   const testError = byId('remote-test-error');
-  const stateEl = byId('remote-state');
-  const saveBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-save'));
-  const noteEl = byId('remote-note');
-  const errorEl = byId('remote-error');
 
-  // Bloc serveur
+  // Carte serveur
+  const startSwitch = /** @type {HTMLButtonElement|null} */ (byId('server-start'));
+  const hintEl = byId('server-hint');
+  const runningEl = byId('server-running');
+  const serverErrorEl = byId('server-error');
   const ifaceSelect = /** @type {HTMLSelectElement|null} */ (byId('server-interface'));
   const allBlock = byId('server-all-block');
   const allowAllInput = /** @type {HTMLInputElement|null} */ (byId('server-allow-all'));
   const portInput = /** @type {HTMLInputElement|null} */ (byId('server-port'));
-  const keyStatusEl = byId('server-key-status');
   const keyGenBtn = /** @type {HTMLButtonElement|null} */ (byId('server-key-generate'));
-  const keyRevealEl = byId('server-key-reveal');
-  const keyValueInput = /** @type {HTMLInputElement|null} */ (byId('server-key-value'));
-  const keyCopyBtn = /** @type {HTMLButtonElement|null} */ (byId('server-key-copy'));
-  const startBtn = /** @type {HTMLButtonElement|null} */ (byId('server-start'));
-  const hintEl = byId('server-hint');
-  const runningEl = byId('server-running');
-  const serverErrorEl = byId('server-error');
+  const keyField = initServerKeyField();
 
   /** @type {RemoteConfig|null} */
   let remoteConfig = null;
@@ -104,27 +107,19 @@ export function initRemoteSettings() {
   let serverConfig = null;
   let starting = false;
   let generating = false;
-  let saving = false;
+  let busy = false;
+  let hasNetwork = false;
 
-  // ---- Bloc client ----
+  // ---- Carte client ----
 
-  function currentMode() {
-    return modeInputs.find((r) => r.checked)?.value === 'remote' ? 'remote' : 'local';
-  }
-
-  function renderMode() {
-    if (fieldsEl) fieldsEl.hidden = currentMode() !== 'remote';
-    renderState();
+  function renderBusy() {
+    for (const b of [connectBtn, testBtn, manualBtn, backLocalBtn]) if (b) b.disabled = busy;
+    if (connectBtn && !busy) connectBtn.disabled = !hasNetwork;
   }
 
   function renderState() {
     if (!stateEl) return;
-    const mode = remoteState?.mode ?? remoteConfig?.mode ?? 'local';
     stateEl.dataset.bad = 'false';
-    if (mode === 'local') {
-      stateEl.textContent = t('settings.remote.client.state.local');
-      return;
-    }
     if (!remoteState) {
       stateEl.textContent = '';
       return;
@@ -142,12 +137,12 @@ export function initRemoteSettings() {
   /** @param {RemoteConfig} cfg */
   function renderRemoteConfig(cfg) {
     remoteConfig = cfg;
-    for (const r of modeInputs) r.checked = r.value === cfg.mode;
-    if (urlInput && document.activeElement !== urlInput) urlInput.value = cfg.url || '';
-    if (keyInput) {
-      keyInput.placeholder = cfg.hasKey ? t('settings.remote.client.key.savedPlaceholder') : t('settings.remote.client.key.placeholder');
-    }
-    renderMode();
+    const remote = cfg.mode === 'remote';
+    if (activeEl) activeEl.hidden = !remote;
+    if (form) form.hidden = remote;
+    if (currentUrlEl) currentUrlEl.textContent = remote ? t('settings.remote.client.current.url', { url: cfg.url || '' }) : '';
+    renderState();
+    renderBusy();
   }
 
   /** @param {RemoteTestResult} r */
@@ -169,10 +164,80 @@ export function initRemoteSettings() {
     if (testResult) testResult.hidden = false;
   }
 
-  for (const r of modeInputs) r.addEventListener('change', renderMode);
+  /** @param {unknown} e */
+  function discoveryMessage(e) {
+    const msg = messageOf(e);
+    if (msg === 'discovery_not_found') return t('settings.remote.client.discovery.notFound');
+    if (msg === 'discovery_invalid_key') return t('settings.remote.client.discovery.invalidKey');
+    return msg;
+  }
+
+  /**
+   * Enregistre la tour puis recharge : les caches de la page (modèles, état, matériel) repartent de zéro.
+   * @param {string} url @param {string|null} key
+   */
+  async function saveAndReload(url, key) {
+    await setRemoteConfig({ mode: 'remote', url, key });
+    setText(statusEl, t('settings.remote.client.current.reloading'));
+    location.reload();
+  }
+
+  /** @param {ServerInterface[]} ifaces */
+  function renderNetworks(ifaces) {
+    if (!networkSelect) return;
+    networkSelect.replaceChildren();
+    const list = ifaces.filter((i) => !i.loopback);
+    hasNetwork = list.length > 0;
+    for (const i of list) {
+      const opt = document.createElement('option');
+      opt.value = i.ip;
+      opt.textContent = i.wireguard
+        ? t('settings.server.interface.optionWireguard', { name: i.name, ip: i.ip })
+        : t('settings.server.interface.option', { name: i.name, ip: i.ip });
+      networkSelect.append(opt);
+    }
+    if (!hasNetwork) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = t('settings.remote.client.network.none');
+      networkSelect.append(opt);
+      networkSelect.disabled = true;
+      return;
+    }
+    networkSelect.disabled = false;
+    networkSelect.value = (list.find((i) => !i.wireguard) ?? list[0]).ip;
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (busy || !keyInput || !networkSelect || !hasNetwork) return;
+    setText(errorEl, '');
+    setText(statusEl, '');
+    const key = keyInput.value.trim();
+    if (!key) {
+      setText(errorEl, t('settings.remote.client.keyRequired'));
+      keyInput.focus();
+      return;
+    }
+    busy = true;
+    renderBusy();
+    try {
+      setText(statusEl, t('settings.remote.client.discovery.searching'));
+      const found = await discoverRemote({ key, interfaceIp: networkSelect.value });
+      setText(statusEl, t('settings.remote.client.discovery.found', { name: found.name, ip: found.ip }));
+      await testRemote({ url: found.url, key });
+      await saveAndReload(found.url, key);
+      return;
+    } catch (err) {
+      setText(statusEl, '');
+      setText(errorEl, discoveryMessage(err));
+    }
+    busy = false;
+    renderBusy();
+  });
 
   testBtn?.addEventListener('click', async () => {
-    if (!urlInput || !testBtn) return;
+    if (busy || !urlInput || !testBtn) return;
     setText(testError, '');
     if (testResult) testResult.hidden = true;
     const url = urlInput.value.trim();
@@ -182,56 +247,62 @@ export function initRemoteSettings() {
       return;
     }
     const label = testBtn.textContent;
-    testBtn.disabled = true;
+    busy = true;
+    renderBusy();
     testBtn.textContent = t('settings.remote.client.testing');
     try {
-      const key = keyInput?.value.trim() || null;
-      renderTestResult(await testRemote({ url, key }));
+      renderTestResult(await testRemote({ url, key: keyInput?.value.trim() || null }));
     } catch (e) {
       setText(testError, messageOf(e));
     } finally {
-      testBtn.disabled = false;
+      busy = false;
       testBtn.textContent = label;
+      renderBusy();
     }
   });
 
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (saving || !saveBtn || !urlInput) return;
+  manualBtn?.addEventListener('click', async () => {
+    if (busy || !urlInput) return;
+    setText(testError, '');
     setText(errorEl, '');
-    setText(noteEl, '');
-    const mode = currentMode();
+    setText(statusEl, '');
+    if (testResult) testResult.hidden = true;
     const url = urlInput.value.trim();
-    if (mode === 'remote' && !url) {
-      setText(errorEl, t('settings.remote.client.urlRequired'));
+    if (!url) {
+      setText(testError, t('settings.remote.client.urlRequired'));
       urlInput.focus();
       return;
     }
-    const changed = mode !== (remoteConfig?.mode ?? 'local');
-    saving = true;
-    saveBtn.disabled = true;
-    const label = saveBtn.textContent;
-    saveBtn.textContent = t('settings.remote.client.saving');
+    busy = true;
+    renderBusy();
     try {
       const key = keyInput?.value.trim() || null;
-      const cfg = await setRemoteConfig({ mode, url, key });
-      if (keyInput) keyInput.value = '';
-      renderRemoteConfig(cfg);
-      if (changed) {
-        // Les caches de la page (modèles, état, matériel) doivent repartir de zéro.
-        setText(noteEl, t('settings.remote.client.reloading'));
-        location.reload();
-        return;
-      }
-      setText(noteEl, t('settings.remote.client.saved'));
-      refreshRemoteState();
-    } catch (err) {
-      setText(errorEl, messageOf(err));
-    } finally {
-      saving = false;
-      saveBtn.disabled = false;
-      saveBtn.textContent = label;
+      await testRemote({ url, key });
+      await saveAndReload(url, key);
+      return;
+    } catch (e) {
+      setText(testError, messageOf(e));
     }
+    busy = false;
+    renderBusy();
+  });
+
+  backLocalBtn?.addEventListener('click', async () => {
+    if (busy) return;
+    busy = true;
+    renderBusy();
+    try {
+      await setRemoteConfig({ mode: 'local', url: remoteConfig?.url ?? '', key: null });
+      location.reload();
+      return;
+    } catch (e) {
+      if (stateEl) {
+        stateEl.dataset.bad = 'true';
+        stateEl.textContent = messageOf(e);
+      }
+    }
+    busy = false;
+    renderBusy();
   });
 
   async function refreshRemoteState() {
@@ -243,12 +314,11 @@ export function initRemoteSettings() {
     }
   }
 
-  // ---- Bloc serveur ----
+  // ---- Carte serveur ----
 
   /** @param {ServerConfig} cfg */
   function renderServerConfig(cfg) {
     serverConfig = cfg;
-    if (keyStatusEl) keyStatusEl.textContent = cfg.hasKey ? t('settings.server.key.set') : t('settings.server.key.none');
     if (cfg.running) {
       setText(runningEl, t('settings.server.running', { address: cfg.address ?? '' }));
     } else {
@@ -273,11 +343,13 @@ export function initRemoteSettings() {
     if (allBlock) allBlock.hidden = !all;
     if (portInput) portInput.setAttribute('aria-invalid', readPort() === null ? 'true' : 'false');
     let hint = '';
-    if (!serverConfig?.hasKey) hint = t('settings.server.hint.needKey');
-    else if (all && !allowAllInput?.checked) hint = t('settings.server.hint.needAck');
+    if (all && !allowAllInput?.checked) hint = t('settings.server.hint.needAck');
     else if (readPort() === null) hint = t('settings.server.port.invalid');
     if (hintEl) hintEl.textContent = hint;
-    if (startBtn) startBtn.disabled = starting || !!hint;
+    if (startSwitch) {
+      startSwitch.disabled = starting || !!hint;
+      startSwitch.setAttribute('aria-checked', starting || serverConfig?.running ? 'true' : 'false');
+    }
   }
 
   /** @param {ServerInterface[]} ifaces @param {ServerConfig} cfg */
@@ -298,12 +370,11 @@ export function initRemoteSettings() {
     ifaceSelect.append(all);
 
     const has = (/** @type {string} */ ip) => [...ifaceSelect.options].some((o) => o.value === ip);
-    const wg = ifaces.find((i) => i.wireguard);
-    // Valeur enregistrée d'abord (choix explicite de l'utilisateur), puis WireGuard, puis la boucle locale.
+    // Valeur enregistrée d'abord (choix explicite), puis WireGuard, puis la première interface non-loopback, puis la boucle locale.
     const saved = cfg.bindIp && (cfg.bindIp !== ALL_INTERFACES || cfg.allowAll) && has(cfg.bindIp) ? cfg.bindIp : null;
-    const pick = saved ?? wg?.ip ?? (has(LOOPBACK) ? LOOPBACK : ifaces[0]?.ip ?? ALL_INTERFACES);
-    ifaceSelect.value = pick;
-    if (allowAllInput) allowAllInput.checked = pick === ALL_INTERFACES && cfg.allowAll;
+    const pick = saved ?? ifaces.find((i) => i.wireguard)?.ip ?? ifaces.find((i) => !i.loopback)?.ip ?? LOOPBACK;
+    ifaceSelect.value = has(pick) ? pick : ALL_INTERFACES;
+    if (allowAllInput) allowAllInput.checked = ifaceSelect.value === ALL_INTERFACES && cfg.allowAll;
   }
 
   ifaceSelect?.addEventListener('change', () => {
@@ -328,10 +399,7 @@ export function initRemoteSettings() {
     generating = true;
     keyGenBtn.disabled = true;
     try {
-      const key = await generateServerKey();
-      if (keyValueInput) keyValueInput.value = key;
-      if (keyRevealEl) keyRevealEl.hidden = false;
-      if (keyCopyBtn) keyCopyBtn.textContent = t('settings.server.key.copy');
+      keyField.setKey(await generateServerKey());
       renderServerConfig({ ...(serverConfig ?? defaultServerConfig()), hasKey: true });
     } catch (e) {
       setText(serverErrorEl, messageOf(e));
@@ -341,22 +409,12 @@ export function initRemoteSettings() {
     }
   });
 
-  keyCopyBtn?.addEventListener('click', async () => {
-    if (!keyValueInput || !keyCopyBtn) return;
-    keyValueInput.select();
-    try {
-      await navigator.clipboard.writeText(keyValueInput.value);
-      keyCopyBtn.textContent = t('settings.server.key.copied');
-      setTimeout(() => {
-        keyCopyBtn.textContent = t('settings.server.key.copy');
-      }, 2000);
-    } catch {
-      // Presse-papiers refusé : la clé reste sélectionnée pour un copier manuel.
+  startSwitch?.addEventListener('click', async () => {
+    if (starting || !startSwitch || !ifaceSelect) return;
+    if (serverConfig?.running) {
+      location.replace('/serveur');
+      return;
     }
-  });
-
-  startBtn?.addEventListener('click', async () => {
-    if (starting || !startBtn || !ifaceSelect) return;
     const port = readPort();
     if (port === null) {
       renderStartState();
@@ -365,10 +423,13 @@ export function initRemoteSettings() {
     }
     setText(serverErrorEl, '');
     starting = true;
-    const label = startBtn.textContent;
-    startBtn.disabled = true;
-    startBtn.textContent = t('settings.server.starting');
+    renderStartState();
     try {
+      // Pas encore de code : on le génère automatiquement avant de démarrer.
+      if (!serverConfig?.hasKey) {
+        keyField.setKey(await generateServerKey());
+        renderServerConfig({ ...(serverConfig ?? defaultServerConfig()), hasKey: true });
+      }
       const all = isAllSelected();
       const cfg = await startServer({ bindIp: ifaceSelect.value, port, allowAll: all && !!allowAllInput?.checked });
       if (cfg.running) {
@@ -381,7 +442,6 @@ export function initRemoteSettings() {
       setText(serverErrorEl, messageOf(e));
     }
     starting = false;
-    startBtn.textContent = label;
     renderStartState();
   });
 
@@ -409,12 +469,16 @@ export function initRemoteSettings() {
   async function load() {
     try {
       const [rc, sc, ifaces] = await Promise.all([getRemoteConfig(), getServerConfig(), getServerInterfaces()]);
+      renderNetworks(ifaces);
       renderRemoteConfig(rc);
       if (portInput) portInput.value = String(sc.port || DEFAULT_PORT);
       renderInterfaces(ifaces, sc);
       renderServerConfig(sc);
       mainEl.hidden = false;
       refreshRemoteState();
+      getServerKey()
+        .then((k) => keyField.setKey(k))
+        .catch(() => {});
     } catch (e) {
       unavailableEl.textContent = messageOf(e);
       unavailableEl.hidden = false;

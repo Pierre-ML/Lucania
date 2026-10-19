@@ -2,13 +2,16 @@
 //! catalogue Hugging Face à un autre poste (portable, à travers un tunnel WireGuard).
 //!
 //! - `auth` : clé d'API (empreinte SHA-256 seule enregistrée) et limite de débit ;
+//! - `discovery` : découverte de la tour sur le réseau local (UDP) ;
 //! - `net` : interfaces IPv4 et validation de l'adresse d'écoute ;
 //! - `http` : routeur axum (routes `/api/v1/*`).
 //!
 //! Configuration : `<app_local_data_dir>/server.json` (`bindIp`, `port`, `allowAll`, `active`,
-//! `keyHash`). Serveur actif au lancement de l'app : relancé avec la configuration enregistrée.
+//! `keyHash`, `key`). La clé en clair est conservée pour pouvoir être ré-affichée (l'empreinte
+//! reste la seule référence pour authentifier). Serveur actif au lancement de l'app : relancé avec la configuration enregistrée.
 
 pub mod auth;
+pub mod discovery;
 pub mod http;
 pub mod net;
 
@@ -58,11 +61,13 @@ struct Saved {
   active: bool,
   /// SHA-256 de la clé, en hexadécimal.
   key_hash: Option<String>,
+  /// Clé en clair, pour la ré-afficher ; absente des anciens fichiers.
+  key: Option<String>,
 }
 
 impl Default for Saved {
   fn default() -> Self {
-    Saved { bind_ip: None, port: net::DEFAULT_PORT, allow_all: false, active: false, key_hash: None }
+    Saved { bind_ip: None, port: net::DEFAULT_PORT, allow_all: false, active: false, key_hash: None, key: None }
   }
 }
 
@@ -86,6 +91,8 @@ struct Running {
   addr: SocketAddr,
   shutdown: watch::Sender<bool>,
   task: tauri::async_runtime::JoinHandle<()>,
+  /// Réponses aux sondes de découverte (UDP).
+  discovery: tauri::async_runtime::JoinHandle<()>,
 }
 
 /// Échec de démarrage ; `retry` : l'interface n'existe peut-être pas encore.
@@ -172,7 +179,10 @@ impl Server {
   fn generate_key(&self) -> Result<String, String> {
     let key = auth::generate_key()?;
     let hash = auth::hash_key(&key);
-    self.update(|s| s.key_hash = Some(auth::to_hex(&hash)))?;
+    self.update(|s| {
+      s.key_hash = Some(auth::to_hex(&hash));
+      s.key = Some(key.clone());
+    })?;
     *self.keys.write().unwrap_or_else(|e| e.into_inner()) = Some(hash);
     // Nouvelle clé : les blocages liés à l'ancienne n'ont plus lieu d'être.
     *lock(&self.limiter) = Limiter::default();
@@ -180,10 +190,18 @@ impl Server {
     Ok(key)
   }
 
+  /// Clé en clair enregistrée, si elle correspond bien à l'empreinte en vigueur.
+  fn stored_key(&self) -> Option<String> {
+    let key = lock(&self.saved).key.clone()?;
+    let current = (*self.keys.read().unwrap_or_else(|e| e.into_inner()))?;
+    auth::hash_eq(&auth::hash_key(&key), &current).then_some(key)
+  }
+
   /// Arrête le serveur en marche (s'il y en a un).
   async fn stop_running(&self) {
     let Some(mut r) = lock(&self.running).take() else { return };
     r.shutdown.send_replace(true);
+    r.discovery.abort();
     if tokio::time::timeout(STOP_GRACE, &mut r.task).await.is_err() {
       r.task.abort();
     }
@@ -211,6 +229,7 @@ impl Server {
       shutdown: rx.clone(),
     });
     let service = http::router(state).into_make_service_with_connect_info::<SocketAddr>();
+    let discovery = discovery::spawn_responder(self.keys.clone(), addr, rx.clone());
     let mut stop = rx;
     let task = tauri::async_runtime::spawn(async move {
       let serve = axum::serve(listener, service).with_graceful_shutdown(async move { http::wait_shutdown(&mut stop).await });
@@ -218,7 +237,7 @@ impl Server {
         log(&format!("serveur interrompu : {e}"));
       }
     });
-    *lock(&self.running) = Some(Running { addr, shutdown, task });
+    *lock(&self.running) = Some(Running { addr, shutdown, task, discovery });
     log(&format!("serveur en écoute sur {addr}"));
 
     // Prépare la détection du matériel (réponse rapide de `/api/v1/info`).
@@ -386,7 +405,13 @@ pub async fn server_interfaces() -> Result<Vec<NetInterface>, String> {
     .map_err(|e| format!("Liste des interfaces interrompue : {e}"))
 }
 
-/// Nouvelle clé, renvoyée une seule fois en clair (seule son empreinte est enregistrée).
+/// Clé enregistrée en clair (ré-affichage), `None` si inconnue (ancien fichier, pas de clé).
+#[tauri::command]
+pub async fn server_get_key(server: State<'_, Server>) -> Result<Option<String>, String> {
+  Ok(server.stored_key())
+}
+
+/// Nouvelle clé, renvoyée en clair et enregistrée (l'authentification utilise son empreinte).
 #[tauri::command]
 pub async fn server_generate_key(app: AppHandle, server: State<'_, Server>) -> Result<String, String> {
   let key = server.generate_key()?;
@@ -467,15 +492,36 @@ mod tests {
       x.active = true;
     })
     .unwrap();
-    // Seule l'empreinte est écrite, jamais la clé.
+    // L'empreinte et la clé (ré-affichable) sont écrites.
     let text = std::fs::read_to_string(&file).unwrap();
-    assert!(!text.contains(&key));
+    assert!(text.contains(&key));
     assert!(text.contains(&auth::to_hex(&auth::hash_key(&key))));
     assert!(text.contains("\"bindIp\""));
     let s2 = Server::open(file);
     let c2 = s2.config();
     assert!(c2.has_key && c2.active && !c2.running);
     assert!(auth::verify(&key, s2.keys.read().unwrap().as_ref()));
+    assert_eq!(s2.stored_key(), Some(key));
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[test]
+  fn ancien_fichier_sans_cle_en_clair() {
+    let dir = std::env::temp_dir().join(format!("lucania-server-old-{}", std::process::id()));
+    let file = dir.join("server.json");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let hash = auth::to_hex(&auth::hash_key("luc_ancienne"));
+    std::fs::write(&file, format!(r#"{{"bindIp":"10.0.0.2","port":4750,"allowAll":false,"active":true,"keyHash":"{hash}"}}"#)).unwrap();
+    let s = Server::open(file);
+    let c = s.config();
+    assert!(c.has_key && c.active);
+    assert_eq!(s.stored_key(), None);
+    // Une clé en clair qui ne correspond pas à l'empreinte n'est jamais renvoyée.
+    s.update(|x| x.key = Some("luc_autre".into())).unwrap();
+    assert_eq!(s.stored_key(), None);
+    s.update(|x| x.key = Some("luc_ancienne".into())).unwrap();
+    assert_eq!(s.stored_key().as_deref(), Some("luc_ancienne"));
     let _ = std::fs::remove_dir_all(dir);
   }
 }

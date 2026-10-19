@@ -458,7 +458,7 @@ fn is_self(url: &str, listening: SocketAddr, local_ips: &[String]) -> bool {
 }
 
 /// Clé d'API saisie : vide permis (effacement), sinon caractères visibles seulement.
-fn valid_key(key: &str) -> bool {
+pub(crate) fn valid_key(key: &str) -> bool {
   key.len() <= 512 && key.bytes().all(|c| c.is_ascii_graphic())
 }
 

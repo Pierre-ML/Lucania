@@ -1,0 +1,13 @@
+---
+import RefreshIcon from '../assets/icons/refresh.svg';
+import { getLang, t } from '../i18n/index';
+const lang = getLang(Astro);
+const label = t(lang, 'chat.update.title');
+---
+<div id="update-wrap" class="relative hidden shrink-0">
+	<button id="update-btn" type="button" data-available="false" data-checking="false" aria-label={label} title={label} class="group relative inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-white/[0.07] focus-visible:outline-2 disabled:cursor-default">
+		<RefreshIcon width="20" height="20" aria-hidden="true" class="group-data-[checking=true]:animate-spin motion-reduce:animate-none" />
+		<span aria-hidden="true" class="absolute right-1 top-1 hidden size-2 rounded-full bg-amber-500 ring-2 ring-bg group-data-[available=true]:block"></span>
+	</button>
+	<p id="update-note" role="status" aria-live="polite" hidden class="absolute right-0 top-full z-20 mt-2 w-max max-w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-fg shadow-[0_12px_32px_rgb(0_0_0/0.55)]"></p>
+</div>
