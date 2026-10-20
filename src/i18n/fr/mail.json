@@ -60,6 +60,7 @@
     "needSetup": "Connectez d’abord votre boîte mail ci-dessus.",
     "needModel": "Choisissez un modèle IA ci-dessus pour continuer.",
     "progressLabel": "Progression du tri",
+    "alreadySorted": "{n} déjà triés",
     "step": {
       "fetch": "Récupération des e-mails",
       "model": "Préparation du modèle",
@@ -73,6 +74,8 @@
     "noModel": "Choisissez un modèle d’IA pour continuer.",
     "stopped": "Tri arrêté : {done}/{total} e-mails lus.",
     "done": "Tri terminé.",
+    "doneSkipped": "Tri terminé · {n} déjà triés.",
+    "saveError": "Tri terminé, mais l’historique n’a pas pu être enregistré.",
     "error": "Une erreur est survenue pendant le tri."
   },
   "category": {
@@ -97,6 +100,11 @@
     "noSubject": "(sans objet)",
     "unknownSender": "Expéditeur inconnu",
     "uncertainReason": "La réponse de l’IA n’a pas pu être comprise.",
+    "clear": "Effacer l’historique",
+    "clearAsk": "Effacer l’historique ?",
+    "clearConfirm": "Effacer",
+    "cleared": "Historique effacé.",
+    "clearError": "Impossible d’effacer l’historique.",
     "help": "Vos notes apprennent à l’IA vos préférences : elle s’en sert pour mieux trier les prochains e-mails."
   },
   "rate": {

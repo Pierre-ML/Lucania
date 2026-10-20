@@ -272,6 +272,194 @@ export function listMailFeedback(limit: number): MailFeedbackItem[] {
 }
 
 // ---------------------------------------------------------------------------
+// Historique du tri (table `mail_processed`) : en-têtes seulement, jamais d'extrait du corps.
+// Pas de clé étrangère vers `mail_accounts` : l'historique survit à la suppression d'un compte.
+// ---------------------------------------------------------------------------
+
+const PROCESSED_KEEP = 5000;
+const PROCESSED_FIELD_MAX = 300;
+const PROCESSED_REASON_MAX = 200;
+const PROCESSED_USER_MAX = 254;
+const PROCESSED_DATE_MAX = 100;
+
+export interface MailProcessedItem {
+  accountId: number;
+  accountUser: string;
+  uid: number;
+  sender: string;
+  subject: string;
+  date: string;
+  category: MailCategory | 'incertain';
+  reason: string;
+  rating: 1 | -1 | null;
+  processedAt: string;
+}
+
+export type MailProcessedInput = Omit<MailProcessedItem, 'processedAt'>;
+
+interface ProcessedRow {
+  account_id: number;
+  account_user: string;
+  uid: number;
+  sender: string;
+  subject: string;
+  mail_date: string;
+  category: string;
+  reason: string;
+  rating: number | null;
+  processed_at: string;
+}
+
+const isPosInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0;
+const isMailVerdict = (v: unknown): v is MailCategory | 'incertain' => isMailCategory(v) || v === 'incertain';
+
+/** Valide le corps d'un POST : textes bornés (sender et subject 300, reason 200), catégorie connue, note nulle, 1 ou -1. */
+export function parseProcessedInput(
+  body: Record<string, unknown>,
+): { ok: true; value: MailProcessedInput } | { ok: false; error: string } {
+  const { accountId, accountUser, uid, sender, subject, date, category, reason, rating } = body;
+  if (!isPosInt(accountId)) return { ok: false, error: 'Compte invalide' };
+  if (!isPosInt(uid)) return { ok: false, error: 'Identifiant d’e-mail invalide' };
+  if (typeof sender !== 'string' || sender.length > PROCESSED_FIELD_MAX) return { ok: false, error: 'Expéditeur invalide' };
+  if (typeof subject !== 'string' || subject.length > PROCESSED_FIELD_MAX) return { ok: false, error: 'Objet invalide' };
+  if (!isMailVerdict(category)) return { ok: false, error: 'Catégorie invalide' };
+  const user = accountUser === undefined ? '' : accountUser;
+  if (typeof user !== 'string' || user.length > PROCESSED_USER_MAX) return { ok: false, error: 'Compte invalide' };
+  const d = date === undefined ? '' : date;
+  if (typeof d !== 'string' || d.length > PROCESSED_DATE_MAX) return { ok: false, error: 'Date invalide' };
+  const why = reason === undefined ? '' : reason;
+  if (typeof why !== 'string' || why.length > PROCESSED_REASON_MAX) return { ok: false, error: 'Explication invalide' };
+  if (rating !== undefined && rating !== null && rating !== 1 && rating !== -1) return { ok: false, error: 'Note invalide' };
+  return {
+    ok: true,
+    value: {
+      accountId,
+      accountUser: user,
+      uid,
+      sender,
+      subject,
+      date: d,
+      category,
+      reason: why,
+      rating: rating === 1 || rating === -1 ? rating : null,
+    },
+  };
+}
+
+/** Valide le corps d'un PATCH : compte et uid obligatoires, catégorie et/ou note (null efface la note). */
+export function parseProcessedPatch(
+  body: Record<string, unknown>,
+):
+  | { ok: true; value: { accountId: number; uid: number; category?: MailCategory | 'incertain'; rating?: 1 | -1 | null } }
+  | { ok: false; error: string } {
+  const { accountId, uid, category, rating } = body;
+  if (!isPosInt(accountId)) return { ok: false, error: 'Compte invalide' };
+  if (!isPosInt(uid)) return { ok: false, error: 'Identifiant d’e-mail invalide' };
+  const value: { accountId: number; uid: number; category?: MailCategory | 'incertain'; rating?: 1 | -1 | null } = {
+    accountId,
+    uid,
+  };
+  if (category !== undefined) {
+    if (!isMailVerdict(category)) return { ok: false, error: 'Catégorie invalide' };
+    value.category = category;
+  }
+  if (rating !== undefined) {
+    if (rating !== null && rating !== 1 && rating !== -1) return { ok: false, error: 'Note invalide' };
+    value.rating = rating;
+  }
+  if (value.category === undefined && value.rating === undefined) return { ok: false, error: 'Aucune modification' };
+  return { ok: true, value };
+}
+
+/** Plus récents d'abord. */
+export function listProcessed(limit: number): MailProcessedItem[] {
+  const n = Number.isInteger(limit) ? Math.min(2000, Math.max(1, limit)) : 500;
+  const rows = getDb()
+    .prepare(
+      `SELECT account_id, account_user, uid, sender, subject, mail_date, category, reason, rating, processed_at
+       FROM mail_processed ORDER BY processed_at DESC, id DESC LIMIT ?`,
+    )
+    .all(n) as unknown as ProcessedRow[];
+  return rows.map((r) => ({
+    accountId: Number(r.account_id),
+    accountUser: r.account_user,
+    uid: Number(r.uid),
+    sender: r.sender,
+    subject: r.subject,
+    date: r.mail_date,
+    category: (isMailVerdict(r.category) ? r.category : 'incertain') as MailCategory | 'incertain',
+    reason: r.reason,
+    rating: r.rating === 1 ? 1 : r.rating === -1 ? -1 : null,
+    processedAt: r.processed_at,
+  }));
+}
+
+/** Enregistre un e-mail traité (UPSERT sur compte + uid) et ne garde que les 5000 plus récents. */
+export function saveProcessed(row: MailProcessedInput): void {
+  withTransaction((db) => {
+    db.prepare(
+      `INSERT INTO mail_processed (account_id, account_user, uid, sender, subject, mail_date, category, reason, rating, processed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(account_id, uid) DO UPDATE SET
+         account_user = excluded.account_user, sender = excluded.sender, subject = excluded.subject,
+         mail_date = excluded.mail_date, category = excluded.category, reason = excluded.reason,
+         rating = excluded.rating, processed_at = excluded.processed_at`,
+    ).run(
+      row.accountId,
+      row.accountUser,
+      row.uid,
+      row.sender,
+      row.subject,
+      row.date,
+      row.category,
+      row.reason,
+      row.rating,
+      new Date().toISOString(),
+    );
+    db.prepare(
+      `DELETE FROM mail_processed WHERE id NOT IN
+         (SELECT id FROM mail_processed ORDER BY processed_at DESC, id DESC LIMIT ?)`,
+    ).run(PROCESSED_KEEP);
+  });
+}
+
+/** Met à jour la catégorie et/ou la note d'un e-mail traité. Renvoie false si la ligne n'existe pas. */
+export function updateProcessed(
+  accountId: number,
+  uid: number,
+  changes: { category?: MailCategory | 'incertain'; rating?: 1 | -1 | null },
+): boolean {
+  const sets: string[] = [];
+  const args: (string | number | null)[] = [];
+  if (changes.category !== undefined) {
+    sets.push('category = ?');
+    args.push(changes.category);
+  }
+  if (changes.rating !== undefined) {
+    sets.push('rating = ?');
+    args.push(changes.rating);
+  }
+  if (sets.length === 0) return false;
+  const r = getDb()
+    .prepare(`UPDATE mail_processed SET ${sets.join(', ')} WHERE account_id = ? AND uid = ?`)
+    .run(...args, accountId, uid);
+  return Number(r.changes) > 0;
+}
+
+/** UID déjà traités d'un compte. */
+export function processedUids(accountId: number): number[] {
+  const rows = getDb()
+    .prepare('SELECT uid FROM mail_processed WHERE account_id = ?')
+    .all(accountId) as unknown as { uid: number }[];
+  return rows.map((r) => Number(r.uid));
+}
+
+/** Vide l'historique ; la mémoire (`mail_memory`) et les notes (`mail_feedback`) restent. */
+export function clearProcessed(): void {
+  getDb().exec('DELETE FROM mail_processed');
+}
+
+// ---------------------------------------------------------------------------
 // Comptes (table `mail_accounts`)
 // ---------------------------------------------------------------------------
 

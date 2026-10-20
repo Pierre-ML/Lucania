@@ -46,8 +46,12 @@ const PROVIDERS = {
  * @typedef {{ uid: number, from: string, subject: string, date: string, snippet: string }} MailItem
  * @typedef {import('./mail-ai.js').MailCategory} MailCategory
  * @typedef {import('./mail-ai.js').MailVerdict} MailVerdict
- * @typedef {{ mail: MailItem, accountUser: string, aiCategory: MailVerdict, category: MailVerdict, reason: string, rated: boolean, ts: number, el: HTMLElement, chip: HTMLElement }} Entry
+ * @typedef {{ mail: MailItem, accountId: number, accountUser: string, aiCategory: MailVerdict, category: MailVerdict, reason: string, rated: boolean, rating: 1|-1|null, ts: number, el: HTMLElement, chip: HTMLElement }} Entry
+ * @typedef {{ accountId: number, accountUser: string, uid: number, sender: string, subject: string, date: string, category: string, reason: string, rating: number|null, processedAt: string }} ProcessedItem
  */
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const HISTORY_LIMIT = 2000;
 
 /** @param {string} sel @param {ParentNode} [root] @returns {HTMLElement[]} */
 const $$ = (sel, root = document) => /** @type {HTMLElement[]} */ ([...root.querySelectorAll(sel)]);
@@ -188,6 +192,12 @@ export function initEmailsPage() {
   const errorList = $('[data-mail-error-list]');
   const results = $('[data-mail-results]');
   const summary = $('[data-mail-summary]');
+  const skippedEl = $('[data-mail-skipped]');
+  const clearBox = $('[data-mail-clear-box]');
+  const clearBtn = /** @type {HTMLButtonElement|null} */ ($('[data-mail-clear]'));
+  const clearConfirm = $('[data-mail-clear-confirm]');
+  const clearCancel = /** @type {HTMLButtonElement|null} */ ($('[data-mail-clear-cancel]'));
+  const clearYes = /** @type {HTMLButtonElement|null} */ ($('[data-mail-clear-yes]'));
   const none = $('[data-mail-none]');
   const board = $('[data-mail-board]');
   if (!form || !modelSel || !saveBtn || !analyzeBtn || !stopBtn || !bar || !markSeenBox) return;
@@ -659,6 +669,7 @@ export function initEmailsPage() {
       if (show) visible += 1;
     }
     if (emptyFilter) emptyFilter.hidden = visible > 0 || total === 0;
+    if (clearBox) clearBox.hidden = total === 0;
     if (summary) {
       summary.textContent =
         total === 0
@@ -706,7 +717,7 @@ export function initEmailsPage() {
     try {
       await api('/api/mail/feedback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: JSON_HEADERS,
         body: JSON.stringify({
           sender: senderAddress(entry.mail.from),
           subject: entry.mail.subject || '',
@@ -721,6 +732,18 @@ export function initEmailsPage() {
       say(ui.note, t('mail.rate.error'), true);
       return;
     }
+    entry.rating = rating;
+    // La note et la catégorie corrigée sont aussi gardées dans l'historique (la note à l'IA est déjà enregistrée).
+    api('/api/mail/processed', {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        accountId: entry.accountId,
+        uid: entry.mail.uid,
+        rating,
+        ...(rating === -1 && userCategory ? { category: userCategory } : {}),
+      }),
+    }).catch(() => {});
     (rating === 1 ? ui.up : ui.down)?.setAttribute('aria-pressed', 'true');
     ui.picker.hidden = true;
     ui.down.setAttribute('aria-expanded', 'false');
@@ -845,35 +868,140 @@ export function initEmailsPage() {
       pickerRow.replaceChildren(label, ...chips);
     });
 
+    // Ligne déjà notée (historique) : affichée comme notée, sans nouvelle note possible.
+    if (entry.rating) {
+      (entry.rating === 1 ? up : down)?.setAttribute('aria-pressed', 'true');
+      if (up) up.disabled = true;
+      down.disabled = true;
+    }
+
     body.append(top, meta, picker, note);
     line.append(badge, body);
     li.append(line);
     return li;
   }
 
-  /** @param {MailItem} mail @param {{ category: string, reason: string }} res @param {string} accountUser '' = masqué */
-  function addResult(mail, res, accountUser) {
+  /** @param {number} accountId @param {number} uid */
+  const findEntry = (accountId, uid) => entries.find((e) => e.accountId === accountId && e.mail.uid === uid);
+
+  /**
+   * Ajoute une ligne en haut de la liste (un doublon compte + uid est remplacé).
+   * @param {MailItem} mail @param {{ category: string, reason: string }} res
+   * @param {number} accountId @param {string} accountUser @param {1|-1|null} [rating]
+   * @param {boolean} [bulk] historique chargé d'un bloc : pas d'animation, compteurs rafraîchis par l'appelant
+   */
+  function addResult(mail, res, accountId, accountUser, rating = null, bulk = false) {
+    const old = findEntry(accountId, mail.uid);
+    if (old) {
+      old.el.remove();
+      entries.splice(entries.indexOf(old), 1);
+    }
     const category = /** @type {MailVerdict} */ (ORDER.includes(res.category) ? res.category : 'incertain');
     const ts = Date.parse(mail.date);
     /** @type {Entry} */
     const entry = {
       mail,
+      accountId,
       accountUser,
       aiCategory: category,
       category,
       reason: res.reason,
-      rated: false,
+      rated: rating !== null,
+      rating,
       ts: Number.isNaN(ts) ? 0 : ts,
       chip: buildChip(category),
       el: document.createElement('li'),
     };
-    entry.el = buildRow(entry, Boolean(accountUser));
+    entry.el = buildRow(entry, accounts.length > 1);
     entries.push(entry);
     // Le dernier e-mail traité apparaît tout en haut.
     list?.prepend(entry.el);
+    if (bulk) {
+      entry.el.classList.remove('opacity-0');
+      return;
+    }
     refreshResults();
     requestAnimationFrame(() => requestAnimationFrame(() => entry.el.classList.remove('opacity-0')));
   }
+
+  /** Enregistre un e-mail traité dans l'historique (app.db). Renvoie false en cas d'échec. @param {Entry} entry */
+  async function saveProcessed(entry) {
+    try {
+      await api('/api/mail/processed', {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          accountId: entry.accountId,
+          accountUser: entry.accountUser.slice(0, 254),
+          uid: entry.mail.uid,
+          sender: (entry.mail.from || '').slice(0, 300),
+          subject: (entry.mail.subject || '').slice(0, 300),
+          date: (entry.mail.date || '').slice(0, 100),
+          category: entry.category,
+          reason: (entry.reason || '').slice(0, 200),
+          rating: null,
+        }),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Affiche l'historique enregistré (le plus récent en haut) dans la liste centrale. */
+  async function loadHistory() {
+    const data = await api(`/api/mail/processed?limit=${HISTORY_LIMIT}`);
+    /** @type {ProcessedItem[]} */
+    const items = Array.isArray(data?.items) ? data.items : [];
+    // Les plus récents d'abord côté serveur : on insère les plus anciens en premier, chaque ajout se place en haut.
+    for (const it of items.slice().reverse()) {
+      if (findEntry(it.accountId, it.uid)) continue;
+      addResult(
+        { uid: it.uid, from: it.sender, subject: it.subject, date: it.date, snippet: '' },
+        { category: it.category, reason: it.reason },
+        it.accountId,
+        it.accountUser,
+        it.rating === 1 || it.rating === -1 ? it.rating : null,
+        true,
+      );
+    }
+    if (entries.length > 0) {
+      showResults(true);
+      showBoard(true);
+    }
+    refreshResults();
+  }
+
+  // ---- Effacer l'historique ----
+
+  /** @param {boolean} asking */
+  function showClearAsk(asking) {
+    if (clearBtn) clearBtn.hidden = asking;
+    if (clearConfirm) clearConfirm.hidden = !asking;
+    if (asking) clearCancel?.focus();
+    else clearBtn?.focus();
+  }
+
+  clearBtn?.addEventListener('click', () => showClearAsk(true));
+  clearCancel?.addEventListener('click', () => showClearAsk(false));
+  clearYes?.addEventListener('click', async () => {
+    if (running) return;
+    clearYes.disabled = true;
+    try {
+      await api('/api/mail/processed', { method: 'DELETE' });
+      resetResults();
+      showResults(false);
+      showBoard(false);
+      if (none) none.hidden = true;
+      showClearAsk(false);
+      say(statusEl, t('mail.results.cleared'));
+    } catch {
+      showClearAsk(false);
+      say(statusEl, t('mail.results.clearError'), true);
+    } finally {
+      clearYes.disabled = false;
+    }
+  });
 
   /** @param {{ user: string, message: string }[]} errors */
   function renderErrors(errors) {
@@ -932,6 +1060,8 @@ export function initEmailsPage() {
     if (addBtn) addBtn.disabled = on;
     for (const b of $$('[data-mail-account-action]')) /** @type {HTMLButtonElement} */ (b).disabled = on;
     markSeenBox.disabled = on;
+    if (clearBtn) clearBtn.disabled = on;
+    if (on) showClearAsk(false);
     refreshModelDisabled();
     refreshRun();
   }
@@ -962,11 +1092,16 @@ export function initEmailsPage() {
     const checkAbort = () => {
       if (ctl.signal.aborted) throw new DOMException('abort', 'AbortError');
     };
-    resetResults();
+    // L'historique reste affiché : les nouveaux e-mails s'ajoutent en haut.
+    totalCount = 0;
     renderErrors([]);
-    showResults(false);
+    showResults(entries.length > 0);
     if (none) none.hidden = true;
-    showBoard(false);
+    showBoard(entries.length > 0);
+    if (skippedEl) {
+      skippedEl.textContent = '';
+      skippedEl.hidden = true;
+    }
     setRunning(true);
 
     const queue = accounts.slice();
@@ -976,6 +1111,8 @@ export function initEmailsPage() {
     let modelReady = false;
     let done = 0;
     let total = 0;
+    let skippedTotal = 0;
+    let saveFailed = false;
     const doMarkSeen = markSeenBox.checked;
     /** @type {MailAccount|null} */
     let seenAcc = null;
@@ -1036,13 +1173,35 @@ export function initEmailsPage() {
         checkAbort();
         if (emails.length === 0) continue;
 
+        // E-mails déjà dans l'historique de ce compte : non renvoyés à l'IA, comptés comme faits.
+        const known = new Set(entries.filter((e) => e.accountId === acc.id).map((e) => e.mail.uid));
+        try {
+          const ids = await api(`/api/mail/processed?account=${acc.id}`);
+          if (Array.isArray(ids?.uids)) for (const u of ids.uids) known.add(Number(u));
+        } catch {
+          /* repli : les lignes déjà affichées */
+        }
+        checkAbort();
+        const fresh = emails.filter((m) => !known.has(m.uid));
+        const skipped = emails.length - fresh.length;
+        if (skipped > 0) {
+          skippedTotal += skipped;
+          if (skippedEl) {
+            skippedEl.textContent = t('mail.run.alreadySorted', { n: skippedTotal });
+            skippedEl.hidden = false;
+          }
+          // Déjà triés, mais peut-être pas encore marqués comme lus.
+          for (const m of emails) if (known.has(m.uid)) seenUids.push(m.uid);
+        }
+
         total += emails.length;
+        done += skipped;
         totalCount = total;
         showResults(true);
         showBoard(true);
         refreshResults();
 
-        if (!modelReady) {
+        if (!modelReady && fresh.length > 0) {
           setStep('model');
           setLabel('model', t('mail.run.step.model'));
           const status = await getEngineStatus().catch(() => null);
@@ -1063,9 +1222,9 @@ export function initEmailsPage() {
               : t('mail.run.step.readCount', { done: k, total: count }),
           );
         };
-        progress(0);
-        let k = 0;
-        for (const mail of emails) {
+        let k = skipped;
+        progress(k);
+        for (const mail of fresh) {
           checkAbort();
           /** @type {{ category: string, reason: string }} */
           let res;
@@ -1081,7 +1240,9 @@ export function initEmailsPage() {
             if (ctl.signal.aborted) throw e;
             res = { category: 'incertain', reason: t('mail.results.uncertainReason') };
           }
-          addResult(mail, res, n > 1 ? acc.user : '');
+          addResult(mail, res, acc.id, acc.user);
+          const added = findEntry(acc.id, mail.uid);
+          if (added && !(await saveProcessed(added))) saveFailed = true;
           seenUids.push(mail.uid);
           done += 1;
           k += 1;
@@ -1089,13 +1250,14 @@ export function initEmailsPage() {
         }
         await flushSeen();
       }
-      if (total === 0 && errors.length === 0) {
+      if (total === 0 && errors.length === 0 && entries.length === 0) {
         showResults(true);
         if (summary) summary.textContent = '';
         if (none) none.hidden = false;
         showBoard(false);
       }
-      say(statusEl, t('mail.analyze.done'));
+      if (saveFailed) say(statusEl, t('mail.analyze.saveError'), true);
+      else say(statusEl, skippedTotal > 0 ? t('mail.analyze.doneSkipped', { n: skippedTotal }) : t('mail.analyze.done'));
     } catch (e) {
       await flushSeen();
       if (ctl.signal.aborted) say(statusEl, t('mail.analyze.stopped', { done, total }));
@@ -1120,6 +1282,12 @@ export function initEmailsPage() {
     } catch (e) {
       showSetup(true);
       say(settingsStatus, messageOf(e) || t('mail.setup.loadError'), true);
+    }
+    // Historique du tri enregistré dans app.db (après les comptes : l'affichage du compte en dépend).
+    try {
+      await loadHistory();
+    } catch (e) {
+      say(statusEl, messageOf(e), true);
     }
     refreshRun();
   })();

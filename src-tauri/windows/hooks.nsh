@@ -46,7 +46,9 @@
 !macroend
 
 ; LUCANIA: page de fin : la case « Lancer Lucania » est COCHÉE par défaut (setup et update) ;
-; MUI_FINISHPAGE_RUN_NOTCHECKED n'est donc plus défini nulle part.
+; MUI_FINISHPAGE_RUN_NOTCHECKED n'est donc plus défini nulle part. L'update lance lui-même la
+; nouvelle version à la fin de la copie et saute sa page de fin, qui n'apparaît (avec cette case)
+; que si ce lancement a échoué (voir LucaniaUpdateFinishPre dans installer.nsi).
 
 ; Case « Créer un raccourci sur le Bureau » décochée par défaut (évite un blocage sur
 ; « Terminer » pendant la création du raccourci/analyse antivirus) ; l'utilisateur peut la cocher.

@@ -4,8 +4,16 @@
 //! - `app_check_update` : interroge l'API GitHub (release la plus récente).
 //! - `app_install_update` : téléchargement en flux (300 Mo maximum) avec l'événement
 //!   `app-update-progress` (`{ downloaded, total }`, au plus ~10 par seconde, puis un dernier à 100 %),
-//!   contrôle « MZ », écriture dans le dossier temporaire, lancement différé de l'exe (un seul
-//!   `cmd.exe` détaché) puis `app.exit(0)`.
+//!   contrôle « MZ », écriture dans le dossier temporaire, puis, dans cet ordre :
+//!   1. arrêt des processus enfants : génération arrêtée et modèle déchargé (au plus 5 s), puis
+//!      serveur `node.exe` tué ET attendu (`kill` + `wait`) : plus rien ne verrouille l'installation ;
+//!   2. lancement DIRECT de l'updater (exe graphique NSIS, aucune console, aucun `cmd`/`ping`) avec
+//!      l'argument `/LUCANIA_WAITPID=<pid de l'app>` : son `.onInit` attend (invisible, 15 s au plus)
+//!      la fin de ce processus avant de copier les fichiers ;
+//!   3. `app.exit(0)` après 300 ms (le temps de répondre à la page). Filet : si la sortie normale
+//!      n'a pas abouti 10 s plus tard, le processus se termine lui-même (`TerminateProcess`).
+//!   Si l'updater ne peut pas être lancé, le serveur node est relancé et l'app continue.
+//! - L'updater relance lui-même la nouvelle version, une seule fois, à la fin de la copie.
 //! - Une garde atomique (`INSTALLING`) rend impossible un second lancement : tout appel pendant
 //!   qu'une installation est en cours est refusé. La garde n'est relâchée qu'en cas d'échec avant le
 //!   lancement ; une fois l'installateur lancé, l'app se ferme.
@@ -25,6 +33,13 @@ const UPDATER_FILE: &str = "Lucania-Update.exe";
 const MAX_BYTES: u64 = 300 * 1024 * 1024;
 const PROGRESS_EVENT: &str = "app-update-progress";
 const PROGRESS_EVERY: Duration = Duration::from_millis(100);
+/// Argument lu par le `.onInit` de l'updater (src-tauri/windows/installer.nsi) : PID à attendre.
+const WAIT_PID_ARG: &str = "/LUCANIA_WAITPID=";
+/// Attente maximale de l'arrêt du moteur (génération en cours, déchargement du modèle).
+const ENGINE_STOP_TIMEOUT: Duration = Duration::from_secs(5);
+/// Délai avant `app.exit(0)` (réponse à la page), puis délai du filet de terminaison forcée.
+const EXIT_DELAY: Duration = Duration::from_millis(300);
+const EXIT_FALLBACK: Duration = Duration::from_secs(10);
 
 /// Vrai dès qu'une installation de mise à jour est en cours (téléchargement ou lancement).
 static INSTALLING: AtomicBool = AtomicBool::new(false);
@@ -188,29 +203,87 @@ pub async fn app_install_update(app: tauri::AppHandle) -> Result<(), String> {
 
   let path = std::env::temp_dir().join(UPDATER_FILE);
   tokio::fs::write(&path, &bytes).await.map_err(|e| format!("Écriture de la mise à jour impossible : {e}"))?;
+  drop(bytes);
 
-  // L'app se ferme d'abord ; l'installateur n'est lancé qu'après un court délai (via cmd, détaché),
-  // pour qu'aucun fichier ne soit encore utilisé au moment du remplacement.
-  #[cfg(windows)]
-  {
-    use std::os::windows::process::CommandExt;
-    let mut cmd = std::process::Command::new("cmd.exe");
-    cmd.raw_arg(format!("/C ping -n 4 127.0.0.1 >nul & start \"\" \"{}\"", path.display()));
-    cmd.creation_flags(0x0000_0008 | 0x0800_0000); // DETACHED_PROCESS | CREATE_NO_WINDOW
-    cmd.spawn().map_err(|e| format!("Lancement de la mise à jour impossible : {e}"))?;
-  }
-  #[cfg(not(windows))]
-  std::process::Command::new(&path)
-    .spawn()
-    .map_err(|e| format!("Lancement de la mise à jour impossible : {e}"))?;
+  // Arrêts bloquants (moteur, node) : hors du runtime asynchrone.
+  let handle = app.clone();
+  tauri::async_runtime::spawn_blocking(move || stop_children_and_launch(&handle, &path))
+    .await
+    .map_err(|e| format!("Lancement de la mise à jour impossible : {e}"))??;
 
   // Lancé : la garde reste prise (aucun second lancement possible) jusqu'à la fermeture.
   guard.keep();
   std::thread::spawn(move || {
-    std::thread::sleep(Duration::from_millis(300));
+    std::thread::sleep(EXIT_DELAY);
     app.exit(0);
+    // Sortie normale : le processus disparaît avant la fin de ce délai. Sinon (sortie bloquée),
+    // il se termine lui-même pour que l'updater, qui attend sa fin, puisse copier les fichiers.
+    std::thread::sleep(EXIT_FALLBACK);
+    terminate_self();
   });
   Ok(())
+}
+
+/// Argument de l'updater : PID de l'app, dont il attend la fin avant de copier les fichiers.
+fn wait_pid_arg(pid: u32) -> String {
+  format!("{WAIT_PID_ARG}{pid}")
+}
+
+/// Ordre garanti : moteur arrêté, node tué et attendu, PUIS lancement direct de l'updater.
+/// En cas d'échec du lancement, le serveur node est relancé (l'app reste utilisable).
+fn stop_children_and_launch(app: &tauri::AppHandle, path: &std::path::Path) -> Result<(), String> {
+  stop_engine(app);
+  crate::stop_sidecar(app);
+
+  let mut cmd = std::process::Command::new(path);
+  cmd
+    .arg(wait_pid_arg(std::process::id()))
+    .stdin(std::process::Stdio::null())
+    .stdout(std::process::Stdio::null())
+    .stderr(std::process::Stdio::null());
+  #[cfg(windows)]
+  {
+    use std::os::windows::process::CommandExt;
+    // Exe graphique : aucune console n'est créée. DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP :
+    // aucun lien avec l'app, qui va se fermer.
+    cmd.creation_flags(0x0000_0008 | 0x0000_0200);
+  }
+  if let Err(e) = cmd.spawn() {
+    crate::restart_sidecar(app);
+    return Err(format!("Lancement de la mise à jour impossible : {e}"));
+  }
+  Ok(())
+}
+
+/// Arrête la génération en cours et décharge le modèle (au plus `ENGINE_STOP_TIMEOUT`) : la sortie
+/// du processus ne se fait pas pendant un calcul de llama.cpp.
+fn stop_engine(app: &tauri::AppHandle) {
+  use tauri::Manager;
+  let Some(engine) = app.try_state::<crate::engine::Engine>() else { return };
+  let engine = engine.inner().clone();
+  engine.stop(None);
+  let (tx, rx) = std::sync::mpsc::channel();
+  std::thread::spawn(move || {
+    let _ = tx.send(engine.unload());
+  });
+  let _ = rx.recv_timeout(ENGINE_STOP_TIMEOUT);
+}
+
+/// Filet de sécurité : termine immédiatement le processus (sans destructeurs ni `atexit`).
+fn terminate_self() -> ! {
+  #[cfg(windows)]
+  {
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+      fn GetCurrentProcess() -> *mut std::ffi::c_void;
+      fn TerminateProcess(process: *mut std::ffi::c_void, exit_code: u32) -> i32;
+    }
+    // SAFETY : pseudo-handle du processus courant, toujours valide.
+    unsafe {
+      TerminateProcess(GetCurrentProcess(), 0);
+    }
+  }
+  std::process::exit(0)
 }
 
 #[cfg(test)]
@@ -244,6 +317,13 @@ mod tests {
     let again = InstallGuard::acquire(&flag).expect("reprise après échec");
     again.keep(); // installateur lancé : garde conservée
     assert!(InstallGuard::acquire(&flag).is_none());
+  }
+
+  #[test]
+  fn argument_d_attente_de_l_updater() {
+    // Contrat avec le .onInit de src-tauri/windows/installer.nsi (GetOptions "/LUCANIA_WAITPID=")
+    assert_eq!(wait_pid_arg(1234), "/LUCANIA_WAITPID=1234");
+    assert!(!wait_pid_arg(7).contains(' '));
   }
 
   #[test]

@@ -152,3 +152,81 @@
   :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
   * { scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
 }
+
+/* Menus déroulants natifs (<select>) lisibles dans tous les thèmes */
+@layer base {
+  /* Schéma de couleurs par thème : le popup natif suit le bon schéma */
+  :root:not([data-theme]),
+  [data-theme="lucania"],
+  [data-theme="dark"],
+  [data-theme="dim"],
+  [data-theme="night"],
+  [data-theme="dracula"],
+  [data-theme="business"],
+  [data-theme="coffee"],
+  [data-theme="sunset"] { color-scheme: dark; }
+  [data-theme="light"],
+  [data-theme="nord"],
+  [data-theme="cupcake"],
+  [data-theme="emerald"] { color-scheme: light; }
+
+  /* Repli (sans base-select) : liste ouverte aux couleurs du thème */
+  select option,
+  select optgroup {
+    background-color: var(--color-surface);
+    color: var(--color-fg);
+  }
+  select option:disabled { color: var(--color-muted); }
+
+  /* Menus personnalisables de Chromium. Les selects daisyUI (.select) gardent leur flèche. */
+  @supports (appearance: base-select) {
+    select:not(.select),
+    select:not(.select)::picker(select) {
+      appearance: base-select;
+    }
+    select:not(.select) {
+      background-color: var(--color-surface);
+      color: var(--color-fg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-field, 0.5rem);
+    }
+    select:not(.select)::picker-icon {
+      color: var(--color-muted);
+      transition: rotate 0.15s ease;
+    }
+    select:not(.select):open::picker-icon { rotate: 180deg; }
+    select:not(.select)::picker(select) {
+      background-color: var(--color-surface);
+      color: var(--color-fg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-field, 0.5rem);
+      box-shadow: 0 8px 24px color-mix(in oklab, black 30%, transparent);
+      padding: 0.25rem;
+      max-height: min(20rem, 60vh);
+      overflow-y: auto;
+      opacity: 1;
+      transition: opacity 0.12s ease-out, display 0.12s allow-discrete, overlay 0.12s allow-discrete;
+    }
+    @starting-style {
+      select:not(.select):open::picker(select) { opacity: 0; }
+    }
+    select:not(.select) option {
+      padding: 0.5rem 0.75rem;
+      border-radius: calc(var(--radius-field, 0.5rem) - 0.125rem);
+      background-color: transparent;
+      color: var(--color-fg);
+    }
+    select:not(.select) option:hover,
+    select:not(.select) option:focus-visible {
+      background-color: color-mix(in oklab, var(--color-fg) 8%, transparent);
+      outline: none;
+    }
+    select:not(.select) option:checked { background-color: color-mix(in oklab, var(--color-fg) 8%, transparent); }
+    select:not(.select) option::checkmark { color: var(--color-fg); }
+    select:not(.select) option:disabled { color: var(--color-muted); }
+    @media (prefers-reduced-motion: reduce) {
+      select:not(.select)::picker-icon,
+      select:not(.select)::picker(select) { transition: none; }
+    }
+  }
+}

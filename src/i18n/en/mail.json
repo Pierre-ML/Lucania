@@ -59,7 +59,8 @@
     "stopping": "Stopping…",
     "needSetup": "Connect your mailbox above first.",
     "needModel": "Choose an AI model above to continue.",
-    "progressLabel": "Sorting progress",
+    "alreadySorted": "{n} already sorted",
+    "progressLabel":"Sorting progress",
     "step": {
       "fetch": "Fetching emails",
       "model": "Preparing the model",
@@ -72,6 +73,8 @@
   "analyze": {
     "noModel": "Choose an AI model to continue.",
     "stopped": "Sorting stopped: {done}/{total} emails read.",
+    "doneSkipped": "Sorting finished · {n} already sorted.",
+    "saveError": "Sorting finished, but the history could not be saved.",
     "done": "Sorting complete.",
     "error": "Something went wrong while sorting."
   },
@@ -97,6 +100,11 @@
     "noSubject": "(no subject)",
     "unknownSender": "Unknown sender",
     "uncertainReason": "The AI’s answer could not be understood.",
+    "clear": "Clear history",
+    "clearAsk": "Clear history?",
+    "clearConfirm": "Clear",
+    "cleared": "History cleared.",
+    "clearError": "Could not clear the history.",
     "help": "Your ratings teach the AI your preferences: it uses them to sort your next emails better."
   },
   "rate": {

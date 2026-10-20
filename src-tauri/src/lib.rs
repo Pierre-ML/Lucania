@@ -131,6 +131,19 @@ mod sidecar {
   }
 }
 
+/// Mise à jour (updater.rs) : arrête le serveur node embarqué (kill + wait) AVANT le lancement de
+/// l'updater, pour qu'il ne verrouille plus node.exe ni app\. Sans effet en dev (pas de sidecar).
+pub(crate) fn stop_sidecar(_app: &tauri::AppHandle) {
+  #[cfg(not(debug_assertions))]
+  sidecar::kill(_app);
+}
+
+/// Mise à jour : relance le serveur node si l'updater n'a finalement pas pu être lancé.
+pub(crate) fn restart_sidecar(_app: &tauri::AppHandle) {
+  #[cfg(not(debug_assertions))]
+  sidecar::start(_app);
+}
+
 /// Lance le désinstallateur NSIS (processus détaché) puis ferme l'app. La fermeture passe par
 /// `app.exit(0)` : l'événement `RunEvent::Exit` tue ensuite le serveur node embarqué.
 #[tauri::command]

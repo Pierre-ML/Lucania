@@ -6,7 +6,11 @@
 ; LUCANIA:  - UPDATE (même rendu recompilé par scripts/build-updater.mjs avec /DLUCANIA_UPDATER) : refuse si
 ; LUCANIA:    Lucania n'est pas installé ou si une version plus récente l'est ; sinon installe par-dessus
 ; LUCANIA:    l'installation existante (même dossier, pages Installation puis Fin seulement), ce qui répare
-; LUCANIA:    aussi une installation abîmée. Rien n'est désinstallé.
+; LUCANIA:    aussi une installation abîmée. Rien n'est désinstallé. Lancé par l'app (bouton « mise à
+; LUCANIA:    jour », src-tauri/src/updater.rs) avec /LUCANIA_WAITPID=<pid> : .onInit attend d'abord, sans
+; LUCANIA:    fenêtre, la fin de ce processus (15 s au plus). En mode graphique, la section Install relance
+; LUCANIA:    UNE fois la nouvelle version à la fin de la copie, puis l'update se ferme seul (page de fin
+; LUCANIA:    affichée seulement si ce lancement a échoué).
 ; LUCANIA: Les données utilisateur (%APPDATA% et %LOCALAPPDATA%\${BUNDLEID}) ne sont JAMAIS touchées par
 ; LUCANIA: l'un ou l'autre ; seule une vraie désinstallation les supprime (hook NSIS_HOOK_POSTUNINSTALL).
 ; LUCANIA: Supprimés (code mort depuis ce découpage) : la page « déjà installé » (PageReinstall et la page
@@ -116,7 +120,23 @@ Var LucaniaTmp               ; brouillon
 ; LUCANIA: setup : dossier d'une ancienne installation perMachine (vide si aucune), voir
 ; LUCANIA: LucaniaDetectLegacyMachineInstall. Déclarée seulement dans le setup (avertissement 6001 sinon).
 Var LucaniaLegacyDir
+!else
+; LUCANIA: update : 1 si la section Install a déjà lancé la nouvelle version (page de fin sautée)
+Var LucaniaLaunched
 !endif
+
+; LUCANIA: lance l'app installée. installMode currentUser : l'installateur n'est pas élevé, Exec
+; LUCANIA: (CreateProcess direct) suffit. nsis_tauri_utils::RunAsUser (CreateProcessWithTokenW avec le
+; LUCANIA: jeton d'explorer, appel au service seclogon) ne sert qu'à quitter l'élévation : sur la page de
+; LUCANIA: fin, cet appel bloquait la fenêtre (« Lucania-Update.exe a cessé d'interagir », AppHangXProcB1)
+; LUCANIA: et laissait un lucania.exe à moitié créé. Conservé pour les autres modes d'installation.
+!macro LUCANIA_RUN_APP
+  !if "${INSTALLMODE}" == "currentUser"
+    Exec '"$INSTDIR\${MAINBINARYNAME}.exe"'
+  !else
+    nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
+  !endif
+!macroend
 
 ; LUCANIA: retire les guillemets de début et de fin d'un chemin lu dans le registre (ex. InstallLocation
 ; LUCANIA: est écrit "%LOCALAPPDATA%\Programs\Lucania" développé, AVEC guillemets). VAR ne doit pas être $LucaniaTmp.
@@ -326,11 +346,29 @@ Var LucaniaDesktopDone
 !endif
 ; Show run app after installation.
 ; LUCANIA: case « Lancer » cochée par défaut dans les deux exe (pas de MUI_FINISHPAGE_RUN_NOTCHECKED).
-; LUCANIA: Seul chemin de lancement en mode graphique ; .onInstSuccess ne lance qu'en passif/silencieux avec /R.
+; LUCANIA: Setup : seul chemin de lancement en mode graphique. Update : la section Install lance déjà
+; LUCANIA: la nouvelle version et la page de fin est alors sautée (LucaniaUpdateFinishPre) ; elle ne
+; LUCANIA: s'affiche, avec cette case, que si ce lancement a échoué. .onInstSuccess ne lance qu'en
+; LUCANIA: passif/silencieux avec /R.
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+!ifdef LUCANIA_UPDATER
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE LucaniaUpdateFinishPre
+!else
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+!endif
 !insertmacro MUI_PAGE_FINISH
+
+!ifdef LUCANIA_UPDATER
+; LUCANIA: page de fin de l'update sautée en passif (comme SkipIfPassive) ou si la nouvelle version a
+; LUCANIA: déjà été lancée par la section Install : l'update se termine alors sans clic.
+Function LucaniaUpdateFinishPre
+  Call SkipIfPassive ; Abort dans une fonction appelée : la page est quand même sautée
+  ${If} $LucaniaLaunched = 1
+    Abort
+  ${EndIf}
+FunctionEnd
+!endif
 
 ; LUCANIA: ordre garanti « raccourci PUIS lancement ». Dans la fonction de sortie de la page de fin
 ; LUCANIA: (Modern UI 2\Pages\Finish.nsh), MUI appelle MUI_FINISHPAGE_RUN_FUNCTION AVANT
@@ -350,7 +388,7 @@ Function RunMainBinary
       ${EndIf}
     ${EndIf}
   !endif
-  nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
+  !insertmacro LUCANIA_RUN_APP ; LUCANIA: au lieu de nsis_tauri_utils::RunAsUser (voir la macro)
 FunctionEnd
 
 !ifndef LUCANIA_UPDATER
@@ -450,6 +488,8 @@ LangString lucaniaUpdateSubtitle ${LANG_FRENCH} "Installation de la version ${VE
 LangString lucaniaUpdateDoneTitle ${LANG_FRENCH} "Mise à jour terminée"
 LangString lucaniaUpdateDoneSubtitle ${LANG_FRENCH} "${PRODUCTNAME} est à jour (version ${VERSION})."
 LangString lucaniaUpdateDoneText ${LANG_FRENCH} "${PRODUCTNAME} a été mis à jour vers la version ${VERSION}. Vos conversations et vos réglages ont été conservés.$\r$\n$\r$\nCliquez sur Fermer pour quitter."
+; LUCANIA: ligne du journal pendant le lancement de la nouvelle version (section Install)
+LangString lucaniaUpdateLaunching ${LANG_FRENCH} "Démarrage de ${PRODUCTNAME} ${VERSION}..."
 !endif
 !endif
 
@@ -473,6 +513,7 @@ LangString lucaniaUpdateSubtitle ${LANG_ENGLISH} "Installing version ${VERSION}.
 LangString lucaniaUpdateDoneTitle ${LANG_ENGLISH} "Update complete"
 LangString lucaniaUpdateDoneSubtitle ${LANG_ENGLISH} "${PRODUCTNAME} is up to date (version ${VERSION})."
 LangString lucaniaUpdateDoneText ${LANG_ENGLISH} "${PRODUCTNAME} has been updated to version ${VERSION}. Your conversations and settings have been kept.$\r$\n$\r$\nClick Close to exit."
+LangString lucaniaUpdateLaunching ${LANG_ENGLISH} "Starting ${PRODUCTNAME} ${VERSION}..."
 !endif
 !endif
 
@@ -562,6 +603,26 @@ Function .onInit
   ; LUCANIA: signale (LucaniaDetectLegacyMachineInstall) et l'update l'ignore.
   Call LucaniaDetectInstall
   !ifdef LUCANIA_UPDATER
+    ; LUCANIA: UPDATE lancé par l'app (src-tauri/src/updater.rs) avec /LUCANIA_WAITPID=<pid> : l'app a
+    ; LUCANIA: déjà arrêté son serveur node.exe et se ferme. On attend la fin de CE processus (par son
+    ; LUCANIA: PID, pas par son nom) pendant 15 s au plus, AVANT d'afficher quoi que ce soit : aucune
+    ; LUCANIA: fenêtre ni console. Processus déjà terminé : OpenProcess échoue, pas d'attente. Au-delà de
+    ; LUCANIA: 15 s, CheckIfAppIsRunning (section Install) prend le relais comme avant.
+    ${GetOptions} $CMDLINE "/LUCANIA_WAITPID=" $LucaniaTmp
+    ${IfNot} ${Errors}
+      IntOp $LucaniaTmp $LucaniaTmp + 0
+      ${If} $LucaniaTmp > 0
+        Push $0
+        Push $1
+        System::Call 'kernel32::OpenProcess(i 0x00100000, i 0, i $LucaniaTmp) p .r0' ; SYNCHRONIZE
+        ${If} $0 P<> 0
+          System::Call 'kernel32::WaitForSingleObject(p r0, i 15000) i .r1'
+          System::Call 'kernel32::CloseHandle(p r0)'
+        ${EndIf}
+        Pop $1
+        Pop $0
+      ${EndIf}
+    ${EndIf}
     ; LUCANIA: UPDATE : Lucania doit être installé
     ${If} $LucaniaInstalled <> 1
       MessageBox MB_ICONINFORMATION|MB_OK "$(lucaniaNotInstalledUseSetup)" /SD IDOK
@@ -822,6 +883,23 @@ Section Install
 
   !ifmacrodef NSIS_HOOK_POSTINSTALL
     !insertmacro NSIS_HOOK_POSTINSTALL
+  !endif
+
+  !ifdef LUCANIA_UPDATER
+    ; LUCANIA: update en mode graphique : UN seul lancement de la nouvelle version, ici, une fois tous
+    ; LUCANIA: les fichiers copiés (fil de la section : la fenêtre reste réactive même si l'antivirus
+    ; LUCANIA: retarde le démarrage), puis fermeture automatique (page de fin sautée). En passif ou
+    ; LUCANIA: silencieux, rien ici : .onInstSuccess garde la convention /R du template.
+    ${IfNot} ${Silent}
+    ${AndIf} $PassiveMode <> 1
+      DetailPrint "$(lucaniaUpdateLaunching)"
+      ClearErrors
+      !insertmacro LUCANIA_RUN_APP
+      ${IfNot} ${Errors}
+        StrCpy $LucaniaLaunched 1
+        SetAutoClose true
+      ${EndIf}
+    ${EndIf}
   !endif
 
   ; Auto close this page for passive mode

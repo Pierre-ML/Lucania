@@ -103,6 +103,7 @@ const steps = ['fetch', 'model', 'read'];
 							))}
 						</ol>
 						<progress data-mail-bar value="0" max="1" aria-label={t(lang, 'mail.run.progressLabel')} class="h-1 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-fg [&::-webkit-progress-bar]:bg-fg/10 [&::-webkit-progress-value]:bg-fg"></progress>
+						<p data-mail-skipped hidden class="text-xs text-muted"></p>
 						<button type="button" data-mail-stop class={`${secondaryBtn} w-full`}>{t(lang, 'mail.run.stop')}</button>
 					</div>
 					<p data-mail-progress-live class="sr-only" role="status" aria-live="polite"></p>
@@ -125,7 +126,17 @@ const steps = ['fetch', 'model', 'read'];
 
 				<div data-mail-results hidden class="flex min-h-full flex-col">
 					<div class="sticky top-0 z-10 border-b border-border bg-bg px-4 pb-3 pt-3">
-						<h2 data-mail-summary class="min-h-6 truncate font-serif text-lg"></h2>
+						<div class="flex items-center justify-between gap-3">
+							<h2 data-mail-summary class="min-h-6 min-w-0 flex-1 truncate font-serif text-lg"></h2>
+							<div data-mail-clear-box hidden class="flex shrink-0 items-center">
+								<button type="button" data-mail-clear class="h-8 cursor-pointer rounded-lg px-2 text-xs text-muted transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:outline-2 focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none">{t(lang, 'mail.results.clear')}</button>
+								<div data-mail-clear-confirm hidden class="flex items-center gap-1">
+									<span class="text-xs text-muted">{t(lang, 'mail.results.clearAsk')}</span>
+									<button type="button" data-mail-clear-cancel class="h-8 cursor-pointer rounded-lg px-2 text-xs text-muted transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:outline-2 focus-visible:outline-fg/40 motion-reduce:transition-none">{t(lang, 'mail.setup.cancel')}</button>
+									<button type="button" data-mail-clear-yes class="h-8 cursor-pointer rounded-lg px-2 text-xs font-medium text-danger transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none">{t(lang, 'mail.results.clearConfirm')}</button>
+								</div>
+							</div>
+						</div>
 						<div data-mail-tiles hidden role="group" aria-label={t(lang, 'mail.results.filtersLabel')} class="mt-2 grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1.5">
 							{tiles.map((tl) => (
 								<div data-mail-tile={tl.id} hidden={tl.hidden}>

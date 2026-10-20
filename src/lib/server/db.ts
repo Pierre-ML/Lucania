@@ -272,12 +272,32 @@ function migrateV11(db: DatabaseSync) {
   }
 }
 
+// v12 : historique du tri des e-mails (en-têtes seulement, aucun extrait du corps), conservé dans app.db.
+// Pas de clé étrangère vers `mail_accounts` : l'historique survit à la suppression d'un compte.
+function migrateV12(db: DatabaseSync) {
+  db.exec(`CREATE TABLE IF NOT EXISTS mail_processed (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL,
+    account_user TEXT NOT NULL DEFAULT '',
+    uid INTEGER NOT NULL,
+    sender TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    mail_date TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    rating INTEGER,
+    processed_at TEXT NOT NULL,
+    UNIQUE(account_id, uid)
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_mail_processed_at ON mail_processed(processed_at)');
+}
+
 function migrateSchema(db: DatabaseSync) {
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as unknown as
     | { value: string }
     | undefined;
   const version = Number(row?.value ?? '1');
-  if (version >= 11) return;
+  if (version >= 12) return;
   db.exec('BEGIN IMMEDIATE');
   try {
     if (version < 5) {
@@ -317,6 +337,8 @@ function migrateSchema(db: DatabaseSync) {
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '10')");
     migrateV11(db);
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '11')");
+    migrateV12(db);
+    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '12')");
     db.exec('COMMIT');
   } catch (e) {
     try {
