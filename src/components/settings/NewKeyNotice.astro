@@ -1,0 +1,20 @@
+---
+import { getLang, t } from '../../i18n/index';
+
+interface Props {
+	class?: string;
+}
+const { class: className = '' } = Astro.props;
+const lang = getLang(Astro);
+const secondaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0';
+---
+<!-- Code de la tour en clair, affiché une seule fois à la création du serveur. Piloté par src/lib/client/new-key.js (aucun id : le bloc peut apparaître deux fois dans la page). -->
+<div data-newkey-block hidden class={`space-y-2 ${className}`}>
+	<span class="block text-sm font-medium">{t(lang, 'settings.server.key.label')}</span>
+	<div class="flex gap-2">
+		<input data-newkey-input type="text" readonly spellcheck="false" autocomplete="off" aria-label={t(lang, 'settings.server.key.label')} class={`${input} font-mono`} />
+		<button type="button" data-newkey-copy class={secondaryBtn}>{t(lang, 'settings.server.key.copy')}</button>
+	</div>
+	<p role="note" class="rounded-lg border border-border bg-code px-3 py-2 text-xs text-fg">{t(lang, 'settings.server.key.once')}</p>
+</div>

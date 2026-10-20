@@ -1,10 +1,10 @@
 ---
 import { getLang, t } from '../../i18n/index';
-import ServerKeyField from './ServerKeyField.astro';
-import Switch from './Switch.astro';
+import NewKeyNotice from './NewKeyNotice.astro';
 
 const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const primaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const dangerBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-danger/40 px-4 text-sm font-medium text-danger transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger/60';
 const label = 'mb-1.5 block text-sm font-medium';
 const lang = getLang(Astro);
@@ -16,60 +16,90 @@ const lang = getLang(Astro);
 	<p id="remote-unavailable" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted"></p>
 
 	<div id="remote-main" hidden>
-		<!-- a. Cette machine est la tour (serveur) -->
+		<!-- a. Serveur : création (aucun rôle) puis gestion -->
 		<div data-remote-card="server" class="mt-8 rounded-xl border border-border p-5">
-			<h3 class="text-sm font-medium">{t(lang, 'settings.server.title')}</h3>
+			<h3 id="server-card-title" class="text-sm font-medium">{t(lang, 'settings.server.create.title')}</h3>
 			<p class="mt-1 text-xs text-muted">{t(lang, 'settings.server.description')}</p>
 
-			<div class="mt-4 flex items-center gap-3">
-				<Switch id="server-start" labelledby="server-start-label" />
-				<span id="server-start-label" class="text-sm font-medium">{t(lang, 'settings.server.start')}</span>
-			</div>
-			<p id="server-hint" class="mt-2 text-xs text-muted"></p>
-			<p id="server-running" role="status" aria-live="polite" hidden class="mt-2 text-sm text-muted"></p>
-			<p id="server-error" role="alert" hidden class="mt-3 rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+			<!-- Code complet, une seule fois (jusqu'au rechargement) -->
+			<NewKeyNotice class="mt-4" />
 
-			<ServerKeyField class="mt-4" />
-
-			<details class="mt-4 rounded-xl border border-border">
-				<summary class="cursor-pointer rounded-xl px-4 py-2.5 text-sm font-medium focus-visible:outline-fg/40">{t(lang, 'settings.server.advanced.title')}</summary>
-				<div class="space-y-4 border-t border-border px-4 py-4">
-					<div>
-						<label for="server-interface" class={label}>{t(lang, 'settings.server.interface.label')}</label>
-						<select id="server-interface" class={`${input} [&>option]:bg-surface`}></select>
-					</div>
-
-					<div id="server-all-block" hidden class="space-y-3 rounded-xl border border-danger/40 px-4 py-3">
-						<p class="text-xs text-danger">{t(lang, 'settings.server.allowAll.warning')}</p>
-						<label class="flex cursor-pointer items-center gap-2.5 text-sm">
-							<input type="checkbox" id="server-allow-all" class="size-4 shrink-0 accent-fg" />
-							<span>{t(lang, 'settings.server.allowAll.confirm')}</span>
-						</label>
-					</div>
-
-					<div class="max-w-40">
-						<label for="server-port" class={label}>{t(lang, 'settings.server.port.label')}</label>
-						<input id="server-port" type="number" min="1024" max="65535" step="1" inputmode="numeric" value="4750" class={input} />
-					</div>
-
-					<div>
-						<button type="button" id="server-key-generate" class={secondaryBtn}>{t(lang, 'settings.server.key.generate')}</button>
-					</div>
+			<!-- Aucun rôle : créer le serveur -->
+			<div id="server-create-block" hidden class="mt-4">
+				<p class="text-xs text-muted">{t(lang, 'settings.server.create.help')}</p>
+				<div class="mt-3">
+					<button type="button" id="server-create" class={primaryBtn}>{t(lang, 'settings.server.create.button')}</button>
 				</div>
-			</details>
+			</div>
+
+			<!-- Serveur créé : démarrer ou supprimer -->
+			<div id="server-manage-block" hidden>
+				<p id="server-key-prefix" hidden class="mt-4 font-mono text-sm"></p>
+
+				<details class="mt-4 rounded-xl border border-border">
+					<summary class="cursor-pointer rounded-xl px-4 py-2.5 text-sm font-medium focus-visible:outline-fg/40">{t(lang, 'settings.server.advanced.title')}</summary>
+					<div class="space-y-4 border-t border-border px-4 py-4">
+						<div>
+							<label for="server-interface" class={label}>{t(lang, 'settings.server.interface.label')}</label>
+							<select id="server-interface" class={`${input} [&>option]:bg-surface`}></select>
+						</div>
+
+						<div id="server-all-block" hidden class="space-y-3 rounded-xl border border-danger/40 px-4 py-3">
+							<p class="text-xs text-danger">{t(lang, 'settings.server.allowAll.warning')}</p>
+							<label class="flex cursor-pointer items-center gap-2.5 text-sm">
+								<input type="checkbox" id="server-allow-all" class="size-4 shrink-0 accent-fg" />
+								<span>{t(lang, 'settings.server.allowAll.confirm')}</span>
+							</label>
+						</div>
+
+						<div class="max-w-40">
+							<label for="server-port" class={label}>{t(lang, 'settings.server.port.label')}</label>
+							<input id="server-port" type="number" min="1024" max="65535" step="1" inputmode="numeric" value="4750" class={input} />
+						</div>
+					</div>
+				</details>
+
+				<p id="server-hint" class="mt-3 text-xs text-muted"></p>
+				<p id="server-running" role="status" aria-live="polite" hidden class="mt-2 text-sm text-muted"></p>
+
+				<div class="mt-4 flex flex-wrap items-center gap-3">
+					<button type="button" id="server-start" class={primaryBtn}>{t(lang, 'settings.server.start')}</button>
+					<button type="button" id="server-delete" class={dangerBtn}>{t(lang, 'settings.server.delete.button')}</button>
+				</div>
+			</div>
+
+			<p id="server-error" role="alert" hidden class="mt-3 rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
 		</div>
 
-		<!-- b. Utiliser une tour depuis cette machine (client) -->
+		<!-- b. Récepteur : connexion (aucun rôle) puis gestion -->
 		<div data-remote-card="client" class="mt-6 rounded-xl border border-border p-5">
-			<h3 class="text-sm font-medium">{t(lang, 'settings.remote.client.title')}</h3>
+			<h3 id="remote-card-title" class="text-sm font-medium">{t(lang, 'settings.remote.client.title')}</h3>
 			<p class="mt-1 text-xs text-muted">{t(lang, 'settings.remote.client.description')}</p>
 
-			<!-- Déjà connecté à une tour -->
+			<!-- Récepteur déjà connecté à une tour -->
 			<div id="remote-active" hidden class="mt-4 space-y-3">
 				<p id="remote-state" role="status" aria-live="polite" data-bad="false" class="text-sm text-muted data-[bad=true]:text-danger"></p>
 				<p id="remote-current-url" class="text-xs text-muted [overflow-wrap:anywhere]"></p>
 				<div class="flex flex-wrap items-center gap-3">
-					<button type="button" id="remote-back-local" class={secondaryBtn}>{t(lang, 'settings.remote.client.current.backLocal')}</button>
+					<p id="remote-key-line" class="font-mono text-sm"></p>
+					<button type="button" id="remote-key-edit" class={secondaryBtn}>{t(lang, 'settings.remote.client.current.edit')}</button>
+				</div>
+
+				<form id="remote-edit-form" novalidate hidden class="space-y-3 rounded-xl border border-border px-4 py-4">
+					<div>
+						<label for="remote-edit-key" class={label}>{t(lang, 'settings.remote.client.edit.label')}</label>
+						<input id="remote-edit-key" type="password" autocomplete="off" spellcheck="false" placeholder={t(lang, 'settings.remote.client.key.placeholder')} class={`${input} font-mono`} />
+					</div>
+					<div class="flex flex-wrap items-center gap-3">
+						<button type="submit" id="remote-edit-save" class={primaryBtn}>{t(lang, 'settings.remote.client.edit.save')}</button>
+						<button type="button" id="remote-edit-cancel" class={secondaryBtn}>{t(lang, 'settings.remote.client.edit.cancel')}</button>
+						<p id="remote-edit-status" role="status" aria-live="polite" hidden class="text-sm text-muted"></p>
+					</div>
+					<p id="remote-edit-error" role="alert" hidden class="rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+				</form>
+
+				<div class="border-t border-border pt-3">
+					<button type="button" id="remote-delete" class={dangerBtn}>{t(lang, 'settings.remote.client.delete.button')}</button>
 				</div>
 			</div>
 

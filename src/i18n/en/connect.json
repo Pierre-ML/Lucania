@@ -42,12 +42,13 @@
   },
   "tower": {
     "title": "Set up the server",
-    "description": "Turn on server mode, then copy the code to paste on the other machine.",
-    "note": "Once server mode is on, the screen is reserved for the server until it is stopped."
+    "description": "This machine will run the models for the other machine. At the end of the wizard you will be given a code: the other machine needs it to connect.",
+    "note": "You will then start the server from this page. Once server mode is on, the screen is reserved for the server until it is stopped."
   },
   "laptop": {
     "title": "Connect to the server",
-    "description": "Paste the code shown on the server machine, pick the network, then connect."
+    "description": "Paste the code shown on the server machine, pick the network, then connect.",
+    "connected": "This machine is connected to a server. Go on to the next step."
   },
   "shutdown": {
     "title": "Remote shutdown (optional)",
@@ -66,9 +67,8 @@
     },
     "server": {
       "label": "Server mode",
-      "running": "On, listening on {address}",
-      "off": "Off",
-      "error": "Error: {error}"
+      "created": "Server created",
+      "codeHidden": "The full code is no longer shown. To get a new one, delete the server and set it up again."
     },
     "client": {
       "label": "Server in use",

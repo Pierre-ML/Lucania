@@ -1,14 +1,25 @@
-// Page /connexion : assistant guidé (4 étapes) ou mode avancé (3 sections libres).
+// Page /connexion : une machine n'a qu'UN rôle, serveur (tour) ou récepteur, lu côté moteur.
+// Sans rôle : assistant guidé (4 étapes) ou mode avancé (3 sections libres). Avec un rôle (et hors assistant) : vue de gestion, onglets du mode avancé.
 // Les sections (Accès distant, Connexions, Extinction) ne sont rendues qu'une fois ; ce module les montre ou les masque.
 // Leur comportement reste dans remote-settings.js, connections-settings.js et shutdown-settings.js.
+import {
+  clearWizardState,
+  errorText,
+  EVENT_ROLE,
+  EVENT_SERVER_KEY,
+  PICK_KEY,
+  readSession,
+  STEP_KEY,
+  WIZARD_KEY,
+  writeSession,
+} from './connect-state.js';
 import { listConnections } from './connections.js';
 import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
-import { getRemoteConfig, getRemoteState, getServerConfig } from './remote.js';
+import { initNewKeyView } from './new-key.js';
+import { generateServerKey, getRemoteConfig, getRemoteState, getServerConfig, roleOf } from './remote.js';
 
 const MODE_KEY = 'lucania.connect.mode';
-const ROLE_KEY = 'lucania.connect.role';
-const STEP_KEY = 'lucania.connect.step';
 
 const STEP_COUNT = 4;
 const STEP_REMOTE = 2;
@@ -23,22 +34,22 @@ const TAB_SECTIONS = /** @type {Record<string, string>} */ ({
 });
 const DEFAULT_TAB = 'acces-distant';
 
-/** Carte de la section « Accès distant » à garder pour chaque rôle (mode guidé). */
+/** Carte de la section « Accès distant » qui correspond à chaque rôle. */
 const ROLE_CARD = /** @type {Record<string, string>} */ ({ tower: 'server', laptop: 'client' });
 
-/** @param {'local'|'session'} area @param {string} key */
-function readStore(area, key) {
+/** @param {string} key */
+function readLocal(key) {
   try {
-    return (area === 'local' ? localStorage : sessionStorage).getItem(key);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-/** @param {'local'|'session'} area @param {string} key @param {string} value */
-function writeStore(area, key, value) {
+/** @param {string} key @param {string} value */
+function writeLocal(key, value) {
   try {
-    (area === 'local' ? localStorage : sessionStorage).setItem(key, value);
+    localStorage.setItem(key, value);
   } catch {
     // Stockage indisponible : le choix n'est pas mémorisé.
   }
@@ -50,28 +61,38 @@ const $$ = (sel, root = document) => /** @type {HTMLElement[]} */ ([...root.quer
 const $ = (sel, root = document) => /** @type {HTMLElement|null} */ (root.querySelector(sel));
 
 /** @param {unknown} e */
-function messageOf(e) {
-  if (typeof e === 'string') return e;
-  if (e instanceof Error) return e.message;
-  return t('settings.server.errors.generic');
-}
+const messageOf = errorText;
 
 export function initConnexionPage() {
   const page = $('[data-connect-page]');
   if (!page) return;
 
-  /** @type {{ mode: 'guided'|'advanced', step: number, role: 'tower'|'laptop'|null, tab: string }} */
+  /**
+   * backendRole : rôle lu côté moteur (serveur si une clé existe, sinon récepteur si connecté à une tour).
+   * pick : carte choisie à l'étape 1 tant que le moteur n'a pas de rôle.
+   * wizard : l'assistant a dépassé l'étape 1 et n'est pas terminé (la page ne passe pas en vue de gestion).
+   * fullKey : code complet de la tour, gardé en mémoire seulement pour l'afficher une fois.
+   * @type {{ mode: 'guided'|'advanced', step: number, pick: 'tower'|'laptop'|null, backendRole: 'tower'|'laptop'|null, wizard: boolean, tab: string, fullKey: string|null, keyPrefix: string|null }}
+   */
   const state = {
-    mode: readStore('local', MODE_KEY) === 'advanced' ? 'advanced' : 'guided',
+    mode: readLocal(MODE_KEY) === 'advanced' ? 'advanced' : 'guided',
     step: 1,
-    role: null,
+    pick: null,
+    backendRole: null,
+    wizard: readSession(WIZARD_KEY) === 'active',
     tab: DEFAULT_TAB,
+    fullKey: null,
+    keyPrefix: null,
   };
-  const storedRole = readStore('local', ROLE_KEY);
-  if (storedRole === 'tower' || storedRole === 'laptop') state.role = storedRole;
-  const storedStep = Number(readStore('session', STEP_KEY));
-  if (Number.isInteger(storedStep) && storedStep >= 1 && storedStep <= STEP_COUNT) state.step = storedStep;
-  if (!state.role) state.step = 1;
+  const storedPick = readSession(PICK_KEY);
+  if (storedPick === 'tower' || storedPick === 'laptop') state.pick = storedPick;
+
+  /** Rôle montré par l'assistant : celui du moteur s'il existe, sinon la carte choisie. */
+  const wizardRole = () => state.backendRole ?? state.pick;
+  /** Rôle défini et assistant non actif : vue de gestion. */
+  const isManaged = () => state.backendRole !== null && !state.wizard;
+
+  const recapKey = initNewKeyView($('[data-step="4"]') ?? document);
 
   function tabFromHash() {
     let id = '';
@@ -87,20 +108,22 @@ export function initConnexionPage() {
   // ---- Affichage ----
 
   function render() {
-    const guided = state.mode === 'guided';
+    const managed = isManaged();
+    const guided = !managed && state.mode === 'guided';
+    const role = wizardRole();
 
     for (const el of $$('[data-view="guided"]')) el.hidden = !guided;
     for (const el of $$('[data-view="advanced"]')) el.hidden = guided;
     for (const btn of $$('[data-mode-btn]')) btn.setAttribute('aria-checked', String(btn.dataset.modeBtn === state.mode));
 
-    // Pendant la configuration du serveur, le choix de mode est masqué
-    for (const el of $$('[data-mode-switch]')) el.hidden = state.mode === 'guided' && state.step === STEP_REMOTE && state.role === 'tower';
+    // Vue de gestion : plus de choix entre guidé et avancé
+    for (const el of $$('[data-mode-switch]')) el.hidden = managed;
 
     // Sections visibles
     /** @type {Set<string>} */
     const visible = new Set();
     if (guided) {
-      if (state.step === STEP_REMOTE) visible.add('remote');
+      if (state.step === STEP_REMOTE && role === 'laptop') visible.add('remote');
       if (state.step === STEP_SHUTDOWN) {
         visible.add('connections');
         visible.add('shutdown');
@@ -110,11 +133,13 @@ export function initConnexionPage() {
     }
     for (const el of $$('[data-sec]')) el.hidden = !visible.has(el.dataset.sec ?? '');
 
-    // Accès distant : en guidé, seulement la carte du rôle choisi (ni guide WireGuard, ni titre de section)
-    const keepCard = state.role ? ROLE_CARD[state.role] : null;
+    // Accès distant : en guidé, seulement la carte récepteur (la tour n'a rien à régler pendant l'assistant ; ni titre de section, ni guide WireGuard).
+    // En avancé, seulement la carte du rôle (et le guide) une fois le rôle défini, les deux cartes sinon.
     for (const el of $$('[data-remote-card]')) {
       const kind = el.dataset.remoteCard;
-      el.hidden = guided && (kind === 'guide' || (keepCard !== null && kind !== keepCard));
+      if (guided) el.hidden = kind !== 'client';
+      else if (state.backendRole) el.hidden = kind !== 'guide' && kind !== ROLE_CARD[state.backendRole];
+      else el.hidden = false;
     }
     for (const el of $$('[data-remote-head]')) el.hidden = guided;
 
@@ -134,8 +159,14 @@ export function initConnexionPage() {
     }
     const counter = $('[data-step-counter]');
     if (counter) counter.textContent = t('connect.steps.counter', { current: state.step, total: STEP_COUNT });
-    for (const btn of $$('[data-role-btn]')) btn.setAttribute('aria-checked', String(btn.dataset.roleBtn === state.role));
-    for (const el of $$('[data-role-show]')) el.hidden = el.dataset.roleShow !== state.role;
+    for (const el of $$('[data-role-btn]')) {
+      const card = /** @type {HTMLButtonElement} */ (el);
+      card.setAttribute('aria-checked', String(card.dataset.roleBtn === role));
+      // Une machine n'a qu'un rôle : l'autre carte est grisée tant que celui-ci existe
+      card.disabled = state.backendRole !== null && card.dataset.roleBtn !== state.backendRole;
+    }
+    for (const el of $$('[data-role-show]')) el.hidden = el.dataset.roleShow !== role;
+    for (const el of $$('[data-laptop-connected]')) el.hidden = state.backendRole !== 'laptop';
 
     const prev = $('[data-wiz="prev"]');
     const skip = $('[data-wiz="skip"]');
@@ -145,7 +176,7 @@ export function initConnexionPage() {
     if (skip) skip.hidden = state.step !== STEP_SHUTDOWN;
     if (next) {
       next.hidden = state.step === STEP_RECAP;
-      next.disabled = state.step === 1 && !state.role;
+      next.disabled = state.step === 1 && !role;
     }
     if (finish) finish.hidden = state.step !== STEP_RECAP;
 
@@ -157,9 +188,13 @@ export function initConnexionPage() {
   /** @param {number} n @param {boolean} [focus] */
   function goStep(n, focus = true) {
     let step = Math.min(Math.max(n, 1), STEP_COUNT);
-    if (step > 1 && !state.role) step = 1;
+    if (step > 1 && !wizardRole()) step = 1;
     state.step = step;
-    writeStore('session', STEP_KEY, String(step));
+    writeSession(STEP_KEY, String(step));
+    if (step > 1) {
+      state.wizard = true;
+      writeSession(WIZARD_KEY, 'active');
+    }
     render();
     if (step === STEP_RECAP) refreshRecap();
     if (focus) $$(`[data-step="${step}"] [data-step-heading]`).find((h) => !h.closest('[hidden]'))?.focus();
@@ -169,7 +204,7 @@ export function initConnexionPage() {
   function setMode(mode) {
     if (state.mode === mode) return;
     state.mode = mode;
-    writeStore('local', MODE_KEY, mode);
+    writeLocal(MODE_KEY, mode);
     if (mode === 'advanced') state.tab = tabFromHash() ?? state.tab;
     render();
     if (mode === 'guided' && state.step === STEP_RECAP) refreshRecap();
@@ -177,8 +212,9 @@ export function initConnexionPage() {
 
   /** @param {'tower'|'laptop'} role */
   function setRole(role) {
-    state.role = role;
-    writeStore('local', ROLE_KEY, role);
+    if (state.backendRole && state.backendRole !== role) return;
+    state.pick = role;
+    writeSession(PICK_KEY, role);
     render();
   }
 
@@ -192,18 +228,26 @@ export function initConnexionPage() {
   $('[data-wiz="next"]')?.addEventListener('click', () => goStep(state.step + 1));
   $('[data-wiz="skip"]')?.addEventListener('click', () => goStep(STEP_RECAP));
   $('[data-wiz="advanced"]')?.addEventListener('click', () => setMode('advanced'));
-  $('[data-wiz="finish"]')?.addEventListener('click', () => writeStore('session', STEP_KEY, '1'));
+  // Terminer : l'assistant est fini, la prochaine visite montre la vue de gestion.
+  $('[data-wiz="finish"]')?.addEventListener('click', () => clearWizardState());
+
+  // Rôle créé depuis la section Accès distant : la vue suit.
+  document.addEventListener(EVENT_ROLE, (e) => {
+    const role = /** @type {CustomEvent<unknown>} */ (e).detail;
+    state.backendRole = role === 'tower' || role === 'laptop' ? role : null;
+    render();
+  });
 
   window.addEventListener('hashchange', () => {
     const id = tabFromHash();
     if (!id) return;
     state.tab = id;
-    if (state.mode === 'advanced') render();
+    if (state.mode === 'advanced' || isManaged()) render();
   });
 
   // Mode guidé : un lien interne (#connexions…) fait défiler jusqu'à la section si elle est affichée.
   document.addEventListener('click', (e) => {
-    if (state.mode !== 'guided' || !(e.target instanceof Element)) return;
+    if (isManaged() || state.mode !== 'guided' || !(e.target instanceof Element)) return;
     const link = e.target.closest('a[href^="#"]');
     if (!link) return;
     const id = link.getAttribute('href')?.slice(1) ?? '';
@@ -217,6 +261,8 @@ export function initConnexionPage() {
   // ---- Récapitulatif ----
 
   let recapToken = 0;
+  /** @type {Promise<void>|null} */
+  let keyTask = null;
 
   /** @param {string} name @param {string} text @param {boolean} [bad] */
   function setRecap(name, text, bad = false) {
@@ -226,12 +272,56 @@ export function initConnexionPage() {
     el.dataset.bad = String(bad);
   }
 
+  /**
+   * Rôle serveur : le code est créé en arrivant au récapitulatif, une seule fois (puis gardé en mémoire).
+   * Si une clé existe déjà sans qu'on l'ait en mémoire, le code complet n'est plus récupérable : seul le préfixe reste.
+   * @returns {Promise<void>}
+   */
+  function ensureTowerKey() {
+    if (state.fullKey) return Promise.resolve();
+    keyTask ??= (async () => {
+      const cfg = await getServerConfig();
+      if (cfg.hasKey) {
+        state.keyPrefix = cfg.keyPrefix;
+        state.backendRole = 'tower';
+        return;
+      }
+      const key = await generateServerKey();
+      state.fullKey = key;
+      state.keyPrefix = key.slice(0, 4);
+      state.backendRole = 'tower';
+      // La section Accès distant garde le code visible jusqu'au rechargement.
+      document.dispatchEvent(new CustomEvent(EVENT_SERVER_KEY, { detail: key }));
+    })().finally(() => {
+      keyTask = null;
+    });
+    return keyTask;
+  }
+
+  /** Bloc du code : complet si on l'a en mémoire, sinon seulement le préfixe. @param {boolean} tower */
+  function renderRecapKey(tower) {
+    const keyline = $('[data-recap="keyline"]');
+    const hiddenNote = $('[data-recap="codeHidden"]');
+    if (state.fullKey && tower) {
+      recapKey.show(state.fullKey);
+    } else {
+      recapKey.hide();
+    }
+    const prefixOnly = tower && !state.fullKey && !!state.keyPrefix;
+    if (keyline) {
+      keyline.hidden = !prefixOnly;
+      keyline.textContent = prefixOnly ? t('settings.server.key.prefix', { prefix: state.keyPrefix ?? '' }) : '';
+    }
+    if (hiddenNote) hiddenNote.hidden = !prefixOnly;
+  }
+
   async function refreshRecap() {
     const token = ++recapToken;
     const live = () => token === recapToken;
     const available = engineAvailable();
-    const showServer = state.role !== 'laptop';
-    const showClient = state.role !== 'tower';
+    const role = wizardRole();
+    const showServer = role !== 'laptop';
+    const showClient = role !== 'tower';
 
     const serverRow = $('[data-recap-row="server"]');
     const clientRow = $('[data-recap-row="client"]');
@@ -242,9 +332,10 @@ export function initConnexionPage() {
       note.hidden = available;
       note.textContent = available ? '' : t('chat.engine.unavailable');
     }
+    renderRecapKey(false);
 
     const loading = t('connect.recap.loading');
-    setRecap('role', state.role ? t(`connect.recap.role.${state.role}`) : t('connect.recap.role.none'));
+    setRecap('role', role ? t(`connect.recap.role.${role}`) : t('connect.recap.role.none'));
     setRecap('server', loading);
     setRecap('client', loading);
     setRecap('shutdown', loading);
@@ -252,14 +343,14 @@ export function initConnexionPage() {
     /** @type {Promise<void>[]} */
     const tasks = [];
 
-    if (available && showServer) {
+    if (available && role === 'tower') {
       tasks.push(
-        getServerConfig().then(
-          (cfg) => {
+        ensureTowerKey().then(
+          () => {
+            render();
             if (!live()) return;
-            if (cfg.running) setRecap('server', t('connect.recap.server.running', { address: cfg.address ?? '' }));
-            else if (cfg.error) setRecap('server', t('connect.recap.server.error', { error: cfg.error }), true);
-            else setRecap('server', t('connect.recap.server.off'));
+            setRecap('server', t('connect.recap.server.created'));
+            renderRecapKey(true);
           },
           (e) => {
             if (live()) setRecap('server', messageOf(e), true);
@@ -307,26 +398,22 @@ export function initConnexionPage() {
 
   // ---- Démarrage ----
 
-  render();
-  if (state.step === STEP_RECAP) refreshRecap();
-
-  // Rôle encore inconnu : on le déduit de la configuration existante (tour active ou tour utilisée).
-  if (!state.role && engineAvailable()) {
-    (async () => {
+  /** Rôle lu côté moteur avant le premier affichage : évite de montrer l'assistant puis de basculer vers la gestion. */
+  async function boot() {
+    if (engineAvailable()) {
       try {
-        const server = await getServerConfig();
-        if (state.role) return;
-        if (server.active || server.running) {
-          state.role = 'tower';
-        } else {
-          const remote = await getRemoteConfig();
-          if (state.role) return;
-          if (remote.mode === 'remote') state.role = 'laptop';
-        }
-        if (state.role) render();
+        const [server, remote] = await Promise.all([getServerConfig(), getRemoteConfig()]);
+        state.backendRole = roleOf(server, remote);
+        state.keyPrefix = server.keyPrefix;
       } catch {
-        // Aucune indication : l'utilisateur choisit lui-même.
+        // Aucune indication : l'assistant s'affiche, l'utilisateur choisit lui-même.
       }
-    })();
+    }
+    const storedStep = Number(readSession(STEP_KEY));
+    if (Number.isInteger(storedStep) && storedStep >= 1 && storedStep <= STEP_COUNT && wizardRole()) state.step = storedStep;
+    render();
+    if (state.step === STEP_RECAP && !isManaged()) refreshRecap();
   }
+
+  boot();
 }

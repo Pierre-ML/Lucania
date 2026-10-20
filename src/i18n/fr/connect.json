@@ -42,12 +42,13 @@
   },
   "tower": {
     "title": "Configurer le serveur",
-    "description": "Activez le mode serveur, puis copiez le code à coller sur l'autre machine.",
-    "note": "Une fois le mode serveur activé, l'écran est réservé au serveur jusqu'à son arrêt."
+    "description": "Cette machine fera tourner les modèles pour l'autre machine. À la fin de l'assistant, un code vous sera donné : l'autre machine en aura besoin pour s'y connecter.",
+    "note": "Vous mettrez ensuite le serveur en marche depuis cette page. Une fois le mode serveur activé, l'écran est réservé au serveur jusqu'à son arrêt."
   },
   "laptop": {
     "title": "Se connecter au serveur",
-    "description": "Collez le code affiché sur la machine serveur, choisissez le réseau, puis connectez."
+    "description": "Collez le code affiché sur la machine serveur, choisissez le réseau, puis connectez.",
+    "connected": "Cette machine est connectée à un serveur. Passez à l'étape suivante."
   },
   "shutdown": {
     "title": "Extinction à distance (facultatif)",
@@ -66,9 +67,8 @@
     },
     "server": {
       "label": "Mode serveur",
-      "running": "Actif, à l'écoute sur {address}",
-      "off": "Inactif",
-      "error": "Erreur : {error}"
+      "created": "Serveur créé",
+      "codeHidden": "Le code complet n'est plus affiché. Pour en obtenir un nouveau, supprimez le serveur et refaites la configuration."
     },
     "client": {
       "label": "Serveur utilisé",

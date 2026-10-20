@@ -36,7 +36,7 @@ fn main() {
         "server_get_config",
         "server_interfaces",
         "server_generate_key",
-        "server_get_key",
+        "server_delete",
         "server_start",
         "server_stop",
         "remote_get_config",

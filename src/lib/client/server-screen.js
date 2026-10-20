@@ -1,8 +1,7 @@
 // Écran du mode serveur (/serveur) : un seul bouton pour arrêter, et l'adresse d'écoute.
 import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
-import { getServerConfig, getServerKey, onServerState, stopServer } from './remote.js';
-import { initServerKeyField } from './server-key.js';
+import { getServerConfig, onServerState, stopServer } from './remote.js';
 
 /** @typedef {import('./remote.js').ServerConfig} ServerConfig */
 
@@ -12,7 +11,7 @@ const byId = (id) => document.getElementById(id);
 const stopBtn = /** @type {HTMLButtonElement|null} */ (byId('server-stop'));
 const addressEl = byId('server-address');
 const errorEl = byId('server-error');
-const keyField = initServerKeyField();
+const keyPrefixEl = /** @type {HTMLElement|null} */ (document.querySelector('[data-key-prefix]'));
 
 let stopping = false;
 
@@ -33,6 +32,11 @@ function showError(msg) {
 /** @param {ServerConfig} config */
 function render(config) {
   if (addressEl) addressEl.textContent = config.address ? t('settings.server.screen.listening', { address: config.address }) : '';
+  if (keyPrefixEl) {
+    const prefix = /** @type {{keyPrefix?: string|null}} */ (config).keyPrefix;
+    keyPrefixEl.textContent = prefix ? t('settings.server.key.prefix', { prefix }) : '';
+    keyPrefixEl.hidden = !prefix;
+  }
   if (config.error) showError(config.error);
 }
 
@@ -70,7 +74,6 @@ async function init() {
   try {
     onServerState(sync).catch(() => {});
     sync(await getServerConfig());
-    keyField.setKey(await getServerKey());
   } catch (e) {
     showError(messageOf(e));
   }

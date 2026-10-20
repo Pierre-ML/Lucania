@@ -5,11 +5,11 @@ import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
 
 /**
- * @typedef {{ bindIp: string|null, port: number, allowAll: boolean, hasKey: boolean, active: boolean, running: boolean, address: string|null, error: string|null }} ServerConfig
+ * @typedef {{ bindIp: string|null, port: number, allowAll: boolean, hasKey: boolean, keyPrefix: string|null, active: boolean, running: boolean, address: string|null, error: string|null }} ServerConfig
  * @typedef {{ name: string, ip: string, wireguard: boolean, loopback: boolean }} ServerInterface
  * @typedef {{ bindIp: string, port: number, allowAll: boolean }} ServerStartInput bindIp « 0.0.0.0 » seulement si allowAll est vrai
  * @typedef {'local'|'remote'} RemoteMode
- * @typedef {{ mode: RemoteMode, url: string, hasKey: boolean }} RemoteConfig
+ * @typedef {{ mode: RemoteMode, url: string, hasKey: boolean, keyPrefix: string|null }} RemoteConfig
  * @typedef {{ mode: RemoteMode, url: string, key?: string|null }} RemoteConfigInput key null ou absent = garder la clé enregistrée, chaîne vide = l'effacer
  * @typedef {{ url: string, key?: string|null }} RemoteTestInput key null = clé enregistrée
  * @typedef {{ latencyMs: number, version: string, backend: 'cuda'|'cpu', gpuName: string|null, vramBytes: number|null, loadedModel: string|null }} RemoteTestResult
@@ -37,18 +37,30 @@ export async function getServerInterfaces() {
   return Array.isArray(list) ? list : [];
 }
 
-/** Génère une nouvelle clé d'API (remplace l'ancienne). Elle n'est renvoyée qu'ici, en clair.
+/** Génère la clé d'API du serveur (« code de la tour »). Elle n'est renvoyée qu'ici, en clair, une seule fois.
+ * Rejette avec `role_conflict` si cette machine est déjà un récepteur.
  * @returns {Promise<string>} */
 export async function generateServerKey() {
   requireEngine();
   return invoke('server_generate_key');
 }
 
-/** Clé d'API actuelle du serveur (« code de la tour »), ou null si aucune n'a été générée.
- * @returns {Promise<string|null>} */
-export async function getServerKey() {
+/** Supprime le serveur : arrête l'écoute, efface la clé, la machine n'a plus de rôle.
+ * @returns {Promise<ServerConfig>} */
+export async function deleteServer() {
   requireEngine();
-  return invoke('server_get_key');
+  return invoke('server_delete');
+}
+
+/**
+ * Rôle de cette machine : serveur si une clé existe, sinon récepteur si le mode distant est actif, sinon aucun.
+ * @param {ServerConfig} server @param {RemoteConfig} remote
+ * @returns {'tower'|'laptop'|null}
+ */
+export function roleOf(server, remote) {
+  if (server.hasKey) return 'tower';
+  if (remote.mode === 'remote') return 'laptop';
+  return null;
 }
 
 /** Démarre le mode serveur (la fenêtre passe en plein écran côté Rust).
@@ -83,7 +95,7 @@ export async function getRemoteConfig() {
 }
 
 /**
- * Enregistre le mode (local ou distant), l'adresse de la tour et sa clé.
+ * Enregistre le mode (local ou distant), l'adresse de la tour et sa clé. Rejette avec `role_conflict` (mode distant) si cette machine est déjà un serveur.
  * @param {RemoteConfigInput} input
  * @returns {Promise<RemoteConfig>}
  */

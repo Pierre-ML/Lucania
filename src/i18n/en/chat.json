@@ -4,7 +4,9 @@
     "newFolder": "New folder",
     "conversations": "Conversations",
     "settings": "Settings",
-    "connect": "Connect machines"
+    "connect": "Connect machines",
+    "serverMode": "Server mode",
+    "receiverMode": "Receiver mode"
   },
   "header": {
     "toggleSidebar": "Show/hide sidebar",

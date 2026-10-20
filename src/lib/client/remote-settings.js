@@ -1,23 +1,26 @@
-// Page Paramètres, section « Accès distant » : la tour (mode serveur) et l'utilisation d'une tour depuis cette machine, guide WireGuard.
+// Section « Accès distant » de /connexion : une machine n'a qu'un rôle, serveur (tour) ou récepteur.
+// Sans rôle : créer le serveur ou se connecter à une tour. Avec un rôle : gérer ce rôle (démarrer, modifier le code, supprimer). Guide WireGuard.
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { confirmDialog } from './dialog.js';
 import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
+import { clearWizardState, errorText, EVENT_ROLE, EVENT_SERVER_KEY } from './connect-state.js';
+import { initNewKeyView } from './new-key.js';
 import {
+  deleteServer,
   discoverRemote,
   generateServerKey,
   getRemoteConfig,
   getRemoteState,
   getServerConfig,
   getServerInterfaces,
-  getServerKey,
   onRemoteState,
   onServerState,
+  roleOf,
   setRemoteConfig,
   startServer,
   testRemote,
 } from './remote.js';
-import { initServerKeyField } from './server-key.js';
 
 /**
  * @typedef {import('./remote.js').ServerConfig} ServerConfig
@@ -37,11 +40,7 @@ const MAX_PORT = 65535;
 const byId = (id) => document.getElementById(id);
 
 /** @param {unknown} e */
-function messageOf(e) {
-  if (typeof e === 'string') return e;
-  if (e instanceof Error) return e.message;
-  return t('settings.server.errors.generic');
-}
+const messageOf = errorText;
 
 /** @param {HTMLElement|null} target @param {string} msg */
 function setText(target, msg) {
@@ -74,7 +73,16 @@ export function initRemoteSettings() {
   const activeEl = byId('remote-active');
   const stateEl = byId('remote-state');
   const currentUrlEl = byId('remote-current-url');
-  const backLocalBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-back-local'));
+  const clientTitleEl = byId('remote-card-title');
+  const keyLineEl = byId('remote-key-line');
+  const editBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-key-edit'));
+  const editForm = byId('remote-edit-form');
+  const editKeyInput = /** @type {HTMLInputElement|null} */ (byId('remote-edit-key'));
+  const editSaveBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-edit-save'));
+  const editCancelBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-edit-cancel'));
+  const editStatusEl = byId('remote-edit-status');
+  const editErrorEl = byId('remote-edit-error');
+  const deleteReceiverBtn = /** @type {HTMLButtonElement|null} */ (byId('remote-delete'));
   const form = byId('remote-form');
   const keyInput = /** @type {HTMLInputElement|null} */ (byId('remote-key'));
   const networkSelect = /** @type {HTMLSelectElement|null} */ (byId('remote-network'));
@@ -88,7 +96,14 @@ export function initRemoteSettings() {
   const testError = byId('remote-test-error');
 
   // Carte serveur
-  const startSwitch = /** @type {HTMLButtonElement|null} */ (byId('server-start'));
+  const serverCard = document.querySelector('[data-remote-card="server"]');
+  const serverTitleEl = byId('server-card-title');
+  const createBlock = byId('server-create-block');
+  const createBtn = /** @type {HTMLButtonElement|null} */ (byId('server-create'));
+  const manageBlock = byId('server-manage-block');
+  const keyPrefixEl = byId('server-key-prefix');
+  const startBtn = /** @type {HTMLButtonElement|null} */ (byId('server-start'));
+  const deleteServerBtn = /** @type {HTMLButtonElement|null} */ (byId('server-delete'));
   const hintEl = byId('server-hint');
   const runningEl = byId('server-running');
   const serverErrorEl = byId('server-error');
@@ -96,8 +111,7 @@ export function initRemoteSettings() {
   const allBlock = byId('server-all-block');
   const allowAllInput = /** @type {HTMLInputElement|null} */ (byId('server-allow-all'));
   const portInput = /** @type {HTMLInputElement|null} */ (byId('server-port'));
-  const keyGenBtn = /** @type {HTMLButtonElement|null} */ (byId('server-key-generate'));
-  const keyField = initServerKeyField();
+  const newKey = initNewKeyView(serverCard ?? document);
 
   /** @type {RemoteConfig|null} */
   let remoteConfig = null;
@@ -109,11 +123,48 @@ export function initRemoteSettings() {
   let generating = false;
   let busy = false;
   let hasNetwork = false;
+  /** Interface utilisée pour chercher la tour depuis le formulaire de modification du code. */
+  /** @type {string|null} */
+  let lanIp = null;
+  /** Code complet de la tour : gardé seulement jusqu'au rechargement de la page. */
+  /** @type {string|null} */
+  let createdKey = null;
+  /** @type {'tower'|'laptop'|null|undefined} */
+  let lastRole;
+  let editAuto = false;
+  let editDismissed = false;
+  let editTouched = false;
+
+  // ---- Rôle ----
+
+  /** @returns {'tower'|'laptop'|null} */
+  function currentRole() {
+    return serverConfig && remoteConfig ? roleOf(serverConfig, remoteConfig) : null;
+  }
+
+  /** Montre la partie de chaque carte qui correspond au rôle (la page /connexion masque l'autre carte). */
+  function renderRole() {
+    if (!serverConfig || !remoteConfig) return;
+    const role = currentRole();
+    if (createBlock) createBlock.hidden = role !== null;
+    if (manageBlock) manageBlock.hidden = role !== 'tower';
+    if (serverTitleEl) serverTitleEl.textContent = role === 'tower' ? t('settings.server.managed.title') : t('settings.server.create.title');
+    if (clientTitleEl) clientTitleEl.textContent = role === 'laptop' ? t('settings.remote.client.managed.title') : t('settings.remote.client.title');
+    if (activeEl) activeEl.hidden = role !== 'laptop';
+    if (form) form.hidden = role !== null;
+    if (keyPrefixEl) {
+      const prefix = serverConfig.keyPrefix;
+      keyPrefixEl.textContent = prefix ? t('settings.server.key.prefix', { prefix }) : '';
+      keyPrefixEl.hidden = !prefix || !!createdKey;
+    }
+    if (lastRole !== undefined && lastRole !== role) document.dispatchEvent(new CustomEvent(EVENT_ROLE, { detail: role }));
+    lastRole = role;
+  }
 
   // ---- Carte client ----
 
   function renderBusy() {
-    for (const b of [connectBtn, testBtn, manualBtn, backLocalBtn]) if (b) b.disabled = busy;
+    for (const b of [connectBtn, testBtn, manualBtn, editBtn, editSaveBtn, deleteReceiverBtn]) if (b) b.disabled = busy;
     if (connectBtn && !busy) connectBtn.disabled = !hasNetwork;
   }
 
@@ -132,15 +183,53 @@ export function initRemoteSettings() {
         ? t('settings.remote.client.state.unreachable', { error: remoteState.error })
         : t('settings.remote.client.state.unreachableNoError');
     }
+    syncEditWithState();
+  }
+
+  /** @param {boolean} auto ouverture automatique (tour injoignable) */
+  function openEdit(auto) {
+    if (!editForm) return;
+    editForm.hidden = false;
+    editAuto = auto;
+    if (editBtn) editBtn.hidden = true;
+    if (auto) editTouched = false;
+    else editKeyInput?.focus();
+  }
+
+  function closeEdit() {
+    if (!editForm) return;
+    editForm.hidden = true;
+    editAuto = false;
+    editTouched = false;
+    if (editBtn) editBtn.hidden = false;
+    if (editKeyInput) editKeyInput.value = '';
+    setText(editErrorEl, '');
+    setText(editStatusEl, '');
+  }
+
+  /** Tour injoignable : le champ de modification du code s'ouvre seul, avec l'erreur (le code reste masqué). */
+  function syncEditWithState() {
+    if (!remoteState || currentRole() !== 'laptop' || !editForm) return;
+    if (remoteState.connected) {
+      if (editAuto && !editTouched && !editKeyInput?.value) closeEdit();
+      return;
+    }
+    if (editForm.hidden && !editDismissed) openEdit(true);
+    if (!editForm.hidden && !editTouched) {
+      setText(
+        editErrorEl,
+        remoteState.error ? t('settings.remote.client.state.unreachable', { error: remoteState.error }) : t('settings.remote.client.state.unreachableNoError'),
+      );
+    }
   }
 
   /** @param {RemoteConfig} cfg */
   function renderRemoteConfig(cfg) {
     remoteConfig = cfg;
     const remote = cfg.mode === 'remote';
-    if (activeEl) activeEl.hidden = !remote;
-    if (form) form.hidden = remote;
     if (currentUrlEl) currentUrlEl.textContent = remote ? t('settings.remote.client.current.url', { url: cfg.url || '' }) : '';
+    if (keyLineEl) keyLineEl.textContent = cfg.keyPrefix ? t('settings.remote.client.current.key', { prefix: cfg.keyPrefix }) : t('settings.remote.client.current.noKey');
+    renderRole();
     renderState();
     renderBusy();
   }
@@ -174,11 +263,11 @@ export function initRemoteSettings() {
 
   /**
    * Enregistre la tour puis recharge : les caches de la page (modèles, état, matériel) repartent de zéro.
-   * @param {string} url @param {string|null} key
+   * @param {string} url @param {string|null} key @param {HTMLElement|null} [status]
    */
-  async function saveAndReload(url, key) {
+  async function saveAndReload(url, key, status = statusEl) {
     await setRemoteConfig({ mode: 'remote', url, key });
-    setText(statusEl, t('settings.remote.client.current.reloading'));
+    setText(status, t('settings.remote.client.current.reloading'));
     location.reload();
   }
 
@@ -206,6 +295,12 @@ export function initRemoteSettings() {
     }
     networkSelect.disabled = false;
     networkSelect.value = (list.find((i) => !i.wireguard) ?? list[0]).ip;
+  }
+
+  /** @param {ServerInterface[]} ifaces */
+  function pickLanIp(ifaces) {
+    const list = ifaces.filter((i) => !i.loopback);
+    lanIp = (list.find((i) => !i.wireguard) ?? list[0])?.ip ?? null;
   }
 
   form?.addEventListener('submit', async (e) => {
@@ -287,12 +382,84 @@ export function initRemoteSettings() {
     renderBusy();
   });
 
-  backLocalBtn?.addEventListener('click', async () => {
+  editBtn?.addEventListener('click', () => {
+    editDismissed = false;
+    openEdit(false);
+  });
+
+  editCancelBtn?.addEventListener('click', () => {
+    editDismissed = true;
+    closeEdit();
+  });
+
+  editKeyInput?.addEventListener('input', () => {
+    editTouched = true;
+  });
+
+  editForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (busy || !editKeyInput) return;
+    editTouched = true;
+    setText(editErrorEl, '');
+    const key = editKeyInput.value.trim();
+    if (!key) {
+      setText(editErrorEl, t('settings.remote.client.keyRequired'));
+      editKeyInput.focus();
+      return;
+    }
+    busy = true;
+    renderBusy();
+    setText(editStatusEl, t('settings.remote.client.edit.checking'));
+    /** @type {string|null} */
+    let target = null;
+    let failure = '';
+    const url = remoteConfig?.url ?? '';
+    try {
+      if (!url) throw new Error(t('settings.remote.client.urlRequired'));
+      await testRemote({ url, key });
+      target = url;
+    } catch (err) {
+      failure = messageOf(err);
+    }
+    // L'adresse enregistrée ne répond plus (ou le code a changé) : on cherche la tour sur le réseau.
+    if (!target && lanIp) {
+      try {
+        setText(editStatusEl, t('settings.remote.client.discovery.searching'));
+        const found = await discoverRemote({ key, interfaceIp: lanIp });
+        await testRemote({ url: found.url, key });
+        target = found.url;
+      } catch (err) {
+        failure = discoveryMessage(err);
+      }
+    }
+    setText(editStatusEl, '');
+    if (target) {
+      try {
+        await saveAndReload(target, key, editStatusEl);
+        return;
+      } catch (err) {
+        failure = messageOf(err);
+      }
+    }
+    setText(editErrorEl, failure);
+    busy = false;
+    renderBusy();
+  });
+
+  deleteReceiverBtn?.addEventListener('click', async () => {
     if (busy) return;
+    const ok = await confirmDialog({
+      title: t('settings.remote.client.delete.title'),
+      message: t('settings.remote.client.delete.message'),
+      confirmLabel: t('common.delete'),
+      danger: true,
+    });
+    if (!ok) return;
     busy = true;
     renderBusy();
     try {
-      await setRemoteConfig({ mode: 'local', url: remoteConfig?.url ?? '', key: null });
+      await setRemoteConfig({ mode: 'local', url: '', key: '' });
+      clearWizardState();
       location.reload();
       return;
     } catch (e) {
@@ -325,6 +492,7 @@ export function initRemoteSettings() {
       setText(runningEl, '');
     }
     if (cfg.error) setText(serverErrorEl, cfg.error);
+    renderRole();
     renderStartState();
   }
 
@@ -346,10 +514,8 @@ export function initRemoteSettings() {
     if (all && !allowAllInput?.checked) hint = t('settings.server.hint.needAck');
     else if (readPort() === null) hint = t('settings.server.port.invalid');
     if (hintEl) hintEl.textContent = hint;
-    if (startSwitch) {
-      startSwitch.disabled = starting || !!hint;
-      startSwitch.setAttribute('aria-checked', starting || serverConfig?.running ? 'true' : 'false');
-    }
+    if (startBtn) startBtn.disabled = starting || !!hint;
+    if (deleteServerBtn) deleteServerBtn.disabled = starting;
   }
 
   /** @param {ServerInterface[]} ifaces @param {ServerConfig} cfg */
@@ -384,33 +550,39 @@ export function initRemoteSettings() {
   allowAllInput?.addEventListener('change', renderStartState);
   portInput?.addEventListener('input', renderStartState);
 
-  keyGenBtn?.addEventListener('click', async () => {
-    if (generating || !keyGenBtn) return;
+  /**
+   * Le serveur existe maintenant : le code complet reste affiché jusqu'au rechargement, la carte passe en gestion.
+   * @param {string} key
+   */
+  function applyCreatedKey(key) {
+    createdKey = key;
+    newKey.show(key);
+    renderServerConfig({ ...(serverConfig ?? defaultServerConfig()), hasKey: true, keyPrefix: key.slice(0, 4) });
+  }
+
+  createBtn?.addEventListener('click', async () => {
+    if (generating || !createBtn) return;
     setText(serverErrorEl, '');
-    if (serverConfig?.hasKey) {
-      const ok = await confirmDialog({
-        title: t('settings.server.key.confirm.title'),
-        message: t('settings.server.key.confirm.message'),
-        confirmLabel: t('settings.server.key.confirm.ok'),
-        danger: false,
-      });
-      if (!ok) return;
-    }
     generating = true;
-    keyGenBtn.disabled = true;
+    createBtn.disabled = true;
     try {
-      keyField.setKey(await generateServerKey());
-      renderServerConfig({ ...(serverConfig ?? defaultServerConfig()), hasKey: true });
+      applyCreatedKey(await generateServerKey());
     } catch (e) {
       setText(serverErrorEl, messageOf(e));
     } finally {
       generating = false;
-      keyGenBtn.disabled = false;
+      createBtn.disabled = false;
     }
   });
 
-  startSwitch?.addEventListener('click', async () => {
-    if (starting || !startSwitch || !ifaceSelect) return;
+  // Le code a été créé par l'assistant (étape « récapitulatif ») : on le garde aussi ici.
+  document.addEventListener(EVENT_SERVER_KEY, (e) => {
+    const key = /** @type {CustomEvent<string>} */ (e).detail;
+    if (typeof key === 'string' && key) applyCreatedKey(key);
+  });
+
+  startBtn?.addEventListener('click', async () => {
+    if (starting || !startBtn || !ifaceSelect) return;
     if (serverConfig?.running) {
       location.replace('/serveur');
       return;
@@ -425,11 +597,6 @@ export function initRemoteSettings() {
     starting = true;
     renderStartState();
     try {
-      // Pas encore de code : on le génère automatiquement avant de démarrer.
-      if (!serverConfig?.hasKey) {
-        keyField.setKey(await generateServerKey());
-        renderServerConfig({ ...(serverConfig ?? defaultServerConfig()), hasKey: true });
-      }
       const all = isAllSelected();
       const cfg = await startServer({ bindIp: ifaceSelect.value, port, allowAll: all && !!allowAllInput?.checked });
       if (cfg.running) {
@@ -445,9 +612,33 @@ export function initRemoteSettings() {
     renderStartState();
   });
 
+  deleteServerBtn?.addEventListener('click', async () => {
+    if (starting || !deleteServerBtn) return;
+    const ok = await confirmDialog({
+      title: t('settings.server.delete.title'),
+      message: t('settings.server.delete.message'),
+      confirmLabel: t('common.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    setText(serverErrorEl, '');
+    starting = true;
+    renderStartState();
+    try {
+      await deleteServer();
+      clearWizardState();
+      location.reload();
+      return;
+    } catch (e) {
+      setText(serverErrorEl, messageOf(e));
+    }
+    starting = false;
+    renderStartState();
+  });
+
   /** @returns {ServerConfig} */
   function defaultServerConfig() {
-    return { bindIp: null, port: DEFAULT_PORT, allowAll: false, hasKey: false, active: false, running: false, address: null, error: null };
+    return { bindIp: null, port: DEFAULT_PORT, allowAll: false, hasKey: false, keyPrefix: null, active: false, running: false, address: null, error: null };
   }
 
   // ---- Guide ----
@@ -469,16 +660,17 @@ export function initRemoteSettings() {
   async function load() {
     try {
       const [rc, sc, ifaces] = await Promise.all([getRemoteConfig(), getServerConfig(), getServerInterfaces()]);
+      // Les deux configurations sont connues avant le premier rendu : le rôle se déduit des deux.
+      remoteConfig = rc;
+      serverConfig = sc;
       renderNetworks(ifaces);
+      pickLanIp(ifaces);
       renderRemoteConfig(rc);
       if (portInput) portInput.value = String(sc.port || DEFAULT_PORT);
       renderInterfaces(ifaces, sc);
       renderServerConfig(sc);
       mainEl.hidden = false;
       refreshRemoteState();
-      getServerKey()
-        .then((k) => keyField.setKey(k))
-        .catch(() => {});
     } catch (e) {
       unavailableEl.textContent = messageOf(e);
       unavailableEl.hidden = false;

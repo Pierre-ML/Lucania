@@ -4,7 +4,9 @@
     "newFolder": "Nouveau dossier",
     "conversations": "Conversations",
     "settings": "Paramètres",
-    "connect": "Connexion entre machines"
+    "connect": "Connexion entre machines",
+    "serverMode": "Mode serveur",
+    "receiverMode": "Mode récepteur"
   },
   "header": {
     "toggleSidebar": "Afficher/masquer la barre latérale",

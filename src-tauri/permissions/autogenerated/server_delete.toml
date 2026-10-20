@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-delete"
+description = "Enables the server_delete command without any pre-configured scope."
+commands.allow = ["server_delete"]
+
+[[permission]]
+identifier = "deny-server-delete"
+description = "Denies the server_delete command without any pre-configured scope."
+commands.deny = ["server_delete"]

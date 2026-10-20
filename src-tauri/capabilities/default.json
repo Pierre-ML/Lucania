@@ -38,7 +38,7 @@
     "allow-server-get-config",
     "allow-server-interfaces",
     "allow-server-generate-key",
-    "allow-server-get-key",
+    "allow-server-delete",
     "allow-server-start",
     "allow-server-stop",
     "allow-remote-get-config",

@@ -8,6 +8,7 @@ import Layout from '../layouts/Layout.astro';
 import ConfirmDialog from '../components/ConfirmDialog.astro';
 import ConnectionsSection from '../components/settings/ConnectionsSection.astro';
 import ConnectionForm from '../components/settings/ConnectionForm.astro';
+import NewKeyNotice from '../components/settings/NewKeyNotice.astro';
 import RemoteSection from '../components/settings/RemoteSection.astro';
 import ShutdownSection from '../components/settings/ShutdownSection.astro';
 
@@ -28,7 +29,7 @@ const panel = 'animate-pop-in motion-reduce:animate-none';
 const seg = 'h-8 cursor-pointer rounded-md px-3 text-xs font-medium text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-checked:bg-fg aria-checked:text-bg motion-reduce:transition-none';
 const primaryBtn = 'inline-flex h-12 min-w-36 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-fg px-8 text-base font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const secondaryBtn = 'inline-flex h-12 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border px-6 text-base font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
-const roleCard = 'group flex cursor-pointer flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-[border-color,background-color,transform] duration-150 hover:bg-fg/[0.03] focus-visible:outline-fg/40 active:scale-[0.99] aria-checked:border-fg aria-checked:bg-fg/5 motion-reduce:transition-none';
+const roleCard = 'group flex cursor-pointer flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-[border-color,background-color,transform] duration-150 enabled:hover:bg-fg/[0.03] focus-visible:outline-fg/40 enabled:active:scale-[0.99] aria-checked:border-fg aria-checked:bg-fg/5 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const stepItem = 'group flex items-center text-muted last:flex-none flex-1 aria-[current=step]:text-fg data-[done=true]:text-fg';
 const stepDot = 'grid size-10 shrink-0 place-items-center rounded-full border border-border text-sm font-medium tabular-nums transition-[background-color,box-shadow,border-color] duration-150 group-aria-[current=step]:border-fg group-aria-[current=step]:bg-fg group-aria-[current=step]:text-bg group-aria-[current=step]:ring-4 group-aria-[current=step]:ring-fg/10 group-data-[done=true]:border-fg motion-reduce:transition-none';
 const stepLine = 'mx-3 h-0.5 flex-1 rounded-full bg-border transition-colors duration-150 group-data-[done=true]:bg-fg motion-reduce:transition-none';
@@ -112,6 +113,7 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 					<div data-role-show="laptop" hidden>
 						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.laptop.title')}</h2>
 						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.laptop.description')}</p>
+						<p data-laptop-connected hidden class="mt-1 text-sm text-fg">{t(lang, 'connect.laptop.connected')}</p>
 					</div>
 				</div>
 
@@ -142,6 +144,10 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 							<dd data-recap="shutdown" data-bad="false" class={recapValue}></dd>
 						</div>
 					</dl>
+					<!-- Rôle serveur : le code complet n'est montré qu'ici, une seule fois -->
+					<NewKeyNotice class="mt-5" />
+					<p data-recap="keyline" hidden class="mt-5 font-mono text-sm"></p>
+					<p data-recap="codeHidden" hidden class="mt-1 text-xs text-muted">{t(lang, 'connect.recap.server.codeHidden')}</p>
 					<button type="button" data-wiz="advanced" class="mt-5 cursor-pointer rounded text-sm text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg focus-visible:outline-fg/40">{t(lang, 'connect.recap.advanced')}</button>
 				</div>
 			</div>

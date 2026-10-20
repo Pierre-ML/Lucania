@@ -43,7 +43,7 @@ const lang = getLang(Astro);
 			</button>
 			<a href="/connexion" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
 				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><ServerIcon width="16" height="16" aria-hidden="true" /></span>
-				{t(lang, 'chat.sidebar.connect')}
+				<span data-connect-label>{t(lang, 'chat.sidebar.connect')}</span>
 			</a>
 			<a href="/emails" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
 				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg></span>
@@ -56,6 +56,7 @@ const lang = getLang(Astro);
 		</div>
 	</div>
 </aside>
+<script>import { initRoleNavLabel } from '../lib/client/machine-role.js'; initRoleNavLabel();</script>
 <script is:inline>
 	try {
 		if (window.innerWidth >= 768 && localStorage.getItem('sidebarCollapsed') === '1') {

@@ -314,8 +314,10 @@
       },
       "current": {
         "url": "Tower address: {url}",
-        "backLocal": "Back to local",
-        "reloading": "Reloading…"
+        "reloading": "Reloading…",
+        "key": "Code: {prefix}••••",
+        "noKey": "No code saved",
+        "edit": "Change"
       },
       "advanced": {
         "title": "Advanced options"
@@ -347,6 +349,20 @@
         "connected": "Connected to the tower",
         "unreachable": "Tower unreachable: {error}",
         "unreachableNoError": "Tower unreachable"
+      },
+      "managed": {
+        "title": "This machine is a receiver"
+      },
+      "edit": {
+        "label": "New tower code",
+        "save": "Save",
+        "cancel": "Cancel",
+        "checking": "Checking…"
+      },
+      "delete": {
+        "button": "Delete the receiver",
+        "title": "Delete the receiver?",
+        "message": "This machine will stop using the tower and go back to its own engine. You can then pick a new role."
       }
     },
     "guide": {
@@ -361,10 +377,10 @@
       "step5": "The header dot follows the tower: gray when unreachable, orange with no model loaded, green when ready. Shutting the tower down is set up in Connect machines › Shutdown.",
       "security": "Security: the connection uses plain HTTP, with no encryption of its own. Use it ONLY inside the WireGuard tunnel; the key only travels through that tunnel.",
       "docs": "Full guide: docs/wireguard.md in the repository."
-    }
+    },
+    "roleConflict": "This machine already has a role. Delete it first."
   },
   "server": {
-    "title": "This machine is the tower (server)",
     "description": "This computer shares its engine with another Lucania. The screen is then reserved for server mode until you stop it.",
     "interface": {
       "label": "Listening interface",
@@ -390,14 +406,10 @@
       "hide": "Hide",
       "copy": "Copy",
       "copied": "Copied",
-      "generate": "Generate a new code",
-      "confirm": {
-        "title": "Generate a new code?",
-        "message": "The old code will stop working: machines using it will need the new one.",
-        "ok": "Generate"
-      }
+      "prefix": "Tower code: {prefix}••••",
+      "once": "Write this code down now: it will not be shown in full again. To get a new one, you will have to delete the server and start over."
     },
-    "start": "Enable server mode",
+    "start": "Start server mode",
     "running": "Server mode is active on {address}.",
     "hint": {
       "needAck": "Tick “I understand the risks” to listen on all interfaces."
@@ -410,6 +422,19 @@
       "stop": "Stop server mode",
       "stopping": "Stopping…",
       "listening": "Listening on {address}"
+    },
+    "create": {
+      "title": "Make this machine a server",
+      "help": "A connection code will be created for the other machine. It is shown in full only once, and this machine will only have this role.",
+      "button": "Create the server"
+    },
+    "managed": {
+      "title": "This machine is a server"
+    },
+    "delete": {
+      "button": "Delete the server",
+      "title": "Delete the server?",
+      "message": "The tower code will stop working: machines using it will need a new code. You will have to set everything up again to create a server."
     }
   }
 }

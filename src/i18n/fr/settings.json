@@ -70,7 +70,7 @@
     "description": "Les machines que Lucania peut éteindre à distance : cet ordinateur ou un autre PC joignable sur ton réseau ou ton VPN.",
     "add": "Ajouter une connexion",
     "emptyTitle": "Aucune connexion",
-    "emptyText": "Ajoute une machine pour pouvoir l’éteindre depuis la barre latérale.",
+    "emptyText": "Ajoute une machine pour pouvoir l'éteindre depuis la barre latérale.",
     "loading": "Chargement…",
     "kindLocal": "Local",
     "kindRemote": "Distant",
@@ -134,7 +134,7 @@
       "label": "Extinction à distance",
       "help": "Affiche un bouton « Éteindre » dans la barre latérale.",
       "url": "URL du listener",
-      "urlInvalid": "L’URL du listener doit commencer par http:// ou https://.",
+      "urlInvalid": "L'URL du listener doit commencer par http:// ou https://.",
       "method": "Méthode HTTP",
       "token": "Token (optionnel)",
       "tokenSaved": "•••••••• (enregistré, laisser vide pour conserver)",
@@ -191,9 +191,9 @@
   },
   "hf": {
     "title": "Hugging Face",
-    "description": "Renseigne un jeton d’accès pour télécharger les modèles à accès restreint. Pour chercher et télécharger des modèles, utilise « Ajouter un modèle » dans la barre latérale du chat.",
+    "description": "Renseigne un jeton d'accès pour télécharger les modèles à accès restreint. Pour chercher et télécharger des modèles, utilise « Ajouter un modèle » dans la barre latérale du chat.",
     "token": {
-      "title": "Jeton d’accès (facultatif)",
+      "title": "Jeton d'accès (facultatif)",
       "label": "Jeton Hugging Face",
       "placeholder": "hf_…",
       "save": "Enregistrer",
@@ -202,7 +202,7 @@
       "none": "Aucun jeton",
       "connected": "Connecté en tant que {user}",
       "saved": "Jeton enregistré",
-      "help": "Nécessaire seulement pour les modèles à accès restreint. Le jeton n’est jamais réaffiché.",
+      "help": "Nécessaire seulement pour les modèles à accès restreint. Le jeton n'est jamais réaffiché.",
       "link": "Créer un jeton sur Hugging Face"
     }
   },
@@ -314,8 +314,10 @@
       },
       "current": {
         "url": "Adresse de la tour : {url}",
-        "backLocal": "Revenir en local",
-        "reloading": "Rechargement…"
+        "reloading": "Rechargement…",
+        "key": "Code : {prefix}••••",
+        "noKey": "Aucun code enregistré",
+        "edit": "Modifier"
       },
       "advanced": {
         "title": "Options avancées"
@@ -347,6 +349,20 @@
         "connected": "Connecté à la tour",
         "unreachable": "Tour injoignable : {error}",
         "unreachableNoError": "Tour injoignable"
+      },
+      "managed": {
+        "title": "Cette machine est un récepteur"
+      },
+      "edit": {
+        "label": "Nouveau code de la tour",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "checking": "Vérification…"
+      },
+      "delete": {
+        "button": "Supprimer le récepteur",
+        "title": "Supprimer le récepteur ?",
+        "message": "Cette machine cessera d'utiliser la tour et reprendra son propre moteur. Vous pourrez ensuite choisir un nouveau rôle."
       }
     },
     "guide": {
@@ -361,10 +377,10 @@
       "step5": "La pastille de l'en-tête suit la tour : grise si elle est injoignable, orange sans modèle chargé, verte quand elle est prête. L'extinction de la tour se règle dans Connexion entre machines › Extinction.",
       "security": "Sécurité : la connexion est en HTTP, sans chiffrement propre. À utiliser UNIQUEMENT dans le tunnel WireGuard ; la clé ne circule que dans ce tunnel.",
       "docs": "Guide complet : docs/wireguard.md du dépôt."
-    }
+    },
+    "roleConflict": "Cette machine a déjà un rôle. Supprimez-le d'abord."
   },
   "server": {
-    "title": "Cette machine est la tour (serveur)",
     "description": "Cet ordinateur met son moteur à disposition d'un autre Lucania. L'écran est alors réservé au mode serveur jusqu'à son arrêt.",
     "interface": {
       "label": "Interface d'écoute",
@@ -390,14 +406,10 @@
       "hide": "Masquer",
       "copy": "Copier",
       "copied": "Copié",
-      "generate": "Générer un nouveau code",
-      "confirm": {
-        "title": "Générer un nouveau code ?",
-        "message": "L'ancien code cessera de fonctionner : les machines qui l'utilisent devront recevoir le nouveau.",
-        "ok": "Générer"
-      }
+      "prefix": "Code de la tour : {prefix}••••",
+      "once": "Notez ce code maintenant : il ne sera plus affiché en entier. Pour en obtenir un nouveau, il faudra supprimer le serveur et tout refaire."
     },
-    "start": "Activer le mode serveur",
+    "start": "Mettre en mode serveur",
     "running": "Le mode serveur est actif sur {address}.",
     "hint": {
       "needAck": "Cochez « Je comprends les risques » pour écouter sur toutes les interfaces."
@@ -410,6 +422,19 @@
       "stop": "Arrêter le mode serveur",
       "stopping": "Arrêt…",
       "listening": "En écoute sur {address}"
+    },
+    "create": {
+      "title": "Faire de cette machine un serveur",
+      "help": "Un code de connexion sera créé pour l'autre machine. Il ne sera affiché en entier qu'une seule fois, et cette machine n'aura plus que ce rôle.",
+      "button": "Créer le serveur"
+    },
+    "managed": {
+      "title": "Cette machine est un serveur"
+    },
+    "delete": {
+      "button": "Supprimer le serveur",
+      "title": "Supprimer le serveur ?",
+      "message": "Le code de la tour cessera de fonctionner : les machines qui l'utilisent devront recevoir un nouveau code. Il faudra tout reconfigurer pour recréer un serveur."
     }
   }
 }

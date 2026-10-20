@@ -79,6 +79,8 @@ pub struct RemoteConfig {
   pub mode: Mode,
   pub url: String,
   pub has_key: bool,
+  /// 4 premiers caractères de la clé enregistrée.
+  pub key_prefix: Option<String>,
 }
 
 /// Réponse de `remote_state` et charge de `remote://state`.
@@ -140,9 +142,14 @@ impl Remote {
     Remote { file, saved: Mutex::new(saved), clients, link: Mutex::new(Link::default()), epoch: AtomicU64::new(0), events: Mutex::new(None) }
   }
 
+  /// Vrai si ce poste est en mode distant (récepteur d'une tour).
+  pub fn is_remote(&self) -> bool {
+    lock(&self.saved).mode == Mode::Remote
+  }
+
   fn config(&self) -> RemoteConfig {
     let s = lock(&self.saved);
-    RemoteConfig { mode: s.mode, url: s.url.clone(), has_key: !s.key.is_empty() }
+    RemoteConfig { mode: s.mode, url: s.url.clone(), has_key: !s.key.is_empty(), key_prefix: Some(s.key.chars().take(4).collect()).filter(|p: &String| !p.is_empty()) }
   }
 
   fn state(&self) -> RemoteState {
@@ -491,6 +498,7 @@ pub async fn remote_state(remote: State<'_, Remote>) -> Result<RemoteState, Stri
 pub async fn remote_set_config(
   app: AppHandle,
   remote: State<'_, Remote>,
+  server: State<'_, crate::server::Server>,
   mode: String,
   url: Option<String>,
   key: Option<String>,
@@ -514,6 +522,9 @@ pub async fn remote_set_config(
     next.key = k.to_string();
   }
   if mode == Mode::Remote {
+    if server.has_key() {
+      return Err("role_conflict".into());
+    }
     if next.url.is_empty() {
       return Err("Indiquez l'adresse de la tour.".into());
     }
@@ -651,7 +662,20 @@ mod tests {
   fn etats_serialises() {
     let s = RemoteState { mode: Mode::Remote, connected: false, error: Some("x".into()) };
     assert_eq!(serde_json::to_value(s).unwrap(), serde_json::json!({ "mode": "remote", "connected": false, "error": "x" }));
-    let c = RemoteConfig { mode: Mode::Local, url: String::new(), has_key: true };
-    assert_eq!(serde_json::to_value(c).unwrap(), serde_json::json!({ "mode": "local", "url": "", "hasKey": true }));
+    let c = RemoteConfig { mode: Mode::Local, url: String::new(), has_key: true, key_prefix: Some("luc_".into()) };
+    assert_eq!(serde_json::to_value(c).unwrap(), serde_json::json!({ "mode": "local", "url": "", "hasKey": true, "keyPrefix": "luc_" }));
+  }
+
+  #[test]
+  fn prefixe_de_cle() {
+    let dir = std::env::temp_dir().join(format!("lucania-remote-test-{}", std::process::id()));
+    let r = Remote::open(dir.join("remote.json"));
+    assert_eq!(r.config().key_prefix, None);
+    assert!(!r.is_remote());
+    lock(&r.saved).key = "luc_secret".into();
+    let c = r.config();
+    assert_eq!((c.has_key, c.key_prefix.as_deref()), (true, Some("luc_")));
+    *lock(&r.saved) = Saved::default();
+    assert_eq!(r.config().key_prefix, None);
   }
 }

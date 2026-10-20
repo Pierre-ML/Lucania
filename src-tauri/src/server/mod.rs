@@ -85,6 +85,8 @@ pub struct ServerConfig {
   pub address: Option<String>,
   /// Dernière erreur de démarrage.
   pub error: Option<String>,
+  /// 4 premiers caractères de la clé (jamais la clé entière).
+  pub key_prefix: Option<String>,
 }
 
 struct Running {
@@ -134,7 +136,20 @@ impl Server {
     }
   }
 
-  fn has_key(&self) -> bool {
+  /// Efface la clé (empreinte et clair) et désactive le serveur.
+  fn delete_key(&self) -> Result<(), String> {
+    self.update(|s| {
+      s.key_hash = None;
+      s.key = None;
+      s.active = false;
+    })?;
+    *self.keys.write().unwrap_or_else(|e| e.into_inner()) = None;
+    *lock(&self.limiter) = Limiter::default();
+    log("serveur supprimé");
+    Ok(())
+  }
+
+  pub fn has_key(&self) -> bool {
     self.keys.read().unwrap_or_else(|e| e.into_inner()).is_some()
   }
 
@@ -155,6 +170,7 @@ impl Server {
       running: address.is_some(),
       address: address.map(|a| a.to_string()),
       error: lock(&self.error).clone(),
+      key_prefix: self.stored_key().map(|k| k.chars().take(4).collect()),
     }
   }
 
@@ -405,15 +421,16 @@ pub async fn server_interfaces() -> Result<Vec<NetInterface>, String> {
     .map_err(|e| format!("Liste des interfaces interrompue : {e}"))
 }
 
-/// Clé enregistrée en clair (ré-affichage), `None` si inconnue (ancien fichier, pas de clé).
-#[tauri::command]
-pub async fn server_get_key(server: State<'_, Server>) -> Result<Option<String>, String> {
-  Ok(server.stored_key())
-}
-
 /// Nouvelle clé, renvoyée en clair et enregistrée (l'authentification utilise son empreinte).
 #[tauri::command]
-pub async fn server_generate_key(app: AppHandle, server: State<'_, Server>) -> Result<String, String> {
+pub async fn server_generate_key(
+  app: AppHandle,
+  server: State<'_, Server>,
+  remote: State<'_, crate::remote::Remote>,
+) -> Result<String, String> {
+  if remote.is_remote() {
+    return Err("role_conflict".into());
+  }
   let key = server.generate_key()?;
   server.emit(&app);
   Ok(key)
@@ -474,6 +491,21 @@ pub async fn server_stop(app: AppHandle, server: State<'_, Server>) -> Result<Se
   Ok(server.config())
 }
 
+/// Supprime le rôle serveur : arrêt, clé effacée (la configuration d'écoute est gardée).
+#[tauri::command]
+pub async fn server_delete(app: AppHandle, server: State<'_, Server>) -> Result<ServerConfig, String> {
+  let r = {
+    let _op = server.op.lock().await;
+    server.stop_running().await;
+    server.delete_key()
+  };
+  *lock(&server.error) = None;
+  set_fullscreen(&app, false);
+  server.emit(&app);
+  r?;
+  Ok(server.config())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -501,7 +533,31 @@ mod tests {
     let c2 = s2.config();
     assert!(c2.has_key && c2.active && !c2.running);
     assert!(auth::verify(&key, s2.keys.read().unwrap().as_ref()));
+    assert_eq!(s2.config().key_prefix, Some(key.chars().take(4).collect()));
     assert_eq!(s2.stored_key(), Some(key));
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[test]
+  fn suppression_du_serveur() {
+    let dir = std::env::temp_dir().join(format!("lucania-server-del-{}", std::process::id()));
+    let file = dir.join("server.json");
+    let _ = std::fs::remove_dir_all(&dir);
+    let s = Server::open(file.clone());
+    assert_eq!(s.config().key_prefix, None);
+    s.generate_key().unwrap();
+    s.update(|x| {
+      x.bind_ip = Some("10.0.0.2".into());
+      x.active = true;
+    })
+    .unwrap();
+    assert!(s.config().key_prefix.is_some());
+    s.delete_key().unwrap();
+    let c = s.config();
+    assert!(!c.has_key && !c.active && c.key_prefix.is_none());
+    assert_eq!(c.bind_ip.as_deref(), Some("10.0.0.2"));
+    let c2 = Server::open(file).config();
+    assert!(!c2.has_key && !c2.active && c2.key_prefix.is_none());
     let _ = std::fs::remove_dir_all(dir);
   }
 
@@ -516,6 +572,7 @@ mod tests {
     let s = Server::open(file);
     let c = s.config();
     assert!(c.has_key && c.active);
+    assert_eq!(c.key_prefix, None);
     assert_eq!(s.stored_key(), None);
     // Une clé en clair qui ne correspond pas à l'empreinte n'est jamais renvoyée.
     s.update(|x| x.key = Some("luc_autre".into())).unwrap();

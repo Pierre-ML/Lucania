@@ -236,7 +236,7 @@ pub fn run() {
       server::server_get_config,
       server::server_interfaces,
       server::server_generate_key,
-      server::server_get_key,
+      server::server_delete,
       server::server_start,
       server::server_stop,
       remote::remote_get_config,
