@@ -1,4 +1,5 @@
 ---
+import Animal from '../Animal.astro';
 import CheckSmallIcon from '../../assets/icons/check-small.svg';
 import { getLang, t } from '../../i18n/index';
 
@@ -10,7 +11,10 @@ const langs = [
 const h3 = 'text-sm font-medium';
 ---
 <section aria-labelledby="appearance-title">
-	<h2 id="appearance-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.appearance.title')}</h2>
+	<div class="flex items-center gap-2.5">
+		<Animal id="cerf" class="size-7 shrink-0 text-fg" />
+		<h2 id="appearance-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.appearance.title')}</h2>
+	</div>
 	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.appearance.description')}</p>
 
 	<div class="mt-6">

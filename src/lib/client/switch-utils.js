@@ -1,4 +1,4 @@
-// Petits helpers partagés par connections-settings.js et shutdown-settings.js.
+// Petits helpers partagés par les réglages (interrupteurs et URL).
 
 /** @param {Element} sw */
 export const isOn = (sw) => sw.getAttribute('aria-checked') === 'true';

@@ -13,19 +13,7 @@
     "defaultTitle": "Nouvelle conversation"
   },
   "status": {
-    "checking": "Connexion…",
-    "configure": "Configurer",
-    "none": "Aucun serveur configuré",
-    "modelUnavailable": "Modèle indisponible sur {name}",
-    "connected": "{name} connecté",
-    "unreachable": "{name} injoignable",
-    "serversConnected": "{up}/{total} serveurs connectés",
-    "online": "en ligne",
-    "onlineLatency": "en ligne · {ms} ms",
-    "offline": "hors ligne",
-    "connection": "{name} ({kind}) : {state}",
-    "local": "Local",
-    "remote": "Distant"
+    "checking": "Connexion…"
   },
   "composer": {
     "placeholder": "Écrivez votre message…",
@@ -34,11 +22,6 @@
     "model": "Modèle",
     "chooseModel": "Choisir le modèle",
     "models": "Modèles",
-    "think": "Réflexion",
-    "thinkShort": "Réflexion",
-    "thinkOn": "Réflexion activée — le modèle réfléchit avant de répondre",
-    "thinkOff": "Réflexion désactivée",
-    "thinkError": "Réglage de la réflexion impossible : {message}",
     "memoryUse": "Utiliser la mémoire",
     "memoryUseShort": "Mémoire",
     "memoryUseOn": "Mémoire utilisée — l'IA connaît ce qu'elle a retenu sur vous",
@@ -68,8 +51,6 @@
     "lockedShort": "Le modèle est fixé pour cette conversation",
     "unavailable": "{model} · indisponible",
     "unavailableOption": "{model} (indisponible)",
-    "deletedConnection": "Connexion supprimée",
-    "unknownConnection": "Connexion inconnue",
     "localGroup": "Cet ordinateur",
     "settings": "Réglages du modèle"
   },
@@ -178,7 +159,6 @@
   },
   "errors": {
     "http": "Erreur {status}",
-    "emptyResponse": "Réponse vide du serveur.",
     "notFound": "Conversation introuvable : {message}",
     "rename": "Renommage impossible : {message}",
     "renameFolder": "Renommage du dossier impossible : {message}",
@@ -281,7 +261,6 @@
   "update": {
     "title": "Rechercher une mise à jour",
     "available": "Mise à jour disponible : v{latest}",
-    "checking": "Vérification en cours…",
     "upToDate": "Lucania est à jour (v{current}).",
     "error": "Vérification impossible : {error}",
     "downloading": "Téléchargement de la mise à jour…",

@@ -1,4 +1,5 @@
 ---
+import Animal from '../components/Animal.astro';
 import CheckSmallIcon from '../assets/icons/check-small.svg';
 import ChevronLeftIcon from '../assets/icons/chevron-left.svg';
 import MonitorIcon from '../assets/icons/monitor.svg';
@@ -49,10 +50,16 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 				<span>{t(lang, 'connect.back')}</span>
 			</a>
 			<div class="mt-4 flex flex-wrap items-center justify-between gap-4">
-				<h1 class="font-serif text-2xl">{t(lang, 'connect.title')}</h1>
+				<div class="flex items-center gap-2.5">
+					<Animal id="aigle" class="size-7 shrink-0 text-fg" />
+					<h1 class="font-serif text-2xl">{t(lang, 'connect.title')}</h1>
+				</div>
 				<div role="radiogroup" aria-label={t(lang, 'connect.mode.label')} data-mode-switch class="invisible inline-flex gap-1 rounded-lg border border-border p-0.5 group-data-[ready=true]/page:visible [[hidden]]:hidden">
 					<button type="button" role="radio" data-mode-btn="guided" aria-checked="true" class={seg}>{t(lang, 'connect.mode.guided')}</button>
-					<button type="button" role="radio" data-mode-btn="advanced" aria-checked="false" class={seg}>{t(lang, 'connect.mode.advanced')}</button>
+					<button type="button" role="radio" data-mode-btn="advanced" aria-checked="false" class={`${seg} inline-flex items-center gap-1.5`}>
+							<Animal id="renard" class="size-4 shrink-0" />
+							<span>{t(lang, 'connect.mode.advanced')}</span>
+						</button>
 				</div>
 			</div>
 		</header>
@@ -78,7 +85,7 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 									</span>
 									<span data-step-label class="hidden text-sm group-aria-[current=step]:inline group-aria-[current=step]:font-medium sm:inline">{label}</span>
 								</span>
-								{i < stepLabels.length - 1 && <span data-step-line aria-hidden="true" class={stepLine}></span>}
+								{i < stepLabels.length - 1 && <span aria-hidden="true" class={stepLine}></span>}
 							</li>
 						))}
 					</ol>
@@ -119,13 +126,19 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 
 				<div data-step="shutdown" hidden class={`mt-6 ${panel}`}>
 					<div data-role-show="tower" hidden>
-						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.tower.title')}</h2>
+						<div class="flex items-center gap-2.5">
+							<Animal id="dragon" class="size-6 shrink-0 text-fg" />
+							<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.tower.title')}</h2>
+						</div>
 						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.shutdown.tower.description')}</p>
 						<p class="mt-1 text-xs text-muted">{t(lang, 'connect.shutdown.tower.note')}</p>
 						<TowerShutdownForm class="mt-6" />
 					</div>
 					<div data-role-show="laptop" hidden>
-						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.laptop.title')}</h2>
+						<div class="flex items-center gap-2.5">
+							<Animal id="dragon" class="size-6 shrink-0 text-fg" />
+							<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.laptop.title')}</h2>
+						</div>
 						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.shutdown.laptop.description')}</p>
 						<ReceiverShutdownSync class="mt-6" />
 					</div>

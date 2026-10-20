@@ -19,7 +19,7 @@ const write = (f, s) => fs.writeFileSync(path.join(root, f), s);
 const replaceOnce = (file, text, re) => {
   const m = text.match(re);
   if (!m) { console.error(`ERREUR : champ de version introuvable dans ${file}`); process.exit(1); }
-  return { out: text.replace(re, (_, a, old, b) => `${a}${next}${b}`), old: m[2] };
+  return { out: text.replace(re, (_, a, _old, b) => `${a}${next}${b}`), old: m[2] };
 };
 
 const edits = [

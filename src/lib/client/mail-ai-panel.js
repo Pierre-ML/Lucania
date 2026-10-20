@@ -79,6 +79,11 @@ export function initMailAiPanel() {
   const rows = [];
   const nf = new Intl.NumberFormat(document.documentElement.lang || undefined, { maximumFractionDigits: 1 });
 
+  /** Nom de fichier sans extension (.gguf, puis un éventuel suffixe), en minuscules. @param {string} file */
+  function stemOf(file) {
+    return file.replace(/\.gguf$/i, '').replace(/\.[^.]+$/, '').toLowerCase();
+  }
+
   /** @param {string} p */
   function baseName(p) {
     return (p.split('/').pop() || p).toLowerCase();
@@ -95,7 +100,7 @@ export function initMailAiPanel() {
   async function refreshInstalled() {
     const installed = await installedNames();
     for (const row of rows) {
-      const stem = row.m.file.replace(/\.gguf$/i, '').replace(/\.[^.]+$/, '').toLowerCase();
+      const stem = stemOf(row.m.file);
       if (stem && installed.some((n) => n.includes(stem))) row.installed = true;
       row.render();
     }
@@ -129,7 +134,7 @@ export function initMailAiPanel() {
 
   /** @param {{ name: string, file: string, sizeGb: number, repo: string, best?: boolean }} m @param {string[]} installed */
   function buildModel(m, installed) {
-    const stem = String(m.file || '').replace(/\.gguf$/i, '').replace(/\.[^.]+$/, '').toLowerCase();
+    const stem = stemOf(String(m.file || ''));
     const isInstalled = stem !== '' && installed.some((n) => n.includes(stem));
 
     const li = document.createElement('li');
@@ -311,12 +316,6 @@ export function initMailAiPanel() {
     }
     const ul = document.createElement('ul');
     ul.className = 'flex flex-col gap-2';
-    if (rec.models.length === 0) {
-      const none = document.createElement('li');
-      none.className = 'text-sm text-muted';
-      none.textContent = t('mailai.models.none');
-      ul.append(none);
-    }
     for (const m of rec.models) ul.append(buildModel(m, installed));
     wrap.append(ul);
     return wrap;
@@ -374,8 +373,8 @@ export function initMailAiPanel() {
     /** @type {[Tier, ReturnType<typeof recommendMailModels>][]} */
     const tiers = [
       ['light', recommendMailModels(null)],
-      ['medium', recommendMailModels({ ramTotalBytes: 16 * GIB, ramAvailableBytes: 12 * GIB, gpus: [] })],
-      ['strong', recommendMailModels({ ramTotalBytes: 32 * GIB, ramAvailableBytes: 24 * GIB, gpus: [] })],
+      ['medium', recommendMailModels({ ramTotalBytes: 16 * GIB, gpus: [] })],
+      ['strong', recommendMailModels({ ramTotalBytes: 32 * GIB, gpus: [] })],
     ];
     const installed = engineAvailable() ? await installedNames() : [];
     modelList.replaceChildren(

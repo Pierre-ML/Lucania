@@ -1,4 +1,5 @@
 ---
+import Animal from '../Animal.astro';
 import { getLang, t } from '../../i18n/index';
 
 const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
@@ -10,7 +11,10 @@ const lang = getLang(Astro);
 <section aria-labelledby="engine-title">
 	<div class="flex items-start justify-between gap-4">
 		<div class="min-w-0">
-			<h2 id="engine-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.engine.title')}</h2>
+			<div class="flex items-center gap-2.5">
+				<Animal id="ours" class="size-7 shrink-0 text-fg" />
+				<h2 id="engine-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.engine.title')}</h2>
+			</div>
 			<p class="mt-1 text-sm text-muted">{t(lang, 'settings.engine.description')}</p>
 		</div>
 		<button type="button" id="engine-refresh" class={secondaryBtn}>{t(lang, 'settings.engine.refresh')}</button>

@@ -6,10 +6,7 @@
   "nav": {
     "engine": "Moteur",
     "hf": "Hugging Face",
-    "connections": "Connexions",
     "memory": "Mémoire",
-    "remote": "Accès distant",
-    "shutdown": "Extinction à distance",
     "appearance": "Apparence",
     "about": "À propos"
   },
@@ -417,9 +414,6 @@
     },
     "key": {
       "label": "Code de la tour",
-      "help": "Collez ce code sur l'autre machine.",
-      "show": "Afficher",
-      "hide": "Masquer",
       "copy": "Copier",
       "copied": "Copié",
       "prefix": "Code de la tour : {prefix}••••",

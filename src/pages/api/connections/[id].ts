@@ -1,18 +1,8 @@
 import type { APIRoute } from 'astro';
-import {
-  deleteConnection,
-  getConnection,
-  parseConnectionInput,
-  updateConnection,
-} from '../../../lib/server/connections';
+import { deleteConnection, parseConnectionInput, updateConnection } from '../../../lib/server/connections';
 import { json, noContent, readJson, sameOrigin } from '../../../lib/server/http';
 
 const notFound = () => json({ error: 'Connexion introuvable' }, 404);
-
-export const GET: APIRoute = async ({ params }) => {
-  const c = getConnection(params.id ?? '');
-  return c ? json(c) : notFound();
-};
 
 export const PATCH: APIRoute = async ({ params, request }) => {
   if (!sameOrigin(request)) return json({ error: 'Origine refusée' }, 403);

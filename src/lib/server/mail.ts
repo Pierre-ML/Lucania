@@ -6,8 +6,18 @@ import tls from 'node:tls';
 import { getDb, withTransaction } from './db';
 
 // ---------------------------------------------------------------------------
-// Modèle (table `mail_settings`, une seule ligne : seul `model` sert encore)
+// Réglages (table `mail_settings`, une seule ligne : modèle, option « marquer comme lus », prompt système)
 // ---------------------------------------------------------------------------
+
+type SettingColumn = 'model' | 'mark_seen' | 'system_prompt';
+
+function saveSetting(column: SettingColumn, value: string | number): void {
+  withTransaction((db) => {
+    const now = new Date().toISOString();
+    db.prepare('INSERT OR IGNORE INTO mail_settings (id, updated_at) VALUES (1, ?)').run(now);
+    db.prepare(`UPDATE mail_settings SET ${column} = ?, updated_at = ? WHERE id = 1`).run(value, now);
+  });
+}
 
 export function getMailModel(): string {
   const r = getDb().prepare('SELECT model FROM mail_settings WHERE id = 1').get() as unknown as
@@ -17,11 +27,7 @@ export function getMailModel(): string {
 }
 
 export function saveMailModel(model: string): string {
-  withTransaction((db) => {
-    const now = new Date().toISOString();
-    db.prepare('INSERT OR IGNORE INTO mail_settings (id, updated_at) VALUES (1, ?)').run(now);
-    db.prepare('UPDATE mail_settings SET model = ?, updated_at = ? WHERE id = 1').run(model, now);
-  });
+  saveSetting('model', model);
   return getMailModel();
 }
 
@@ -37,11 +43,7 @@ export function getMailMarkSeen(): boolean {
 }
 
 export function saveMailMarkSeen(value: boolean): boolean {
-  withTransaction((db) => {
-    const now = new Date().toISOString();
-    db.prepare('INSERT OR IGNORE INTO mail_settings (id, updated_at) VALUES (1, ?)').run(now);
-    db.prepare('UPDATE mail_settings SET mark_seen = ?, updated_at = ? WHERE id = 1').run(value ? 1 : 0, now);
-  });
+  saveSetting('mark_seen', value ? 1 : 0);
   return getMailMarkSeen();
 }
 
@@ -50,10 +52,10 @@ export function saveMailMarkSeen(value: boolean): boolean {
 // (la mémoire générale de `memory.ts` n'est pas concernée)
 // ---------------------------------------------------------------------------
 
-export const MAIL_CATEGORIES = ['personnel', 'pro', 'notification', 'pub', 'indesirable'] as const;
+const MAIL_CATEGORIES = ['personnel', 'pro', 'notification', 'pub', 'indesirable'] as const;
 export type MailCategory = (typeof MAIL_CATEGORIES)[number];
 
-export function isMailCategory(v: unknown): v is MailCategory {
+function isMailCategory(v: unknown): v is MailCategory {
   return typeof v === 'string' && (MAIL_CATEGORIES as readonly string[]).includes(v);
 }
 
@@ -72,11 +74,7 @@ export function getMailSystemPrompt(): string {
 }
 
 export function saveMailSystemPrompt(prompt: string): string {
-  withTransaction((db) => {
-    const now = new Date().toISOString();
-    db.prepare('INSERT OR IGNORE INTO mail_settings (id, updated_at) VALUES (1, ?)').run(now);
-    db.prepare('UPDATE mail_settings SET system_prompt = ?, updated_at = ? WHERE id = 1').run(prompt, now);
-  });
+  saveSetting('system_prompt', prompt);
   return getMailSystemPrompt();
 }
 
@@ -125,7 +123,7 @@ export function listMailMemory(): MailMemoryEntry[] {
   return rows.map(toMemoryEntry);
 }
 
-export function getMailMemory(id: number): MailMemoryEntry | null {
+function getMailMemory(id: number): MailMemoryEntry | null {
   const r = getDb().prepare(`SELECT ${MEMORY_COLS} FROM mail_memory WHERE id = ?`).get(id) as unknown as
     | MailMemoryRow
     | undefined;
@@ -142,12 +140,16 @@ export function parseMemoryContent(v: unknown): { ok: true; value: string } | { 
   return { ok: true, value: s };
 }
 
+function memoryIsFull(db: ReturnType<typeof getDb>): boolean {
+  const n = db.prepare('SELECT COUNT(*) AS n FROM mail_memory').get() as unknown as { n: number };
+  return Number(n.n) >= MEMORY_MAX_ENTRIES;
+}
+
 export function createMailMemory(
   content: string,
 ): { ok: true; entry: MailMemoryEntry } | { ok: false; error: string } {
   return withTransaction((db) => {
-    const n = db.prepare('SELECT COUNT(*) AS n FROM mail_memory').get() as unknown as { n: number };
-    if (Number(n.n) >= MEMORY_MAX_ENTRIES) {
+    if (memoryIsFull(db)) {
       return { ok: false as const, error: `Mémoire pleine (${MEMORY_MAX_ENTRIES} entrées max)` };
     }
     const now = new Date().toISOString();
@@ -239,8 +241,7 @@ export function addMailFeedback(input: MailFeedbackInput): MailMemoryEntry | nul
       db.prepare('UPDATE mail_memory SET content = ?, updated_at = ? WHERE id = ?').run(content, now, cur.id);
       return getMailMemory(Number(cur.id));
     }
-    const n = db.prepare('SELECT COUNT(*) AS n FROM mail_memory').get() as unknown as { n: number };
-    if (Number(n.n) >= MEMORY_MAX_ENTRIES) return null;
+    if (memoryIsFull(db)) return null;
     const r = db
       .prepare("INSERT INTO mail_memory (content, source, sender, created_at, updated_at) VALUES (?, 'feedback', ?, ?, ?)")
       .run(content, key, now, now);
@@ -297,6 +298,11 @@ export interface MailProcessedItem {
 
 export type MailProcessedInput = Omit<MailProcessedItem, 'processedAt'>;
 
+interface ProcessedChanges {
+  category?: MailCategory | 'incertain';
+  rating?: 1 | -1 | null;
+}
+
 interface ProcessedRow {
   account_id: number;
   account_user: string;
@@ -350,15 +356,12 @@ export function parseProcessedInput(
 export function parseProcessedPatch(
   body: Record<string, unknown>,
 ):
-  | { ok: true; value: { accountId: number; uid: number; category?: MailCategory | 'incertain'; rating?: 1 | -1 | null } }
+  | { ok: true; value: ProcessedChanges & { accountId: number; uid: number } }
   | { ok: false; error: string } {
   const { accountId, uid, category, rating } = body;
   if (!isPosInt(accountId)) return { ok: false, error: 'Compte invalide' };
   if (!isPosInt(uid)) return { ok: false, error: 'Identifiant d’e-mail invalide' };
-  const value: { accountId: number; uid: number; category?: MailCategory | 'incertain'; rating?: 1 | -1 | null } = {
-    accountId,
-    uid,
-  };
+  const value: ProcessedChanges & { accountId: number; uid: number } = { accountId, uid };
   if (category !== undefined) {
     if (!isMailVerdict(category)) return { ok: false, error: 'Catégorie invalide' };
     value.category = category;
@@ -427,7 +430,7 @@ export function saveProcessed(row: MailProcessedInput): void {
 export function updateProcessed(
   accountId: number,
   uid: number,
-  changes: { category?: MailCategory | 'incertain'; rating?: 1 | -1 | null },
+  changes: ProcessedChanges,
 ): boolean {
   const sets: string[] = [];
   const args: (string | number | null)[] = [];
@@ -463,7 +466,7 @@ export function clearProcessed(): void {
 // Comptes (table `mail_accounts`)
 // ---------------------------------------------------------------------------
 
-export const MAX_MAIL_ACCOUNTS = 10;
+const MAX_MAIL_ACCOUNTS = 10;
 
 export interface MailAccountPublic {
   id: number;
@@ -693,6 +696,7 @@ export function updateMailAccount(id: number, v: MailAccountChanges): MailAccoun
 export function deleteMailAccount(id: number): boolean {
   return Number(getDb().prepare('DELETE FROM mail_accounts WHERE id = ?').run(id).changes) > 0;
 }
+
 // ---------------------------------------------------------------------------
 // Client IMAP minimal. La lecture reste en lecture seule (EXAMINE + BODY.PEEK, rien n'est marqué comme lu) ;
 // seul `markSeen`, appelé explicitement, écrit le drapeau \Seen (SELECT + UID STORE +FLAGS.SILENT).
@@ -938,8 +942,9 @@ function decodeQP(s: string, headerMode: boolean): Buffer {
   const bytes: number[] = [];
   for (let i = 0; i < t.length; i++) {
     const c = t.charCodeAt(i);
-    if (c === 0x3d && /^[0-9A-Fa-f]{2}$/.test(t.substr(i + 1, 2))) {
-      bytes.push(parseInt(t.substr(i + 1, 2), 16));
+    const hex = c === 0x3d ? t.slice(i + 1, i + 3) : '';
+    if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+      bytes.push(parseInt(hex, 16));
       i += 2;
     } else if (headerMode && c === 0x5f) {
       bytes.push(0x20);

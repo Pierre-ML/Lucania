@@ -65,11 +65,6 @@ export async function deleteConversation(id) {
   await request(`/api/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-/** Mémorise le réglage « Réflexion » de la conversation. @param {string} id @param {boolean} think @returns {Promise<Conversation>} */
-export function setConversationThink(id, think) {
-  return updateConversation(id, { think });
-}
-
 /** Mémorise le réglage « Utiliser la mémoire » de la conversation. @param {string} id @param {boolean} useMemory @returns {Promise<Conversation>} */
 export function setConversationUseMemory(id, useMemory) {
   return updateConversation(id, { useMemory });

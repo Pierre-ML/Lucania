@@ -173,7 +173,6 @@ export function syncModelPicker() {
   const ref = parseModelRef(select.value);
   const meta = metaMap.get(select.value);
   const where = meta ? ` — ${meta.groupName}` : '';
-  btn.dataset.empty = String(!hasModels);
   if (!hasModels) {
     label.textContent = loaded ? t('chat.picker.configure') : t('chat.picker.loading');
     btn.title = loaded ? t('chat.picker.configureHint') : '';

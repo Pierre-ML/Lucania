@@ -46,7 +46,7 @@ log('2a/4 Neutralisation des chemins absolus de la machine de build...');
   ];
   // Filet : tout préfixe de dossier utilisateur restant
   const userRe = /[A-Za-z]:(\\\\|\\|\/)Users(\\\\|\\|\/)[^\\/"'`\s:*?<>|]+/gi;
-  const userRepl = (m, sep) => 'C:' + sep + 'lucania-build';
+  const userRepl = (sep) => 'C:' + sep + 'lucania-build';
   let safety = 0;
   let n = 0;
   for (const f of walk(appDir)) {
@@ -54,7 +54,7 @@ log('2a/4 Neutralisation des chemins absolus de la machine de build...');
     let s = fs.readFileSync(f, 'utf8');
     const before = s;
     for (const [re, rep] of rules) s = s.replace(re, () => rep);
-    s = s.replace(userRe, (m, sep) => { safety++; return userRepl(m, sep); });
+    s = s.replace(userRe, (m, sep) => { safety++; return userRepl(sep); });
     if (s !== before) { fs.writeFileSync(f, s); n++; }
   }
   log(`  ${n} fichier(s) nettoyé(s).`);

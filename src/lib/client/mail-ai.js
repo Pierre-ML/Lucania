@@ -186,12 +186,12 @@ function toGb(bytes) {
 }
 
 /**
- * @param {{ ramTotalBytes: number, ramAvailableBytes: number, gpus: { name?: string, vramTotalBytes?: number, vramBytes?: number }[] }|null} hw
+ * @param {{ ramTotalBytes: number, gpus: { vramTotalBytes?: number }[] }|null} hw
  * @returns {MailRecommendation}
  */
 export function recommendMailModels(hw) {
   const ramGb = hw ? toGb(hw.ramTotalBytes) : 0;
-  const vramGb = hw ? toGb(Math.max(0, ...(hw.gpus ?? []).map((g) => g.vramTotalBytes ?? g.vramBytes ?? 0))) : 0;
+  const vramGb = hw ? toGb(Math.max(0, ...(hw.gpus ?? []).map((g) => g.vramTotalBytes ?? 0))) : 0;
   /** @type {'light'|'medium'|'strong'} */
   let tier = 'light';
   if (vramGb >= 10 || (vramGb < 4 && ramGb >= 32)) tier = 'strong';

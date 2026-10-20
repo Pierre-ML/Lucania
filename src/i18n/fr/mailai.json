@@ -35,8 +35,7 @@
     "error": "Le téléchargement a échoué.",
     "noFile": "Fichier introuvable pour {name} sur Hugging Face.",
     "repo": "Voir sur Hugging Face",
-    "repoLabel": "Voir {name} sur Hugging Face (nouvel onglet)",
-    "none": "Aucun modèle à proposer."
+    "repoLabel": "Voir {name} sur Hugging Face (nouvel onglet)"
   },
   "prompt": {
     "title": "Instructions de l'IA (prompt système)",

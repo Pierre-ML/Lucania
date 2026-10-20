@@ -46,7 +46,7 @@ const PROVIDERS = {
  * @typedef {{ uid: number, from: string, subject: string, date: string, snippet: string }} MailItem
  * @typedef {import('./mail-ai.js').MailCategory} MailCategory
  * @typedef {import('./mail-ai.js').MailVerdict} MailVerdict
- * @typedef {{ mail: MailItem, accountId: number, accountUser: string, aiCategory: MailVerdict, category: MailVerdict, reason: string, rated: boolean, rating: 1|-1|null, ts: number, el: HTMLElement, chip: HTMLElement }} Entry
+ * @typedef {{ mail: MailItem, accountId: number, accountUser: string, aiCategory: MailVerdict, category: MailVerdict, reason: string, rated: boolean, rating: 1|-1|null, el: HTMLElement, chip: HTMLElement }} Entry
  * @typedef {{ accountId: number, accountUser: string, uid: number, sender: string, subject: string, date: string, category: string, reason: string, rating: number|null, processedAt: string }} ProcessedItem
  */
 
@@ -312,10 +312,7 @@ export function initEmailsPage() {
     }
     maxSel.value = maxValue;
     const id = providerOfHost(a.host || '');
-    if (id) {
-      providerPicked = true;
-      setProvider(id, true);
-    }
+    if (id) setProvider(id, true);
     field('host').value = a.host || '';
     field('port').value = a.port ? String(a.port) : '';
     field('secure').checked = Boolean(a.secure);
@@ -409,7 +406,7 @@ export function initEmailsPage() {
       const editing = editingId !== null;
       await api(editing ? `/api/mail/accounts/${editingId}` : '/api/mail/accounts', {
         method: editing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: JSON_HEADERS,
         body: JSON.stringify(body),
       });
       editingId = null;
@@ -545,7 +542,7 @@ export function initEmailsPage() {
     try {
       const s = await api('/api/mail/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: JSON_HEADERS,
         body: JSON.stringify({ model: value }),
       });
       savedModel = typeof s?.model === 'string' ? s.model : value;
@@ -604,7 +601,7 @@ export function initEmailsPage() {
     try {
       const s = await api('/api/mail/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: JSON_HEADERS,
         body: JSON.stringify({ markSeen: wanted }),
       });
       markSeenBox.checked = typeof s?.markSeen === 'boolean' ? s.markSeen : wanted;
@@ -644,6 +641,15 @@ export function initEmailsPage() {
   /** @type {Entry[]} */
   const entries = [];
 
+  // Tuiles de filtre : éléments cherchés une seule fois (le balisage est statique).
+  const tileEls = ['all', ...ORDER].map((id) => ({
+    id,
+    count: $(`[data-mail-count="${id}"]`),
+    fill: $(`[data-mail-fill="${id}"]`),
+    btn: $(`[data-mail-filter="${id}"]`),
+  }));
+  const incertainTile = $('[data-mail-tile="incertain"]');
+
   function refreshResults() {
     /** @type {Record<string, number>} */
     const counts = {};
@@ -651,17 +657,13 @@ export function initEmailsPage() {
     for (const e of entries) counts[e.category] = (counts[e.category] || 0) + 1;
     const total = entries.length;
     if (filter !== 'all' && !counts[filter]) filter = 'all';
-    for (const id of ['all', ...ORDER]) {
+    for (const { id, count, fill, btn } of tileEls) {
       const n = id === 'all' ? total : counts[id];
-      const count = $(`[data-mail-count="${id}"]`);
       if (count) count.textContent = String(n);
-      const fill = $(`[data-mail-fill="${id}"]`);
       if (fill) fill.style.transform = `scaleX(${total ? n / total : 0})`;
-      const btn = $(`[data-mail-filter="${id}"]`);
       if (btn) btn.setAttribute('aria-pressed', String(id === filter));
     }
-    const tileWrap = $('[data-mail-tile="incertain"]');
-    if (tileWrap) tileWrap.hidden = counts.incertain === 0;
+    if (incertainTile) incertainTile.hidden = counts.incertain === 0;
     let visible = 0;
     for (const e of entries) {
       const show = filter === 'all' || e.category === filter;
@@ -897,7 +899,6 @@ export function initEmailsPage() {
       entries.splice(entries.indexOf(old), 1);
     }
     const category = /** @type {MailVerdict} */ (ORDER.includes(res.category) ? res.category : 'incertain');
-    const ts = Date.parse(mail.date);
     /** @type {Entry} */
     const entry = {
       mail,
@@ -908,7 +909,6 @@ export function initEmailsPage() {
       reason: res.reason,
       rated: rating !== null,
       rating,
-      ts: Number.isNaN(ts) ? 0 : ts,
       chip: buildChip(category),
       el: document.createElement('li'),
     };
@@ -1026,9 +1026,14 @@ export function initEmailsPage() {
   // ---- Analyse ----
 
   /** @param {string} id @param {string} text */
-  function setLabel(id, text) {
+  function setStepText(id, text) {
     const el = $(`[data-mail-step-label="${id}"]`);
     if (el) el.textContent = text;
+  }
+
+  /** Comme setStepText, et annonce le texte dans la zone live. @param {string} id @param {string} text */
+  function setLabel(id, text) {
+    setStepText(id, text);
     if (live) live.textContent = text;
   }
 
@@ -1040,13 +1045,9 @@ export function initEmailsPage() {
       const li = $(`[data-mail-step="${id}"]`);
       if (li) li.dataset.state = i < idx ? 'done' : i === idx ? 'active' : 'todo';
     });
-    const label = (/** @type {string} */ id, /** @type {string} */ text) => {
-      const el = $(`[data-mail-step-label="${id}"]`);
-      if (el) el.textContent = text;
-    };
-    label('fetch', t('mail.run.step.fetch'));
-    label('model', t('mail.run.step.model'));
-    label('read', t('mail.run.step.read'));
+    setStepText('fetch', t('mail.run.step.fetch'));
+    setStepText('model', t('mail.run.step.model'));
+    setStepText('read', t('mail.run.step.read'));
   }
 
   /** @param {boolean} on */
@@ -1127,7 +1128,7 @@ export function initEmailsPage() {
       try {
         await api('/api/mail/seen', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: JSON_HEADERS,
           body: JSON.stringify({ account: acc.id, uids }),
         });
       } catch (e) {

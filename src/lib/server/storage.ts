@@ -47,9 +47,9 @@ export interface Folder {
 }
 
 /** Couleurs de dossier autorisées (jamais de rouge : réservé aux alertes). */
-export const FOLDER_COLORS = ['default', 'sky', 'emerald', 'amber', 'violet', 'pink', 'orange', 'teal', 'slate'] as const;
+const FOLDER_COLORS = ['default', 'sky', 'emerald', 'amber', 'violet', 'pink', 'orange', 'teal', 'slate'] as const;
 /** Icônes de dossier autorisées. */
-export const FOLDER_ICONS = [
+const FOLDER_ICONS = [
   'folder', 'star', 'heart', 'code', 'book', 'briefcase', 'lightbulb', 'flask', 'music', 'image', 'globe', 'gamepad',
 ] as const;
 export const isFolderColor = (v: unknown): v is string =>
@@ -220,28 +220,39 @@ export async function updateConversation(
       patch.title === undefined &&
       patch.model === undefined &&
       patch.messages === undefined;
+    // Un seul UPDATE pour tous les champs modifiés.
+    const sets: string[] = [];
+    const args: (string | number | null)[] = [];
     if (!folderOnly) {
-      db.prepare(
-        'UPDATE conversations SET title = COALESCE(?, title), model = COALESCE(?, model), updated_at = ? WHERE id = ?',
-      ).run(patch.title ?? null, patch.model ?? null, new Date().toISOString(), id);
+      sets.push('title = COALESCE(?, title)', 'model = COALESCE(?, model)', 'updated_at = ?');
+      args.push(patch.title ?? null, patch.model ?? null, new Date().toISOString());
     }
     if (patch.folderId !== undefined) {
-      db.prepare('UPDATE conversations SET folder_id = ? WHERE id = ?').run(patch.folderId, id);
+      sets.push('folder_id = ?');
+      args.push(patch.folderId);
     }
     if (patch.think !== undefined) {
-      db.prepare('UPDATE conversations SET think = ? WHERE id = ?').run(patch.think ? 1 : 0, id);
+      sets.push('think = ?');
+      args.push(patch.think ? 1 : 0);
     }
     if (patch.useMemory !== undefined) {
-      db.prepare('UPDATE conversations SET use_memory = ? WHERE id = ?').run(patch.useMemory ? 1 : 0, id);
+      sets.push('use_memory = ?');
+      args.push(patch.useMemory ? 1 : 0);
     }
     if (patch.learnMemory !== undefined) {
-      db.prepare('UPDATE conversations SET learn_memory = ? WHERE id = ?').run(patch.learnMemory ? 1 : 0, id);
+      sets.push('learn_memory = ?');
+      args.push(patch.learnMemory ? 1 : 0);
     }
     if (patch.pinned !== undefined) {
-      db.prepare('UPDATE conversations SET pinned = ? WHERE id = ?').run(patch.pinned ? 1 : 0, id);
+      sets.push('pinned = ?');
+      args.push(patch.pinned ? 1 : 0);
     }
     if (patch.connectionId !== undefined) {
-      db.prepare('UPDATE conversations SET connection_id = ? WHERE id = ?').run(patch.connectionId, id);
+      sets.push('connection_id = ?');
+      args.push(patch.connectionId);
+    }
+    if (sets.length > 0) {
+      db.prepare(`UPDATE conversations SET ${sets.join(', ')} WHERE id = ?`).run(...args, id);
     }
     return true;
   });
@@ -301,10 +312,6 @@ export async function createFolder(name: string): Promise<Folder> {
   const now = new Date().toISOString();
   getDb().prepare('INSERT INTO folders (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)').run(id, name, now, now);
   return { id, name, createdAt: now, updatedAt: now, conversationCount: 0, color: 'default', icon: 'folder' };
-}
-
-export async function renameFolder(id: string, name: string): Promise<Folder | null> {
-  return updateFolder(id, { name });
 }
 
 /** Met à jour les champs fournis (nom, couleur, icône) ; les valeurs doivent être déjà validées. */

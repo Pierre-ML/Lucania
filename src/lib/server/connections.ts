@@ -61,12 +61,12 @@ function toSecret(r: ConnRow): ConnectionSecret {
 }
 
 /** Retire le jeton : forme publique conforme au contrat. */
-export function publicConnection(c: ConnectionSecret): Connection {
+function publicConnection(c: ConnectionSecret): Connection {
   const { shutdownToken: _t, ...pub } = c;
   return { ...pub, shutdown: { ...pub.shutdown } };
 }
 
-export function listConnectionsSecret(): ConnectionSecret[] {
+function listConnectionsSecret(): ConnectionSecret[] {
   const rows = getDb()
     .prepare(`${SELECT} ORDER BY position ASC, created_at ASC, rowid ASC`)
     .all() as unknown as ConnRow[];
@@ -96,7 +96,7 @@ export function connectionExists(id: unknown): boolean {
 // ---- Validation ----
 
 /** URL http(s) valide, trim, sans slash final ; null sinon. */
-export function normalizeHttpUrl(v: unknown): string | null {
+function normalizeHttpUrl(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const s = v.trim().replace(/\/+$/, '');
   if (!s || s.length > 500) return null;

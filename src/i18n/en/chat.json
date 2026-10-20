@@ -13,19 +13,7 @@
     "defaultTitle": "New chat"
   },
   "status": {
-    "checking": "Connecting…",
-    "configure": "Configure",
-    "none": "No server configured",
-    "modelUnavailable": "Model unavailable on {name}",
-    "connected": "{name} connected",
-    "unreachable": "{name} unreachable",
-    "serversConnected": "{up}/{total} servers connected",
-    "online": "online",
-    "onlineLatency": "online · {ms} ms",
-    "offline": "offline",
-    "connection": "{name} ({kind}): {state}",
-    "local": "Local",
-    "remote": "Remote"
+    "checking": "Connecting…"
   },
   "composer": {
     "placeholder": "Write your message…",
@@ -34,11 +22,6 @@
     "model": "Model",
     "chooseModel": "Choose model",
     "models": "Models",
-    "think": "Thinking",
-    "thinkShort": "Thinking",
-    "thinkOn": "Thinking on — the model reasons before answering",
-    "thinkOff": "Thinking off",
-    "thinkError": "Could not change the thinking setting: {message}",
     "memoryUse": "Use memory",
     "memoryUseShort": "Memory",
     "memoryUseOn": "Memory on — the AI knows what it has remembered about you",
@@ -68,8 +51,6 @@
     "lockedShort": "The model is locked for this conversation",
     "unavailable": "{model} · unavailable",
     "unavailableOption": "{model} (unavailable)",
-    "deletedConnection": "Deleted connection",
-    "unknownConnection": "Unknown connection",
     "localGroup": "This computer",
     "settings": "Model settings"
   },
@@ -178,7 +159,6 @@
   },
   "errors": {
     "http": "Error {status}",
-    "emptyResponse": "Empty response from the server.",
     "notFound": "Conversation not found: {message}",
     "rename": "Could not rename: {message}",
     "renameFolder": "Could not rename the folder: {message}",
@@ -281,7 +261,6 @@
   "update": {
     "title": "Check for updates",
     "available": "Update available: v{latest}",
-    "checking": "Checking…",
     "upToDate": "Lucania is up to date (v{current}).",
     "error": "Could not check: {error}",
     "downloading": "Downloading the update…",

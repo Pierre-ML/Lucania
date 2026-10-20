@@ -165,6 +165,7 @@ const stopBtn = /** @type {HTMLButtonElement} */ ($('stop-btn'));
 const memoryUseToggle = /** @type {HTMLButtonElement|null} */ ($('memory-use-toggle'));
 const memoryLearnToggle = /** @type {HTMLButtonElement|null} */ ($('memory-learn-toggle'));
 const memoryCard = $('memory-proposal');
+const modelSettingsBtn = /** @type {HTMLButtonElement|null} */ ($('model-settings-btn'));
 
 const defaultTitle = () => t('chat.header.defaultTitle');
 const defaultFolderName = () => t('chat.list.defaultFolderName');
@@ -525,13 +526,12 @@ function updateModelSelect() {
 
 /** Bouton « Réglages du modèle » : actif seulement si un modèle local installé est sélectionné. */
 function syncModelSettingsBtn() {
-  const btn = /** @type {HTMLButtonElement|null} */ ($('model-settings-btn'));
-  if (!btn) return;
+  if (!modelSettingsBtn) return;
   const ref = parseModelRef(select.value);
-  btn.disabled = !(engineAvailable() && ref.group === LOCAL_GROUP && ref.model && modelMeta.get(select.value)?.available !== false);
+  modelSettingsBtn.disabled = !(engineAvailable() && ref.group === LOCAL_GROUP && ref.model && modelMeta.get(select.value)?.available !== false);
 }
 
-$('model-settings-btn')?.addEventListener('click', () => {
+modelSettingsBtn?.addEventListener('click', () => {
   const ref = parseModelRef(select.value);
   if (ref.group !== LOCAL_GROUP || !ref.model) return;
   openModelSettings(ref.model, modelMeta.get(select.value)?.name);
@@ -741,14 +741,12 @@ function renderMemoryProposal() {
     const acceptBtn = document.createElement('button');
     acceptBtn.type = 'button';
     acceptBtn.className = MEM_CLS.btn;
-    acceptBtn.dataset.action = 'memory-accept';
     acceptBtn.setAttribute('aria-label', t('chat.memory.accept'));
     acceptBtn.title = t('chat.memory.accept');
     acceptBtn.replaceChildren(svgIcon(checkRaw, '', 16));
     const rejectBtn = document.createElement('button');
     rejectBtn.type = 'button';
     rejectBtn.className = MEM_CLS.btn;
-    rejectBtn.dataset.action = 'memory-reject';
     rejectBtn.setAttribute('aria-label', t('chat.memory.reject'));
     rejectBtn.title = t('chat.memory.reject');
     rejectBtn.replaceChildren(svgIcon(xRaw, '', 16));
@@ -952,7 +950,6 @@ function createFolderEl(f, items) {
   const li = document.createElement('li');
   li.className = CLS.folder;
   li.dataset.role = 'folder';
-  if (items.some((c) => c.id === currentId)) li.dataset.hasActive = 'true';
   li.dataset.folderId = f.id;
 
   const header = document.createElement('div');
@@ -1381,7 +1378,6 @@ function openCustomize(btn, folderId) {
 
   const pop = document.createElement('div');
   pop.className = CLS.customizePop;
-  pop.dataset.role = 'customize-popover';
   pop.setAttribute('role', 'dialog');
   pop.setAttribute('aria-label', t('chat.folders.title'));
 
@@ -1434,7 +1430,6 @@ function openCustomize(btn, folderId) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `${CLS.customizeSwatch} ${FOLDER_COLOR_BG[key]}`;
-    b.dataset.role = 'folder-color';
     b.dataset.value = key;
     const label = t(`chat.folders.colors.${key}`);
     b.title = label;
@@ -1446,7 +1441,6 @@ function openCustomize(btn, folderId) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = CLS.customizeIcon;
-    b.dataset.role = 'folder-icon-choice';
     b.dataset.value = key;
     const label = t(`chat.folders.icons.${key}`);
     b.title = label;
@@ -1459,7 +1453,6 @@ function openCustomize(btn, folderId) {
   const done = document.createElement('button');
   done.type = 'button';
   done.className = CLS.customizeDone;
-  done.dataset.role = 'customize-done';
   done.textContent = t('chat.folders.done');
   done.addEventListener('click', () => closeCustomize(true));
 

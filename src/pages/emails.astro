@@ -1,6 +1,7 @@
 ---
 import ChevronLeftIcon from '../assets/icons/chevron-left.svg';
 import { getLang, t } from '../i18n/index';
+import Animal from '../components/Animal.astro';
 import Layout from '../layouts/Layout.astro';
 import MailAiPanel from '../components/mail/MailAiPanel.astro';
 
@@ -50,7 +51,10 @@ const steps = ['fetch', 'model', 'read'];
 				<ChevronLeftIcon class="size-4 shrink-0 transition-transform duration-150 ease-out group-hover:-translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none" aria-hidden="true" />
 				<span>{t(lang, 'mail.back')}</span>
 			</a>
-			<h1 class="shrink-0 font-serif text-lg">{t(lang, 'mail.title')}</h1>
+			<div class="flex shrink-0 items-center gap-2.5">
+				<Animal id="hibou" class="size-6 shrink-0 text-fg" />
+				<h1 class="font-serif text-lg">{t(lang, 'mail.title')}</h1>
+			</div>
 			<p data-mail-status role="status" aria-live="polite" class="min-w-0 flex-1 truncate text-right text-sm text-muted data-[error=true]:text-danger"></p>
 		</header>
 
@@ -119,6 +123,7 @@ const steps = ['fetch', 'model', 'read'];
 			<!-- Centre : résultats (seule zone qui défile) -->
 			<section aria-label={t(lang, 'mail.results.listLabel')} class="flex min-h-96 min-w-0 flex-col lg:min-h-0 lg:overflow-y-auto">
 				<div data-mail-welcome class="m-auto flex max-w-md flex-col items-center px-6 py-12 text-center">
+					<Animal id="hibou" class="mb-6 size-14 text-fg/25" />
 					<h2 class="font-serif text-2xl">{t(lang, 'mail.run.title')}</h2>
 					<p class="mt-2 text-sm leading-relaxed text-muted">{t(lang, 'mail.intro')}</p>
 					<p class="mt-2 text-sm leading-relaxed text-muted">{t(lang, 'mail.run.intro')}</p>
@@ -208,7 +213,10 @@ const steps = ['fetch', 'model', 'read'];
 
 					<details data-mail-advanced class="group rounded-xl border border-border">
 						<summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-fg/40 [&::-webkit-details-marker]:hidden">
-							<span>{t(lang, 'mail.setup.advanced')}</span>
+							<span class="flex items-center gap-2">
+								<Animal id="renard" class="size-5 shrink-0 text-fg" />
+								<span>{t(lang, 'mail.setup.advanced')}</span>
+							</span>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0 text-muted transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">
 								<path d="m6 9 6 6 6-6"></path>
 							</svg>

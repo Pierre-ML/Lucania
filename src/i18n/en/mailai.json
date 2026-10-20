@@ -35,8 +35,7 @@
     "error": "The download failed.",
     "noFile": "No matching file for {name} on Hugging Face.",
     "repo": "View on Hugging Face",
-    "repoLabel": "View {name} on Hugging Face (new tab)",
-    "none": "No model to suggest."
+    "repoLabel": "View {name} on Hugging Face (new tab)"
   },
   "prompt": {
     "title": "AI instructions (system prompt)",

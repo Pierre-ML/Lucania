@@ -96,7 +96,6 @@ function migrateJson(db: DatabaseSync) {
   }
 }
 
-// v5 : connexions (extinction à distance). Appelée dans la transaction de migrateSchema.
 function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as unknown as { name: string }[];
   return cols.some((c) => c.name === column);
@@ -118,6 +117,7 @@ export function withTransaction<T>(fn: (db: DatabaseSync) => T): T {
   }
 }
 
+// v5 : connexions (extinction à distance). Appelée dans la transaction de migrateSchema.
 function migrateV5(db: DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS connections (
     id TEXT PRIMARY KEY,
@@ -348,10 +348,16 @@ function migrateSchema(db: DatabaseSync) {
   }
 }
 
+// Vrai une fois le schéma vérifié par CE chargement du module (remis à faux par le HMR de dev).
+let schemaChecked = false;
+
 export function getDb(): DatabaseSync {
   if (G.__iaDb) {
-    // Connexion conservée par le HMR de dev : s'assure que le schéma est à jour (idempotent).
-    migrateSchema(G.__iaDb);
+    if (!schemaChecked) {
+      // Connexion conservée par le HMR de dev : s'assure une fois que le schéma est à jour (idempotent).
+      migrateSchema(G.__iaDb);
+      schemaChecked = true;
+    }
     return G.__iaDb;
   }
   const dataDir = dataDirPath();
@@ -362,5 +368,6 @@ export function getDb(): DatabaseSync {
   migrateSchema(db);
   migrateJson(db);
   G.__iaDb = db;
+  schemaChecked = true;
   return db;
 }

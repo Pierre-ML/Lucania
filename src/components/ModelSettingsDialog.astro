@@ -59,7 +59,7 @@ const estRows = [
 			<p data-ms="loading" class="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted">{t(lang, 'settings.modelSettings.loading')}</p>
 
 			<fieldset data-ms="fieldset" hidden class="contents">
-				<div data-ms="body" class="space-y-8">
+				<div class="space-y-8">
 					<section aria-labelledby="ms-load-title">
 						<h3 id="ms-load-title" class={sectionTitle}>{t(lang, 'settings.modelSettings.load.title')}</h3>
 						<p class={hint}>{t(lang, 'settings.modelSettings.load.note')}</p>
@@ -111,7 +111,7 @@ const estRows = [
 										<p id="ms-flash-label" class="text-sm font-medium">{t(lang, 'settings.modelSettings.load.flashAttn')}</p>
 										<p class={hint}>{t(lang, 'settings.modelSettings.load.flashAttnHint')}</p>
 									</div>
-									<Switch id="ms-flashAttn" labelledby="ms-flash-label" attrs={{ 'data-ms': 'flashAttn' }} />
+									<Switch labelledby="ms-flash-label" attrs={{ 'data-ms': 'flashAttn' }} />
 								</div>
 							</div>
 

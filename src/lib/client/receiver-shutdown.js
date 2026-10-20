@@ -46,9 +46,9 @@ function announceChanged() {
  * Crée la connexion d'extinction de la tour, ou met à jour celle qui a déjà la même adresse.
  * @param {ShutdownInfo} info
  * @param {string|null} token jeton saisi (jamais fourni par la tour) ; null = ne pas toucher au jeton enregistré
- * @returns {Promise<{ created: boolean }>}
+ * @returns {Promise<void>}
  */
-export async function saveTowerConnection(info, token) {
+async function saveTowerConnection(info, token) {
   const target = comparableUrl(info.url);
   const list = await listConnections();
   const existing = list.find((c) => c.shutdown?.url && comparableUrl(c.shutdown.url) === target);
@@ -61,12 +61,11 @@ export async function saveTowerConnection(info, token) {
     await createConnection({ name: nameFromUrl(info.url), kind: 'remote', enabled: true, shutdown });
   }
   announceChanged();
-  return { created: !existing };
 }
 
 /**
  * @param {ParentNode} root conteneur [data-rshut]
- * @returns {{ run: () => Promise<SyncState>, getState: () => SyncState, onChange: (cb: (state: SyncState) => void) => void }}
+ * @returns {{ run: () => Promise<void>, onChange: (cb: (state: SyncState) => void) => void }}
  */
 export function initReceiverShutdown(root) {
   /** @param {string} sel */
@@ -125,27 +124,26 @@ export function initReceiverShutdown(root) {
       info = await getRemoteShutdownInfo();
     } catch (e) {
       if (id === runId) fail(e);
-      return state;
+      return;
     }
-    if (id !== runId) return state;
+    if (id !== runId) return;
     if (!info?.enabled) {
       setState('none', t('settings.remote.client.shutdownSync.none'));
-      return state;
+      return;
     }
     if (info.tokenRequired) {
       offer = info;
       setState('token', t('settings.remote.client.shutdownSync.tokenPrompt'));
       tokenInput?.focus();
-      return state;
+      return;
     }
     try {
       await saveTowerConnection(info, null);
     } catch (e) {
       if (id === runId) fail(e);
-      return state;
+      return;
     }
     if (id === runId) setState('done', t('settings.remote.client.shutdownSync.auto'));
-    return state;
   }
 
   runBtn?.addEventListener('click', () => {
@@ -181,7 +179,6 @@ export function initReceiverShutdown(root) {
 
   return {
     run,
-    getState: () => state,
     /** @param {(state: SyncState) => void} cb */
     onChange(cb) {
       listeners.add(cb);

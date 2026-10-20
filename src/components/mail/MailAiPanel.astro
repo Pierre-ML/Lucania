@@ -1,6 +1,7 @@
 ---
 // Panneau « Réglages de l'IA du tri » (colonne de droite) : modèles conseillés, instructions, mémoire du tri.
 import { getLang, t } from '../../i18n/index';
+import Animal from '../Animal.astro';
 
 const lang = getLang(Astro);
 const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
@@ -12,7 +13,10 @@ const chevronCls = 'size-4 shrink-0 text-muted transition-transform duration-150
 ---
 <section data-mail-ai class="flex flex-col">
 	<div class="px-4 pb-2 pt-4">
-		<h2 class="text-xs font-medium uppercase tracking-wide text-muted">{t(lang, 'mailai.title')}</h2>
+		<div class="flex items-center gap-2">
+			<Animal id="hibou" class="size-5 shrink-0 text-fg" />
+			<h2 class="text-xs font-medium uppercase tracking-wide text-muted">{t(lang, 'mailai.title')}</h2>
+		</div>
 		<p class="mt-1 text-xs leading-relaxed text-muted">{t(lang, 'mailai.subtitle')}</p>
 	</div>
 

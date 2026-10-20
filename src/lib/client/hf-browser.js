@@ -7,6 +7,7 @@ import {
   describeProfile,
   estimateFit,
   estimateFitAsync,
+  formatBytes,
   getHardwareProfile,
   onHardwareChange,
 } from './hardware.js';
@@ -128,15 +129,6 @@ const smallBtn = 'inline-flex h-8 shrink-0 cursor-pointer items-center justify-c
 
 // ---------- Formats ----------
 
-/** Taille lisible (Mo / Go) selon la langue courante. @param {number} bytes */
-function formatSize(bytes) {
-  const nf = (/** @type {number} */ n) =>
-    new Intl.NumberFormat(getLang(), { maximumFractionDigits: n >= 100 ? 0 : 1 }).format(n);
-  const gb = bytes / 1024 ** 3;
-  if (gb >= 1) return `${nf(gb)} ${t('settings.engine.unitGb')}`;
-  return `${nf(bytes / 1024 ** 2)} ${t('settings.engine.unitMb')}`;
-}
-
 /** Compte compact (1,2 M). @param {number} n */
 function formatCount(n) {
   return new Intl.NumberFormat(getLang(), { notation: 'compact', maximumFractionDigits: 1 }).format(n || 0);
@@ -200,7 +192,7 @@ function setPanelMessage(panel, text, isError = false, hint = false) {
  * @param {{ onChange?: () => void }} [opts] onChange : un modèle vient d'être installé ou chargé
  * @returns {{ open: () => void }}
  */
-export function mountHfBrowser(root, { onChange } = {}) {
+function mountHfBrowser(root, { onChange } = {}) {
   /** @param {string} name */
   const q = (name) => /** @type {HTMLElement|null} */ (root.querySelector(`[data-hf="${name}"]`));
   /** @param {string} sel @param {ParentNode} from */
@@ -275,16 +267,16 @@ export function mountHfBrowser(root, { onChange } = {}) {
       bar.removeAttribute('value');
     }
 
-    let bytes = formatSize(info.downloadedBytes);
+    let bytes = formatBytes(info.downloadedBytes);
     if (typeof total === 'number' && total > 0) {
       const pct = Math.min(100, Math.floor((info.downloadedBytes / total) * 100));
-      bytes = `${bytes} / ${formatSize(total)} (${pct} %)`;
+      bytes = `${bytes} / ${formatBytes(total)} (${pct} %)`;
     }
     $('[data-dl-bytes]', li).textContent = bytes;
 
     let state = '';
     if (info.state === 'downloading') {
-      state = info.speedBps > 0 ? `${formatSize(info.speedBps)}/s` : t('chat.addModel.downloads.state.downloading');
+      state = info.speedBps > 0 ? `${formatBytes(info.speedBps)}/s` : t('chat.addModel.downloads.state.downloading');
       const eta = formatEta(info);
       if (eta) state += ` · ${eta}`;
     } else if (info.state === 'paused') state = t('chat.addModel.downloads.state.paused');
@@ -398,7 +390,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
         if (dl.state === 'paused') bits.push(t('chat.addModel.downloads.state.paused'));
         if (pct) bits.push(pct);
         if (dl.state === 'downloading') {
-          if (dl.speedBps > 0) bits.push(`${formatSize(dl.speedBps)}/s`);
+          if (dl.speedBps > 0) bits.push(`${formatBytes(dl.speedBps)}/s`);
           else if (!pct) bits.push(t('chat.addModel.downloads.state.downloading'));
         }
         wrap.append(bar, span(bits.join(' · '), 'text-xs text-muted'));
@@ -672,7 +664,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
     annexEl.hidden = !file.annexHint;
     head.append(annexEl, fitEl);
     const files = Array.isArray(file.files) ? file.files : [];
-    const meta = files.length > 1 ? `${formatSize(file.sizeBytes)} · ${partsText(files)}` : formatSize(file.sizeBytes);
+    const meta = files.length > 1 ? `${formatBytes(file.sizeBytes)} · ${partsText(files)}` : formatBytes(file.sizeBytes);
     const detailEl = span('', 'mt-0.5 block text-[11px] text-muted');
     detailEl.hidden = true;
     info.append(head, span(meta, 'mt-0.5 block text-[11px] text-muted'), detailEl);
@@ -790,12 +782,12 @@ export function mountHfBrowser(root, { onChange } = {}) {
 
   let searchSeq = 0;
 
-  /** @type {{ btn: HTMLButtonElement, query: string }[]} */
+  /** @type {HTMLButtonElement[]} */
   const chips = [];
 
   /** Marque la puce de famille active (ou aucune). @param {HTMLButtonElement|null} active */
   function setActiveChip(active) {
-    for (const c of chips) c.btn.setAttribute('aria-pressed', c.btn === active ? 'true' : 'false');
+    for (const c of chips) c.setAttribute('aria-pressed', c === active ? 'true' : 'false');
   }
 
   function buildChips() {
@@ -813,7 +805,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
         if (searchInput) searchInput.value = query;
         runSearch(query);
       });
-      chips.push({ btn, query: fam.query });
+      chips.push(btn);
       familiesEl.append(btn);
     }
     requestAvatars(FAMILIES.map((f) => f.org));

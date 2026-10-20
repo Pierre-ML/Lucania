@@ -1,0 +1,20 @@
+---
+// Animal low-poly décoratif (SVG, rendu serveur). Facettes, yeux et accents en currentColor
+// (jamais de couleur : le rouge est réservé aux signaux). Props : id (voir src/lib/animals.js), class.
+import { getAnimal } from '../lib/animals.js';
+
+interface Props {
+  id: string;
+  class?: string;
+}
+
+const { id, class: className = '' } = Astro.props;
+const a = getAnimal(id);
+const d = (pts: number[][]) => `M${pts.map((p) => p.join(' ')).join('L')}Z`;
+---
+
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" class={className}>
+  {a.facets.map((f: { points: number[][]; opacity: number }) => <path d={d(f.points)} fill="currentColor" fill-opacity={f.opacity} />)}
+  {(a.accents ?? []).map((c: { points: number[][] }) => <path d={d(c.points)} fill="currentColor" />)}
+  {a.eyes.map((e: { cx: number; cy: number; r: number }) => <circle cx={e.cx} cy={e.cy} r={e.r} fill="currentColor" />)}
+</svg>

@@ -5,13 +5,13 @@
 //  - Ce module écoute source = 'connections' (liste modifiée) et recharge ses cartes.
 //  - Après un enregistrement, il émet source = 'shutdown' pour que la liste des
 //    connexions se mette à jour (les cartes, elles, sont conservées).
+import { EVENT_CONNECTIONS } from './connect-state.js';
 import { listConnections, updateConnection } from './connections.js';
 import { t } from './i18n.js';
 import { isOn, setOn, isHttpUrl } from './switch-utils.js';
 
 /** @typedef {import('./connections.js').Connection} Connection */
 
-const CONNECTIONS_CHANGED = 'lucania:connections-changed';
 const SAVED_MS = 2500;
 
 /** @param {string} sel @param {ParentNode} [root] */
@@ -170,7 +170,7 @@ export function initShutdownSettings() {
             connections = await listConnections();
             const fresh = connections.find((c) => c.id === conn.id);
             if (fresh) cur = fresh.shutdown;
-            document.dispatchEvent(new CustomEvent(CONNECTIONS_CHANGED, { detail: { source: 'shutdown' } }));
+            document.dispatchEvent(new CustomEvent(EVENT_CONNECTIONS, { detail: { source: 'shutdown' } }));
           } catch {
             /* la liste sera rafraîchie au prochain chargement */
           }
@@ -192,7 +192,7 @@ export function initShutdownSettings() {
     return card;
   }
 
-  document.addEventListener(CONNECTIONS_CHANGED, (e) => {
+  document.addEventListener(EVENT_CONNECTIONS, (e) => {
     if (/** @type {CustomEvent} */ (e).detail?.source === 'connections') load();
   });
 

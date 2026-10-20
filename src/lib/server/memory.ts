@@ -22,7 +22,7 @@ export interface ExtractMessage {
   content: string;
 }
 
-export const MAX_FACT_LENGTH = 500;
+const MAX_FACT_LENGTH = 500;
 const MAX_EXTRACTED_LENGTH = 200;
 const MAX_EXTRACTED = 3;
 const MAX_INPUT_MESSAGES = 20;
@@ -71,30 +71,21 @@ function getFact(id: string): Fact | null {
 export function createFact(model: string, content: string): Fact {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  withTransaction((db) => {
-    db.prepare('INSERT INTO memory_facts (id, model, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(
-      id,
-      model,
-      content,
-      now,
-      now,
-    );
-  });
+  getDb()
+    .prepare('INSERT INTO memory_facts (id, model, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
+    .run(id, model, content, now, now);
   return { id, model, content, createdAt: now, updatedAt: now };
 }
 
 export function updateFact(id: string, content: string): Fact | null {
-  const changed = withTransaction((db) => {
-    const r = db
-      .prepare('UPDATE memory_facts SET content = ?, updated_at = ? WHERE id = ?')
-      .run(content, new Date().toISOString(), id);
-    return Number(r.changes) > 0;
-  });
-  return changed ? getFact(id) : null;
+  const r = getDb()
+    .prepare('UPDATE memory_facts SET content = ?, updated_at = ? WHERE id = ?')
+    .run(content, new Date().toISOString(), id);
+  return Number(r.changes) > 0 ? getFact(id) : null;
 }
 
 export function deleteFact(id: string): boolean {
-  return withTransaction((db) => Number(db.prepare('DELETE FROM memory_facts WHERE id = ?').run(id).changes) > 0);
+  return Number(getDb().prepare('DELETE FROM memory_facts WHERE id = ?').run(id).changes) > 0;
 }
 
 // ---- Réglages (sans ligne : enabled = true, autoExtract = true) ----
@@ -209,9 +200,9 @@ function parseFacts(raw: unknown, known: string[]): string[] {
 }
 
 /** Nombre maximal de jetons à générer pour l'extraction. */
-export const EXTRACT_MAX_TOKENS = 512;
+const EXTRACT_MAX_TOKENS = 512;
 
-export type ExtractPrompt =
+type ExtractPrompt =
   | { skip: true }
   | { skip: false; messages: { role: 'system' | 'user' | 'assistant'; content: string }[]; maxTokens: number };
 

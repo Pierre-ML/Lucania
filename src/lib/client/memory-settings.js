@@ -3,6 +3,7 @@ import { engineAvailable, listModels } from './engine.js';
 import { listMemoryModels, getMemory, addFact, updateFact, deleteFact, setMemorySettings } from './memory.js';
 import { t } from './i18n.js';
 import { svgIcon } from './icons.js';
+import { isOn, setOn } from './switch-utils.js';
 import chevronRaw from '../../assets/icons/chevron-down.svg?raw';
 import checkRaw from '../../assets/icons/check.svg?raw';
 
@@ -70,11 +71,6 @@ function init(loadingEl, emptyEl, errorEl, mainEl, btnEl, menuEl, pickerEl, name
   };
 
   chevronEl.replaceChildren(svgIcon(chevronRaw, '', 14));
-
-  /** @param {Element} sw */
-  const isOn = (sw) => sw.getAttribute('aria-checked') === 'true';
-  /** @param {Element} sw @param {boolean} on */
-  const setOn = (sw, on) => sw.setAttribute('aria-checked', on ? 'true' : 'false');
 
   /** @param {string} msg */
   function showError(msg) {

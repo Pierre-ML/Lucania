@@ -1,5 +1,6 @@
 ---
 import { getLang, t } from '../../i18n/index';
+import Animal from '../Animal.astro';
 import Switch from './Switch.astro';
 
 const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
@@ -10,7 +11,10 @@ const seg = 'h-8 cursor-pointer rounded-md px-3 font-mono text-xs text-muted tra
 const lang = getLang(Astro);
 ---
 <section aria-labelledby="shutdown-title">
-	<h2 id="shutdown-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.shutdown.title')}</h2>
+	<div class="flex items-center gap-2.5">
+		<Animal id="dragon" class="size-6 shrink-0 text-fg" />
+		<h2 id="shutdown-title" class="text-lg font-medium tracking-tight">{t(lang, 'settings.shutdown.title')}</h2>
+	</div>
 	<p class="mt-1 text-sm text-muted">{t(lang, 'settings.shutdown.description')}</p>
 
 	<ul id="shutdown-list" hidden class="mt-6 space-y-3"></ul>

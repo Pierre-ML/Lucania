@@ -1,5 +1,6 @@
 ---
 import { getLang, t } from '../i18n/index';
+import Animal from '../components/Animal.astro';
 import Layout from '../layouts/Layout.astro';
 
 const lang = getLang(Astro);
@@ -7,6 +8,7 @@ const primaryBtn = 'inline-flex h-14 cursor-pointer items-center justify-center 
 ---
 <Layout title={t(lang, 'settings.server.screen.docTitle')}>
 	<main class="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-6 text-center">
+		<Animal id="aigle" class="mb-4 size-16 shrink-0 text-fg/25" />
 		<button type="button" id="server-stop" class={primaryBtn}>{t(lang, 'settings.server.screen.stop')}</button>
 		<p data-key-prefix hidden class="mt-6 font-mono text-sm text-muted"></p>
 		<p id="server-address" class="text-xs text-muted [overflow-wrap:anywhere]"></p>

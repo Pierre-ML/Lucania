@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Lucania",
-  "version": "0.3.7",
+  "version": "0.4.0",
   "identifier": "com.lucania.desktop",
   "build": {
     "frontendDist": "../src-tauri/loader",
@@ -24,15 +24,15 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:4749 http://localhost:11434; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:4749; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
     }
   },
   "bundle": {
     "active": true,
     "publisher": "Pierre Mouilleseaux Lhuillier",
     "copyright": "© 2026 Pierre Mouilleseaux Lhuillier",
-    "shortDescription": "Interface de chat locale pour modèles Ollama",
-    "longDescription": "Interface de chat locale pour modèles Ollama",
+    "shortDescription": "Interface de chat locale pour modèles GGUF, moteur llama.cpp intégré",
+    "longDescription": "Interface de chat locale pour modèles GGUF, moteur llama.cpp intégré",
     "homepage": "https://github.com/Pierre-ML/Lucania",
     "targets": ["nsis"],
     "icon": [

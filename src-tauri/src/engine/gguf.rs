@@ -394,7 +394,7 @@ fn parse_size_label(label: &str) -> Option<u64> {
   };
   let n: f64 = size[..size.len() - 1].parse().ok()?;
   let v = mult * n * unit;
-  (v.is_finite() && v >= 1.0 && v < 1e16).then_some(v.round() as u64)
+  (v.is_finite() && (1.0..1e16).contains(&v)).then_some(v.round() as u64)
 }
 
 pub(crate) fn model_info(first: &Header, others: &[Header]) -> ModelInfo {

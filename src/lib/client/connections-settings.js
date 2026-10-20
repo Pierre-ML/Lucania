@@ -13,13 +13,12 @@ import {
   updateConnection,
   deleteConnection,
 } from './connections.js';
+import { EVENT_CONNECTIONS } from './connect-state.js';
 import { confirmDialog } from './dialog.js';
 import { t } from './i18n.js';
 import { isOn, setOn, isHttpUrl } from './switch-utils.js';
 
 /** @typedef {import('./connections.js').Connection} Connection */
-
-export const CONNECTIONS_CHANGED = 'lucania:connections-changed';
 
 /** @param {string} sel @param {ParentNode} [root] */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -219,11 +218,11 @@ export function initConnectionsSettings() {
       showFeedback(e.message);
     }
     renderList();
-    if (emit) document.dispatchEvent(new CustomEvent(CONNECTIONS_CHANGED, { detail: { source: 'connections' } }));
+    if (emit) document.dispatchEvent(new CustomEvent(EVENT_CONNECTIONS, { detail: { source: 'connections' } }));
   }
 
   // L'extinction a enregistré une carte : on met la liste à jour sans ré-émettre.
-  document.addEventListener(CONNECTIONS_CHANGED, (e) => {
+  document.addEventListener(EVENT_CONNECTIONS, (e) => {
     if (/** @type {CustomEvent} */ (e).detail?.source === 'shutdown') refresh({ emit: false });
   });
 

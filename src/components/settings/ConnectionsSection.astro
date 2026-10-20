@@ -1,6 +1,7 @@
 ---
 import DotsHorizontalIcon from '../../assets/icons/dots-horizontal.svg';
 import { getLang, t } from '../../i18n/index';
+import Animal from '../Animal.astro';
 import Switch from './Switch.astro';
 
 const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
@@ -21,15 +22,7 @@ const lang = getLang(Astro);
 	<ul id="connections-list" hidden class="mt-6 divide-y divide-border rounded-xl border border-border" aria-busy="true"></ul>
 
 	<div id="connections-empty" hidden class="mt-6 flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-14 text-center">
-		<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="size-14 text-fg/10">
-			<path d="M14 4L26 22L14 34Z" fill="currentColor" fill-opacity="0.7"/>
-			<path d="M50 4L38 22L50 34Z" fill="currentColor" fill-opacity="0.45"/>
-			<path d="M26 22L38 22L32 36Z" fill="currentColor"/>
-			<path d="M14 34L26 22L32 36Z" fill="currentColor" fill-opacity="0.5"/>
-			<path d="M50 34L38 22L32 36Z" fill="currentColor" fill-opacity="0.3"/>
-			<path d="M14 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.3"/>
-			<path d="M50 34L32 36L32 60Z" fill="currentColor" fill-opacity="0.2"/>
-		</svg>
+		<Animal id="dragon" class="size-14 text-fg/25" />
 		<p class="mt-5 text-sm font-medium">{t(lang, 'settings.connections.emptyTitle')}</p>
 		<p class="mt-1 max-w-xs text-sm text-muted">{t(lang, 'settings.connections.emptyText')}</p>
 		<button type="button" data-action="add-connection" class={`${primaryBtn} mt-6`}>{t(lang, 'settings.connections.add')}</button>

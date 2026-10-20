@@ -14,6 +14,7 @@ import {
 import { clearFitCache, formatBytes, getHardwareProfile, onHardwareChange } from './hardware.js';
 import { errorMessage } from './hf.js';
 import { getLang, t } from './i18n.js';
+import { isOn, setOn } from './switch-utils.js';
 
 /** @typedef {import('./engine.js').ProfileInfo} ProfileInfo */
 /** @typedef {import('./engine.js').VramEstimate} VramEstimate */
@@ -75,11 +76,6 @@ const q = (name) => /** @type {HTMLElement} */ (/** @type {HTMLDialogElement} */
 const fieldEl = (key) => /** @type {HTMLInputElement} */ (/** @type {HTMLDialogElement} */ (dlg).querySelector(`[data-ms-field="${key}"]`));
 /** Valeur d'estimation `[data-ms-est="key"]`. @param {string} key */
 const estEl = (key) => /** @type {HTMLElement} */ (/** @type {HTMLDialogElement} */ (dlg).querySelector(`[data-ms-est="${key}"]`));
-
-/** @param {Element} sw */
-const isOn = (sw) => sw.getAttribute('aria-checked') === 'true';
-/** @param {Element} sw @param {boolean} on */
-const setOn = (sw, on) => sw.setAttribute('aria-checked', on ? 'true' : 'false');
 
 /** @param {number} n */
 const fmtInt = (n) => new Intl.NumberFormat(getLang()).format(n);

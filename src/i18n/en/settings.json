@@ -6,10 +6,7 @@
   "nav": {
     "engine": "Engine",
     "hf": "Hugging Face",
-    "connections": "Connections",
     "memory": "Memory",
-    "remote": "Remote access",
-    "shutdown": "Remote shutdown",
     "appearance": "Appearance",
     "about": "About"
   },
@@ -417,9 +414,6 @@
     },
     "key": {
       "label": "Tower code",
-      "help": "Paste this code on the other machine.",
-      "show": "Show",
-      "hide": "Hide",
       "copy": "Copy",
       "copied": "Copied",
       "prefix": "Tower code: {prefix}••••",

@@ -1,10 +1,10 @@
 [package]
 name = "lucania"
-version = "0.3.7"
+version = "0.4.0"
 description = "Lucania - interface de chat locale pour modèles GGUF (llama.cpp)"
 authors = ["Pierre Mouilleseaux Lhuillier"]
 license = "MIT"
-repository = ""
+repository = "https://github.com/Pierre-ML/Lucania"
 edition = "2024"
 rust-version = "1.90"
 

@@ -20,7 +20,7 @@ const NOTE_MS = 3500;
  * @param {PowerInput} input
  * @returns {PowerState}
  */
-export function computePowerState({ engineAvailable: available, status, error = false }) {
+function computePowerState({ engineAvailable: available, status, error = false }) {
   if (!available || error || !status) return 'none';
   if (status.loading) return 'partial';
   if (status.generating || status.loadedModel) return 'ok';

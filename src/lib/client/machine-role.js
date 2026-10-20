@@ -7,7 +7,7 @@ import { getRemoteConfig, getServerConfig } from './remote.js';
  * Rôle de la machine : 'server' si un code existe, 'receiver' si le mode distant est actif, sinon null.
  * @returns {Promise<'server'|'receiver'|null>}
  */
-export async function getMachineRole() {
+async function getMachineRole() {
   if (!engineAvailable()) return null;
   try {
     const server = await getServerConfig();

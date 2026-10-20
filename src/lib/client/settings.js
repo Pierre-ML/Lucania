@@ -172,15 +172,6 @@ const engineModelsEl = byId('engine-models');
 const engineEmptyEl = byId('engine-empty');
 const engineRefreshBtn = /** @type {HTMLButtonElement|null} */ (byId('engine-refresh'));
 
-/** Taille lisible (Mo / Go) selon la langue courante. @param {number} bytes */
-function formatSize(bytes) {
-  const nf = (/** @type {number} */ n) =>
-    new Intl.NumberFormat(getLang(), { maximumFractionDigits: n >= 100 ? 0 : 1 }).format(n);
-  const gb = bytes / 1024 ** 3;
-  if (gb >= 1) return `${nf(gb)} ${t('settings.engine.unitGb')}`;
-  return `${nf(bytes / 1024 ** 2)} ${t('settings.engine.unitMb')}`;
-}
-
 const modelBtn = 'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const modelBtnDanger = 'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-danger/40 px-3 text-xs font-medium text-danger transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 
@@ -266,7 +257,6 @@ function buildModelBtn(label, cls, onClick, disabled) {
 function buildModelItem(model) {
   const li = document.createElement('li');
   li.className = 'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3';
-  li.dataset.modelId = model.id;
   const isLoaded = loadedModelId === model.id;
   const isLoading = loadingModelId === model.id;
   const locked = loadingModelId !== null || engineLoadingAny;
@@ -300,7 +290,7 @@ function buildModelItem(model) {
   }
   const meta = document.createElement('p');
   meta.className = 'mt-0.5 truncate font-mono text-[11px] text-muted';
-  meta.textContent = `${formatSize(model.sizeBytes)} · ${model.id}`;
+  meta.textContent = `${formatBytes(model.sizeBytes)} · ${model.id}`;
   meta.title = model.id;
   info.append(head, meta);
 

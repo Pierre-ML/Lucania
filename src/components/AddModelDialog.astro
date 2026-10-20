@@ -1,4 +1,5 @@
 ---
+import Animal from './Animal.astro';
 import XIcon from '../assets/icons/x.svg';
 import { getLang, t } from '../i18n/index';
 
@@ -12,7 +13,10 @@ const lang = getLang(Astro);
 <dialog id="add-model-dialog" aria-labelledby="add-model-title" class="backdrop:bg-black/70 backdrop:backdrop-blur-sm m-auto max-h-[85vh] w-[min(48rem,calc(100vw-2rem))] max-w-none flex-col overflow-hidden rounded-2xl border border-border bg-surface p-0 text-fg shadow-[0_24px_80px_-12px_rgb(0_0_0/0.8)] open:flex open:animate-pop-in motion-reduce:animate-none">
 	<div class="flex shrink-0 items-start justify-between gap-4 px-6 pb-4 pt-6">
 		<div class="min-w-0">
-			<h2 id="add-model-title" class="font-serif text-xl">{t(lang, 'chat.addModel.title')}</h2>
+			<div class="flex items-center gap-2.5">
+				<Animal id="meneur" class="size-6 shrink-0 text-fg" />
+				<h2 id="add-model-title" class="font-serif text-xl">{t(lang, 'chat.addModel.title')}</h2>
+			</div>
 			<p class="mt-1 text-sm text-muted">{t(lang, 'chat.addModel.description')}</p>
 		</div>
 		<button type="button" data-action="add-model-close" aria-label={t(lang, 'chat.addModel.close')} title={t(lang, 'chat.addModel.close')} class="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
@@ -41,7 +45,7 @@ const lang = getLang(Astro);
 					<button type="submit" data-hf="search-btn" class={primaryBtn}>{t(lang, 'chat.addModel.search.button')}</button>
 				</form>
 				<div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted">
-					<p data-hf="profile">
+					<p>
 						<span data-hf="profile-text"></span>
 						<span aria-hidden="true">—</span>
 						<a href="/parametres#moteur" class="underline underline-offset-2 hover:text-fg">{t(lang, 'chat.addModel.profile.edit')}</a>
@@ -51,7 +55,7 @@ const lang = getLang(Astro);
 						{t(lang, 'chat.addModel.hideTooBig')}
 					</label>
 				</div>
-				<p data-hf="search-status"role="status" aria-live="polite" class="mt-3 text-sm text-muted"></p>
+				<p data-hf="search-status" role="status" aria-live="polite" class="mt-3 text-sm text-muted"></p>
 				<ul data-hf="results" hidden class="mt-3 divide-y divide-border rounded-xl border border-border"></ul>
 				<p data-hf="results-empty" hidden class="mt-3 rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">{t(lang, 'chat.addModel.search.empty')}</p>
 			</div>

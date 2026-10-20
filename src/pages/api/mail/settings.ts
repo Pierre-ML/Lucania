@@ -10,7 +10,7 @@ import {
 } from '../../../lib/server/mail';
 import { json, readJson, sameOrigin, validModel } from '../../../lib/server/http';
 
-// Réglages e-mail = modèle et prompt système. Les comptes IMAP vivent dans /api/mail/accounts.
+// Réglages e-mail = modèle, prompt système et option « marquer comme lus ». Les comptes IMAP vivent dans /api/mail/accounts.
 const current = () => ({ model: getMailModel(), systemPrompt: getMailSystemPrompt(), markSeen: getMailMarkSeen() });
 
 export const GET: APIRoute = async () => json(current());

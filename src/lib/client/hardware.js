@@ -283,7 +283,6 @@ export function buildFitBadge(fit) {
   const style = FIT_STYLE[fit];
   const s = document.createElement('span');
   s.className = style.cls;
-  s.dataset.fit = fit;
   s.textContent = t(style.label);
   s.title = t(style.hint);
   return s;
