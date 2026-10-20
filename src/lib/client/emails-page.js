@@ -173,6 +173,10 @@ export function initEmailsPage() {
   const modelStatus = $('[data-mail-model-status]');
   const settingsStatus = $('[data-mail-settings-status]');
   const saveBtn = /** @type {HTMLButtonElement} */ ($('[data-mail-save]'));
+  const markSeenBox = /** @type {HTMLInputElement} */ ($('[data-mail-markseen]'));
+  const markSeenStatus = $('[data-mail-markseen-status]');
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let markSeenTimer;
   const analyzeBtn = /** @type {HTMLButtonElement} */ ($('[data-mail-analyze]'));
   const stopBtn = /** @type {HTMLButtonElement} */ ($('[data-mail-stop]'));
   const hint = $('[data-mail-hint]');
@@ -186,7 +190,7 @@ export function initEmailsPage() {
   const summary = $('[data-mail-summary]');
   const none = $('[data-mail-none]');
   const board = $('[data-mail-board]');
-  if (!form || !modelSel || !saveBtn || !analyzeBtn || !stopBtn || !bar) return;
+  if (!form || !modelSel || !saveBtn || !analyzeBtn || !stopBtn || !bar || !markSeenBox) return;
 
   const available = engineAvailable();
   /** @type {AbortController|null} */
@@ -272,7 +276,7 @@ export function initEmailsPage() {
     field('password').value = '';
     field('password').placeholder = '';
     field('mailbox').value = '';
-    field('maxEmails').value = '';
+    field('maxEmails').value = '30';
     hasPassword = false;
     if (helpEl) helpEl.hidden = true;
     if (advanced) advanced.open = false;
@@ -285,7 +289,18 @@ export function initEmailsPage() {
     hasPassword = Boolean(a.hasPassword);
     field('password').placeholder = hasPassword ? t('mail.setup.passwordSaved') : '';
     field('mailbox').value = a.mailbox || '';
-    field('maxEmails').value = a.maxEmails ? String(a.maxEmails) : '';
+    const maxSel = /** @type {HTMLSelectElement} */ (/** @type {unknown} */ (field('maxEmails')));
+    const maxValue = String(Number.isFinite(a.maxEmails) && a.maxEmails >= 0 ? a.maxEmails : 30);
+    for (const o of [...maxSel.options]) if (o.dataset.temp) o.remove();
+    if (![...maxSel.options].some((o) => o.value === maxValue)) {
+      // Valeur hors liste (ancien compte) : option ajoutée temporairement.
+      const opt = document.createElement('option');
+      opt.value = maxValue;
+      opt.textContent = maxValue;
+      opt.dataset.temp = 'true';
+      maxSel.append(opt);
+    }
+    maxSel.value = maxValue;
     const id = providerOfHost(a.host || '');
     if (id) {
       providerPicked = true;
@@ -378,8 +393,8 @@ export function initEmailsPage() {
         user,
         password: field('password').value,
         mailbox: field('mailbox').value.trim(),
-        // Champ vide : on laisse le serveur garder sa valeur (30 par défaut).
-        maxEmails: Number(field('maxEmails').value) || undefined,
+        // 0 = illimité.
+        maxEmails: Number(field('maxEmails').value),
       };
       const editing = editingId !== null;
       await api(editing ? `/api/mail/accounts/${editingId}` : '/api/mail/accounts', {
@@ -424,6 +439,9 @@ export function initEmailsPage() {
     const name = document.createElement('p');
     name.className = 'min-w-24 flex-1 text-sm font-medium wrap-anywhere';
     name.textContent = a.user;
+    const limit = document.createElement('span');
+    limit.className = 'block text-xs font-normal text-muted';
+    limit.textContent = a.maxEmails > 0 ? t('mail.account.limit', { n: a.maxEmails }) : t('mail.account.unlimited');
 
     const actions = document.createElement('div');
     actions.className = 'flex shrink-0 items-center gap-1';
@@ -435,7 +453,7 @@ export function initEmailsPage() {
       const del = accountButton(t('mail.account.delete'), 'text-muted hover:text-fg');
       del.setAttribute('aria-label', t('mail.account.deleteLabel', { user: a.user }));
       del.addEventListener('click', showConfirm);
-      name.textContent = a.user;
+      name.replaceChildren(document.createTextNode(a.user), limit);
       actions.replaceChildren(edit, del);
     }
 
@@ -528,28 +546,68 @@ export function initEmailsPage() {
     }
   }
 
+  /** Sélectionne le modèle enregistré ; sinon, le premier si demandé (ou s'il est seul). @param {string} keep @param {boolean} pickFirst */
+  async function applyModelSelection(keep, pickFirst) {
+    const wanted = keep || savedModel;
+    if (wanted && ![...modelSel.options].some((o) => o.value === wanted)) {
+      const opt = document.createElement('option');
+      opt.value = wanted;
+      opt.textContent = wanted;
+      modelSel.append(opt);
+    }
+    const real = [...modelSel.options].filter((o) => o.value);
+    if (wanted) modelSel.value = wanted;
+    else if (real.length > 0 && (pickFirst || real.length === 1)) {
+      // Aucun modèle choisi : le premier disponible est choisi et enregistré d'office.
+      modelSel.value = real[0].value;
+      await persistModel(real[0].value);
+    }
+    refreshRun();
+  }
+
   async function loadModelSetting() {
     await fillModels();
     try {
       const s = await api('/api/mail/settings');
       savedModel = typeof s?.model === 'string' ? s.model : '';
+      markSeenBox.checked = Boolean(s?.markSeen);
     } catch (e) {
       say(modelStatus, messageOf(e), true);
     }
-    if (savedModel && ![...modelSel.options].some((o) => o.value === savedModel)) {
-      const opt = document.createElement('option');
-      opt.value = savedModel;
-      opt.textContent = savedModel;
-      modelSel.append(opt);
-    }
-    const real = [...modelSel.options].filter((o) => o.value);
-    if (savedModel) modelSel.value = savedModel;
-    else if (real.length === 1) {
-      // Un seul modèle installé : choisi et enregistré d'office.
-      modelSel.value = real[0].value;
-      await persistModel(real[0].value);
-    }
+    await applyModelSelection('', false);
   }
+
+  // Un modèle vient d'être téléchargé : on recharge la liste en gardant la sélection.
+  window.addEventListener('lucania:models-changed', async () => {
+    if (running) return;
+    const keep = modelSel.value;
+    await fillModels();
+    await applyModelSelection(keep, true);
+  });
+
+  // ---- Marquer comme lus ----
+
+  markSeenBox.addEventListener('change', async () => {
+    const wanted = markSeenBox.checked;
+    markSeenBox.disabled = true;
+    say(markSeenStatus, '');
+    try {
+      const s = await api('/api/mail/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markSeen: wanted }),
+      });
+      markSeenBox.checked = typeof s?.markSeen === 'boolean' ? s.markSeen : wanted;
+      say(markSeenStatus, t('mail.markSeen.saved'));
+      clearTimeout(markSeenTimer);
+      markSeenTimer = setTimeout(() => say(markSeenStatus, ''), 2500);
+    } catch (e) {
+      markSeenBox.checked = !wanted;
+      say(markSeenStatus, messageOf(e), true);
+    } finally {
+      markSeenBox.disabled = running;
+    }
+  });
 
   modelSel.addEventListener('change', () => {
     refreshRun();
@@ -575,18 +633,6 @@ export function initEmailsPage() {
   const emptyFilter = $('[data-mail-empty]');
   /** @type {Entry[]} */
   const entries = [];
-  const rankOf = (/** @type {string} */ c) => {
-    const i = ORDER.indexOf(c);
-    return i === -1 ? ORDER.length : i;
-  };
-
-  function sortRows() {
-    if (!list) return;
-    const active = document.activeElement;
-    const sorted = entries.slice().sort((a, b) => rankOf(a.category) - rankOf(b.category) || b.ts - a.ts);
-    list.append(...sorted.map((e) => e.el));
-    if (active instanceof HTMLElement && document.activeElement !== active && active.isConnected) active.focus();
-  }
 
   function refreshResults() {
     /** @type {Record<string, number>} */
@@ -606,7 +652,6 @@ export function initEmailsPage() {
     }
     const tileWrap = $('[data-mail-tile="incertain"]');
     if (tileWrap) tileWrap.hidden = counts.incertain === 0;
-    sortRows();
     let visible = 0;
     for (const e of entries) {
       const show = filter === 'all' || e.category === filter;
@@ -824,7 +869,8 @@ export function initEmailsPage() {
     };
     entry.el = buildRow(entry, Boolean(accountUser));
     entries.push(entry);
-    list?.append(entry.el);
+    // Le dernier e-mail traité apparaît tout en haut.
+    list?.prepend(entry.el);
     refreshResults();
     requestAnimationFrame(() => requestAnimationFrame(() => entry.el.classList.remove('opacity-0')));
   }
@@ -885,6 +931,7 @@ export function initEmailsPage() {
     saveBtn.disabled = on;
     if (addBtn) addBtn.disabled = on;
     for (const b of $$('[data-mail-account-action]')) /** @type {HTMLButtonElement} */ (b).disabled = on;
+    markSeenBox.disabled = on;
     refreshModelDisabled();
     refreshRun();
   }
@@ -929,6 +976,27 @@ export function initEmailsPage() {
     let modelReady = false;
     let done = 0;
     let total = 0;
+    const doMarkSeen = markSeenBox.checked;
+    /** @type {MailAccount|null} */
+    let seenAcc = null;
+    /** @type {number[]} uid traités du compte en cours */
+    let seenUids = [];
+    /** Marque comme lus les e-mails traités du compte en cours ; une erreur est notée sans arrêter le tri. */
+    const flushSeen = async () => {
+      const acc = seenAcc;
+      const uids = seenUids;
+      seenUids = [];
+      if (!doMarkSeen || !acc || uids.length === 0) return;
+      try {
+        await api('/api/mail/seen', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account: acc.id, uids }),
+        });
+      } catch (e) {
+        errors.push({ user: acc.user, message: messageOf(e) });
+      }
+    };
     try {
       // Contexte d'apprentissage : réglages, mémoire, derniers avis. Sans eux, le tri continue.
       const [settings, memory, feedback] = await Promise.all([
@@ -946,6 +1014,8 @@ export function initEmailsPage() {
       const examples = Array.isArray(feedback?.items) ? feedback.items : [];
       for (let idx = 0; idx < n; idx += 1) {
         const acc = queue[idx];
+        seenAcc = acc;
+        seenUids = [];
         checkAbort();
         const i = idx + 1;
         setStep('fetch');
@@ -1012,10 +1082,12 @@ export function initEmailsPage() {
             res = { category: 'incertain', reason: t('mail.results.uncertainReason') };
           }
           addResult(mail, res, n > 1 ? acc.user : '');
+          seenUids.push(mail.uid);
           done += 1;
           k += 1;
           progress(k);
         }
+        await flushSeen();
       }
       if (total === 0 && errors.length === 0) {
         showResults(true);
@@ -1025,6 +1097,7 @@ export function initEmailsPage() {
       }
       say(statusEl, t('mail.analyze.done'));
     } catch (e) {
+      await flushSeen();
       if (ctl.signal.aborted) say(statusEl, t('mail.analyze.stopped', { done, total }));
       else say(statusEl, messageOf(e), true);
     } finally {

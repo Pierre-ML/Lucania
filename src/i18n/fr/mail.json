@@ -11,7 +11,9 @@
     "deleteAsk": "Supprimer {user} ?",
     "deleteConfirm": "Supprimer",
     "editLabel": "Modifier {user}",
-    "deleteLabel": "Supprimer {user}"
+    "deleteLabel": "Supprimer {user}",
+    "limit": "{n} max",
+    "unlimited": "illimité"
   },
   "setup": {
     "title": "Connecter votre boîte mail",
@@ -39,7 +41,9 @@
     "needHost": "Indiquez le serveur dans les réglages avancés.",
     "needPassword": "Saisissez votre mot de passe.",
     "addTitle": "Ajouter une adresse",
-    "editTitle": "Modifier l’adresse"
+    "editTitle": "Modifier l’adresse",
+    "unlimited": "Illimité",
+    "maxEmailsHelp": "Nombre d’e-mails non lus lus à chaque tri"
   },
   "model": {
     "label": "Modèle IA",
@@ -49,7 +53,7 @@
   },
   "run": {
     "title": "Trier mes e-mails",
-    "intro": "Une IA lit l’expéditeur, l’objet et la date de vos e-mails non lus et les range par catégorie. Tout reste sur votre ordinateur, et rien n’est marqué comme lu.",
+    "intro": "Une IA lit l’expéditeur, l’objet et la date de vos e-mails non lus et les range par catégorie. Tout reste sur votre ordinateur, et rien n’est marqué comme lu, sauf si vous l’activez.",
     "start": "Trier mes e-mails",
     "stop": "Arrêter",
     "stopping": "Arrêt en cours…",
@@ -105,5 +109,10 @@
   },
   "errors": {
     "title": "Certains comptes n’ont pas pu être lus :"
+  },
+  "markSeen": {
+    "label": "Marquer comme lus après le tri",
+    "help": "Les e-mails triés apparaîtront comme ouverts dans votre messagerie",
+    "saved": "Enregistré"
   }
 }

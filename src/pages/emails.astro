@@ -76,6 +76,14 @@ const steps = ['fetch', 'model', 'read'];
 						<select id="mail-model" data-mail-model class={compactField}></select>
 						<p data-mail-model-status role="status" aria-live="polite" class="text-xs text-muted empty:hidden data-[error=true]:text-danger"></p>
 					</div>
+					<div class="flex flex-col gap-1">
+						<label class="flex cursor-pointer items-center justify-between gap-3 text-sm">
+							<span class="font-medium">{t(lang, 'mail.markSeen.label')}</span>
+							<input type="checkbox" data-mail-markseen class="toggle toggle-sm" />
+						</label>
+						<p class="text-xs leading-relaxed text-muted">{t(lang, 'mail.markSeen.help')}</p>
+						<p data-mail-markseen-status role="status" aria-live="polite" class="text-xs text-muted empty:hidden data-[error=true]:text-danger"></p>
+					</div>
 					<button type="button" data-mail-analyze disabled class={bigBtn}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-5" aria-hidden="true">
 							<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"></path>
@@ -175,6 +183,16 @@ const steps = ['fetch', 'model', 'read'];
 						<span class={labelText}>{t(lang, 'mail.setup.password')}</span>
 						<input type="password" name="password" data-mail-field="password" autocomplete="new-password" class={field} />
 					</label>
+					<label class={label}>
+						<span class={labelText}>{t(lang, 'mail.setup.maxEmails')}</span>
+						<select name="maxEmails" data-mail-field="maxEmails" class={field}>
+							{[10, 20, 30, 50, 100, 200].map((n) => (
+								<option value={String(n)} selected={n === 30}>{n}</option>
+							))}
+							<option value="0">{t(lang, 'mail.setup.unlimited')}</option>
+						</select>
+						<span class="text-xs text-muted">{t(lang, 'mail.setup.maxEmailsHelp')}</span>
+					</label>
 					<p data-mail-help hidden class="rounded-xl bg-fg/5 px-4 py-3 text-sm leading-relaxed text-muted"></p>
 
 					<details data-mail-advanced class="group rounded-xl border border-border">
@@ -199,16 +217,10 @@ const steps = ['fetch', 'model', 'read'];
 								<input type="checkbox" data-mail-field="secure" class="size-4 cursor-pointer accent-current" />
 								<span>{t(lang, 'mail.setup.secure')}</span>
 							</label>
-							<div class="grid gap-4 sm:grid-cols-2">
-								<label class={label}>
-									<span class={labelText}>{t(lang, 'mail.setup.mailbox')}</span>
-									<input type="text" name="mailbox" data-mail-field="mailbox" autocomplete="off" spellcheck="false" placeholder="INBOX" class={field} />
-								</label>
-								<label class={label}>
-									<span class={labelText}>{t(lang, 'mail.setup.maxEmails')}</span>
-									<input type="number" name="maxEmails" data-mail-field="maxEmails" min="1" max="500" placeholder="20" class={field} />
-								</label>
-							</div>
+							<label class={label}>
+								<span class={labelText}>{t(lang, 'mail.setup.mailbox')}</span>
+								<input type="text" name="mailbox" data-mail-field="mailbox" autocomplete="off" spellcheck="false" placeholder="INBOX" class={field} />
+							</label>
 						</div>
 					</details>
 

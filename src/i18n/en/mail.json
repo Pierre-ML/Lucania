@@ -11,7 +11,9 @@
     "deleteAsk": "Delete {user}?",
     "deleteConfirm": "Delete",
     "editLabel": "Edit {user}",
-    "deleteLabel": "Delete {user}"
+    "deleteLabel": "Delete {user}",
+    "limit": "{n} max",
+    "unlimited": "unlimited"
   },
   "setup": {
     "title": "Connect your mailbox",
@@ -39,7 +41,9 @@
     "needHost": "Enter the server in the advanced settings.",
     "needPassword": "Enter your password.",
     "addTitle": "Add an address",
-    "editTitle": "Edit address"
+    "editTitle": "Edit address",
+    "unlimited": "Unlimited",
+    "maxEmailsHelp": "Number of unread emails read at each sort"
   },
   "model": {
     "label": "AI model",
@@ -49,7 +53,7 @@
   },
   "run": {
     "title": "Sort my emails",
-    "intro": "An AI reads the sender, subject and date of your unread emails and sorts them by category. Everything stays on your computer, and nothing is marked as read.",
+    "intro": "An AI reads the sender, subject and date of your unread emails and sorts them by category. Everything stays on your computer, and nothing is marked as read unless you turn it on.",
     "start": "Sort my emails",
     "stop": "Stop",
     "stopping": "Stopping…",
@@ -105,5 +109,10 @@
   },
   "errors": {
     "title": "Some accounts could not be read:"
+  },
+  "markSeen": {
+    "label": "Mark as read after sorting",
+    "help": "Sorted emails will appear as opened in your mailbox",
+    "saved": "Saved"
   }
 }

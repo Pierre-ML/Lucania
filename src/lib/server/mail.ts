@@ -26,6 +26,26 @@ export function saveMailModel(model: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Option « marquer comme lus » (colonne `mark_seen`, désactivée par défaut)
+// ---------------------------------------------------------------------------
+
+export function getMailMarkSeen(): boolean {
+  const r = getDb().prepare('SELECT mark_seen FROM mail_settings WHERE id = 1').get() as unknown as
+    | { mark_seen: number }
+    | undefined;
+  return Number(r?.mark_seen ?? 0) !== 0;
+}
+
+export function saveMailMarkSeen(value: boolean): boolean {
+  withTransaction((db) => {
+    const now = new Date().toISOString();
+    db.prepare('INSERT OR IGNORE INTO mail_settings (id, updated_at) VALUES (1, ?)').run(now);
+    db.prepare('UPDATE mail_settings SET mark_seen = ?, updated_at = ? WHERE id = 1').run(value ? 1 : 0, now);
+  });
+  return getMailMarkSeen();
+}
+
+// ---------------------------------------------------------------------------
 // Tri par IA : prompt système, mémoire dédiée aux e-mails et notes de l'utilisateur
 // (la mémoire générale de `memory.ts` n'est pas concernée)
 // ---------------------------------------------------------------------------
@@ -419,10 +439,10 @@ export function parseMailAccountInput(
     if (
       typeof body.maxEmails !== 'number' ||
       !Number.isInteger(body.maxEmails) ||
-      body.maxEmails < 1 ||
-      body.maxEmails > 100
+      body.maxEmails < 0 ||
+      body.maxEmails > 1000
     )
-      return fail('Nombre d’e-mails invalide (1 à 100)');
+      return fail('Nombre d’e-mails invalide (0 pour illimité, ou 1 à 1000)');
     maxEmails = body.maxEmails;
   }
 
@@ -486,7 +506,8 @@ export function deleteMailAccount(id: number): boolean {
   return Number(getDb().prepare('DELETE FROM mail_accounts WHERE id = ?').run(id).changes) > 0;
 }
 // ---------------------------------------------------------------------------
-// Client IMAP minimal (lecture seule : EXAMINE + BODY.PEEK, rien n'est marqué comme lu)
+// Client IMAP minimal. La lecture reste en lecture seule (EXAMINE + BODY.PEEK, rien n'est marqué comme lu) ;
+// seul `markSeen`, appelé explicitement, écrit le drapeau \Seen (SELECT + UID STORE +FLAGS.SILENT).
 // ---------------------------------------------------------------------------
 
 export interface UnreadEmail {
@@ -1008,7 +1029,23 @@ function connect(cfg: ImapConfig, onSocket: (s: net.Socket) => void): Promise<ne
   });
 }
 
-async function runCommands(s: Session, cfg: ImapConfig): Promise<UnreadEmail[]> {
+const FETCH_BATCH = 50;
+const STORE_BATCH = 100;
+const UNLIMITED_CAP = 5000;
+const MAX_TIMEOUT_MS = 180_000;
+const PER_BATCH_MS = 2000;
+
+/** Délai global : 20 s + 2 s par lot, plafonné à 180 s. */
+const deadlineMs = (lots: number) => Math.min(MAX_TIMEOUT_MS, TIMEOUT_MS + PER_BATCH_MS * Math.max(0, lots));
+
+const chunk = <T>(a: T[], n: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n));
+  return out;
+};
+
+/** Accueil du serveur puis LOGIN (sauf PREAUTH). Le mot de passe n'apparaît dans aucun message. */
+async function greetAndLogin(s: Session, cfg: ImapConfig): Promise<void> {
   const greeting = (await s.waitFor(firstLineEnd)).toString('latin1');
   if (!/^\* (OK|PREAUTH)\b/i.test(greeting)) throw new MailError('Le serveur a refusé la connexion');
 
@@ -1019,6 +1056,12 @@ async function runCommands(s: Session, cfg: ImapConfig): Promise<UnreadEmail[]> 
         'Identifiants refusés par le serveur (certains services exigent un mot de passe d’application)',
       );
   }
+}
+
+type Extend = (lots: number) => void;
+
+async function runCommands(s: Session, cfg: ImapConfig, extend: Extend): Promise<UnreadEmail[]> {
+  await greetAndLogin(s, cfg);
 
   // EXAMINE = SELECT en lecture seule : aucun drapeau ne peut être modifié.
   const sel = await s.command('EXAMINE', [cfg.mailbox]);
@@ -1027,21 +1070,25 @@ async function runCommands(s: Session, cfg: ImapConfig): Promise<UnreadEmail[]> 
   const search = await s.command('UID SEARCH', [{ raw: 'UNSEEN' }]);
   if (search.status !== 'OK') throw new MailError('La recherche des e-mails non lus a échoué');
   const sm = /^\* SEARCH([\d ]*)\r?$/im.exec(search.out.toString('latin1'));
+  const limit = cfg.maxEmails > 0 ? cfg.maxEmails : UNLIMITED_CAP; // 0 = illimité (garde-fou dur)
   const uids = (sm ? sm[1].trim().split(/\s+/).filter(Boolean).map(Number) : [])
     .filter((n) => Number.isInteger(n) && n > 0)
     .sort((a, b) => a - b)
-    .slice(-cfg.maxEmails);
+    .slice(-limit);
 
-  let emails: UnreadEmail[] = [];
+  const emails: UnreadEmail[] = [];
   if (uids.length > 0) {
+    const batches = chunk(uids, FETCH_BATCH);
+    extend(batches.length);
     const spec =
       `(UID BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] ` +
       `BODY.PEEK[TEXT]<0.${BODY_PREFIX_BYTES}>)`;
-    const f = await s.command('UID FETCH', [{ raw: uids.join(',') }, { raw: spec }]);
-    if (f.status !== 'OK') throw new MailError('La lecture des e-mails a échoué');
-    emails = parseFetch(f.out)
-      .map(recToEmail)
-      .sort((a, b) => b.uid - a.uid);
+    for (const batch of batches) {
+      const f = await s.command('UID FETCH', [{ raw: batch.join(',') }, { raw: spec }]);
+      if (f.status !== 'OK') throw new MailError('La lecture des e-mails a échoué');
+      emails.push(...parseFetch(f.out).map(recToEmail));
+    }
+    emails.sort((a, b) => b.uid - a.uid);
   }
 
   try {
@@ -1052,31 +1099,79 @@ async function runCommands(s: Session, cfg: ImapConfig): Promise<UnreadEmail[]> 
   return emails;
 }
 
-async function runSession(cfg: ImapConfig, onSocket: (s: net.Socket) => void): Promise<UnreadEmail[]> {
+/** Marque des messages comme lus : SELECT (écriture), puis STORE +FLAGS.SILENT (\Seen) par lots. */
+async function runMarkSeen(s: Session, cfg: ImapConfig, uids: number[]): Promise<void> {
+  await greetAndLogin(s, cfg);
+
+  const sel = await s.command('SELECT', [cfg.mailbox]);
+  if (sel.status !== 'OK') throw new MailError(`Boîte « ${cfg.mailbox.slice(0, 100)} » introuvable ou inaccessible`);
+
+  for (const batch of chunk(uids, STORE_BATCH)) {
+    const st = await s.command('UID STORE', [{ raw: batch.join(',') }, { raw: '+FLAGS.SILENT (\\Seen)' }]);
+    if (st.status !== 'OK') throw new MailError('Le marquage des e-mails comme lus a échoué');
+  }
+
+  try {
+    await s.command('LOGOUT');
+  } catch {
+    /* sans importance */
+  }
+}
+
+async function runSession<T>(
+  cfg: ImapConfig,
+  onSocket: (s: net.Socket) => void,
+  job: (s: Session) => Promise<T>,
+): Promise<T> {
   const sock = await connect(cfg, onSocket);
   const s = new Session(sock);
   try {
-    return await runCommands(s, cfg);
+    return await job(s);
   } catch (e) {
     sock.destroy();
     throw mapNetError(e);
   }
 }
 
-/** Récupère les e-mails non lus (sans les marquer comme lus). Lève MailError avec un message FR. */
-export async function fetchUnread(cfg: ImapConfig): Promise<UnreadEmail[]> {
-  const conf: ImapConfig = { ...cfg, maxEmails: Math.min(100, Math.max(1, Math.trunc(cfg.maxEmails) || 30)) };
+/** Exécute `job` sous un délai global (prolongeable via `extend`) ; ferme toujours la socket. */
+async function withDeadline<T>(
+  cfg: ImapConfig,
+  initialLots: number,
+  job: (s: Session, extend: Extend) => Promise<T>,
+): Promise<T> {
   let sockRef: net.Socket | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let rejectTimeout: (e: Error) => void = () => {};
+  const started = Date.now();
+  let limit = deadlineMs(initialLots);
+  const arm = () => {
+    clearTimeout(timer);
+    timer = setTimeout(
+      () => {
+        sockRef?.destroy();
+        rejectTimeout(new MailError(`Délai dépassé (${Math.round(limit / 1000)} s) : le serveur ne répond pas`));
+      },
+      Math.max(0, limit - (Date.now() - started)),
+    );
+  };
+  const extend: Extend = (lots) => {
+    const l = deadlineMs(lots);
+    if (l > limit) {
+      limit = l;
+      arm();
+    }
+  };
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      sockRef?.destroy();
-      reject(new MailError('Délai dépassé (20 s) : le serveur ne répond pas'));
-    }, TIMEOUT_MS);
+    rejectTimeout = reject;
+    arm();
   });
-  const work = runSession(conf, (s) => {
-    sockRef = s;
-  });
+  const work = runSession(
+    cfg,
+    (s) => {
+      sockRef = s;
+    },
+    (s) => job(s, extend),
+  );
   work.catch(() => {}); // évite un rejet non géré si le délai l'emporte
   try {
     return await Promise.race([work, timeout]);
@@ -1084,4 +1179,24 @@ export async function fetchUnread(cfg: ImapConfig): Promise<UnreadEmail[]> {
     clearTimeout(timer);
     (sockRef as net.Socket | null)?.destroy();
   }
+}
+
+/** Récupère les e-mails non lus (sans les marquer comme lus). Lève MailError avec un message FR. */
+export async function fetchUnread(cfg: ImapConfig): Promise<UnreadEmail[]> {
+  const n = Math.trunc(cfg.maxEmails);
+  // 0 = illimité ; sinon 1 à 1000 (valeur illisible : 30).
+  const maxEmails = n === 0 ? 0 : Number.isFinite(n) ? Math.min(1000, Math.max(1, n)) : 30;
+  const conf: ImapConfig = { ...cfg, maxEmails };
+  return withDeadline(conf, 0, (s, extend) => runCommands(s, conf, extend));
+}
+
+/**
+ * Marque des messages comme lus (drapeau \Seen uniquement, rien n'est supprimé ni déplacé).
+ * Seule fonction d'écriture du fichier : à n'appeler que sur demande explicite. Renvoie le nombre d'UID traités.
+ */
+export async function markSeen(cfg: ImapConfig, uids: number[]): Promise<number> {
+  const list = [...new Set(uids.filter((n) => Number.isInteger(n) && n > 0))];
+  if (list.length === 0) return 0;
+  await withDeadline(cfg, Math.ceil(list.length / STORE_BATCH), (s) => runMarkSeen(s, cfg, list));
+  return list.length;
 }

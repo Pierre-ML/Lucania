@@ -265,12 +265,19 @@ function migrateV10(db: DatabaseSync) {
   )`);
 }
 
+// v11 : option « marquer comme lus » (désactivée par défaut) pour les e-mails.
+function migrateV11(db: DatabaseSync) {
+  if (!hasColumn(db, 'mail_settings', 'mark_seen')) {
+    db.exec('ALTER TABLE mail_settings ADD COLUMN mark_seen INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
 function migrateSchema(db: DatabaseSync) {
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as unknown as
     | { value: string }
     | undefined;
   const version = Number(row?.value ?? '1');
-  if (version >= 10) return;
+  if (version >= 11) return;
   db.exec('BEGIN IMMEDIATE');
   try {
     if (version < 5) {
@@ -308,6 +315,8 @@ function migrateSchema(db: DatabaseSync) {
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '9')");
     migrateV10(db);
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '10')");
+    migrateV11(db);
+    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '11')");
     db.exec('COMMIT');
   } catch (e) {
     try {
