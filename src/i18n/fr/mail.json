@@ -4,9 +4,14 @@
   "back": "Retour",
   "intro": "Repérez en un clic les e-mails qui comptent vraiment, sans rien lire.",
   "account": {
-    "model": "Modèle :",
+    "title": "Vos adresses",
+    "add": "Ajouter une adresse",
     "edit": "Modifier",
-    "noModel": "aucun"
+    "delete": "Supprimer",
+    "deleteAsk": "Supprimer {user} ?",
+    "deleteConfirm": "Supprimer",
+    "editLabel": "Modifier {user}",
+    "deleteLabel": "Supprimer {user}"
   },
   "setup": {
     "title": "Connecter votre boîte mail",
@@ -25,9 +30,6 @@
     "secure": "Connexion sécurisée (SSL)",
     "mailbox": "Dossier",
     "maxEmails": "Nombre maximum d’e-mails",
-    "model": "Modèle d’IA",
-    "modelNone": "Aucun modèle installé",
-    "modelChoose": "Choisir un modèle",
     "save": "Enregistrer et continuer",
     "cancel": "Annuler",
     "saving": "Enregistrement…",
@@ -35,7 +37,15 @@
     "pickProvider": "Choisissez votre messagerie ci-dessus.",
     "needEmail": "Saisissez votre adresse e-mail.",
     "needHost": "Indiquez le serveur dans les réglages avancés.",
-    "needPassword": "Saisissez votre mot de passe."
+    "needPassword": "Saisissez votre mot de passe.",
+    "addTitle": "Ajouter une adresse",
+    "editTitle": "Modifier l’adresse"
+  },
+  "model": {
+    "label": "Modèle IA",
+    "none": "Aucun modèle installé",
+    "choose": "Choisir un modèle",
+    "saved": "Enregistré"
   },
   "run": {
     "title": "Trier mes e-mails",
@@ -44,13 +54,15 @@
     "stop": "Arrêter",
     "stopping": "Arrêt en cours…",
     "needSetup": "Connectez d’abord votre boîte mail ci-dessus.",
-    "needModel": "Choisissez un modèle d’IA dans la connexion pour continuer.",
+    "needModel": "Choisissez un modèle IA ci-dessus pour continuer.",
     "progressLabel": "Progression du tri",
     "step": {
       "fetch": "Récupération des e-mails",
       "model": "Préparation du modèle",
       "read": "Lecture des e-mails",
-      "readCount": "Lecture {done}/{total}"
+      "readCount": "Lecture {done}/{total}",
+      "fetchAccount": "Compte {i}/{n} : {user} — récupération",
+      "readAccount": "Compte {i}/{n} : {user} — lecture {done}/{total}"
     }
   },
   "analyze": {
@@ -78,5 +90,8 @@
     "noSubject": "(sans objet)",
     "unknownSender": "Expéditeur inconnu",
     "uncertainReason": "La réponse de l’IA n’a pas pu être comprise."
+  },
+  "errors": {
+    "title": "Certains comptes n’ont pas pu être lus :"
   }
 }

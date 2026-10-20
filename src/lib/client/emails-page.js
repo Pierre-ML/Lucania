@@ -9,6 +9,7 @@ const SYSTEM_PROMPT =
   'Réponds UNIQUEMENT par un objet JSON, sans autre texte : {"important":true ou false,"raison":"une phrase courte"}.';
 const MAX_SNIPPET = 600;
 const MAX_TOKENS = 120;
+const MAX_ACCOUNTS = 10;
 
 /** Fournisseurs connus : serveur IMAP en SSL (993) et domaines reconnus dans l'adresse. */
 const PROVIDERS = {
@@ -20,7 +21,7 @@ const PROVIDERS = {
 };
 
 /**
- * @typedef {{ host: string, port: number, secure: boolean, user: string, hasPassword: boolean, mailbox: string, model: string, maxEmails: number }} MailSettings
+ * @typedef {{ id: number, host: string, port: number, secure: boolean, user: string, hasPassword: boolean, mailbox: string, maxEmails: number }} MailAccount
  * @typedef {{ uid: number, from: string, subject: string, date: string, snippet: string }} MailItem
  * @typedef {'important'|'normal'|'uncertain'} Verdict
  */
@@ -144,8 +145,8 @@ function reasonIcon() {
   return svg;
 }
 
-/** @param {MailItem} mail @param {string} reason @param {Verdict} verdict */
-function buildCard(mail, reason, verdict) {
+/** @param {MailItem} mail @param {string} reason @param {Verdict} verdict @param {string} accountUser adresse du compte d'origine ('' = masquée) */
+function buildCard(mail, reason, verdict, accountUser) {
   const li = document.createElement('li');
   const base =
     'flex gap-3.5 rounded-2xl border p-4 opacity-0 translate-y-1 transition-[opacity,transform] duration-300 ease-out motion-reduce:translate-y-0 motion-reduce:transition-none';
@@ -192,6 +193,13 @@ function buildCard(mail, reason, verdict) {
   why.append(reasonIcon(), whyText);
   bodyEl.append(why);
 
+  if (accountUser) {
+    const acc = document.createElement('p');
+    acc.className = 'mt-2 truncate text-xs text-muted/70';
+    acc.textContent = accountUser;
+    bodyEl.append(acc);
+  }
+
   li.append(badge, bodyEl);
   requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('opacity-0', 'translate-y-1')));
   return li;
@@ -203,17 +211,18 @@ export function initEmailsPage() {
 
   const form = /** @type {HTMLFormElement} */ ($('[data-mail-form]'));
   const setupBox = $('[data-mail-setup]');
-  const accountBox = $('[data-mail-account]');
-  const accountUser = $('[data-mail-account-user]');
-  const accountModel = $('[data-mail-account-model]');
-  const editBtn = $('[data-mail-edit]');
+  const setupTitle = $('[data-mail-setup-title]');
+  const accountsBox = $('[data-mail-accounts]');
+  const accountList = $('[data-mail-account-list]');
+  const accountsStatus = $('[data-mail-accounts-status]');
+  const addBtn = /** @type {HTMLButtonElement|null} */ ($('[data-mail-add]'));
   const cancelBtn = $('[data-mail-cancel]');
   const advanced = /** @type {HTMLDetailsElement|null} */ ($('[data-mail-advanced]'));
   const helpEl = $('[data-mail-help]');
   const field = (/** @type {string} */ name) => /** @type {HTMLInputElement} */ ($(`[data-mail-field="${name}"]`));
-  const modelSel = /** @type {HTMLSelectElement} */ ($('[data-mail-field="model"]'));
+  const modelSel = /** @type {HTMLSelectElement} */ ($('[data-mail-model]'));
   const modelRow = $('[data-mail-model-row]');
-  const engineNote = $('[data-mail-engine-note]');
+  const modelStatus = $('[data-mail-model-status]');
   const settingsStatus = $('[data-mail-settings-status]');
   const saveBtn = /** @type {HTMLButtonElement} */ ($('[data-mail-save]'));
   const analyzeBtn = /** @type {HTMLButtonElement} */ ($('[data-mail-analyze]'));
@@ -223,6 +232,8 @@ export function initEmailsPage() {
   const live = $('[data-mail-progress-live]');
   const bar = /** @type {HTMLProgressElement} */ ($('[data-mail-bar]'));
   const statusEl = $('[data-mail-status]');
+  const errorsBox = $('[data-mail-errors]');
+  const errorList = $('[data-mail-error-list]');
   const results = $('[data-mail-results]');
   const summary = $('[data-mail-summary]');
   const none = $('[data-mail-none]');
@@ -234,8 +245,14 @@ export function initEmailsPage() {
   /** @type {AbortController|null} */
   let controller = null;
   let running = false;
-  let configured = false;
+  /** @type {MailAccount[]} */
+  let accounts = [];
+  /** @type {number|null} compte en cours de modification (null = ajout) */
+  let editingId = null;
   let savedModel = '';
+  let modelCount = 0;
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let modelTimer;
   let hasPassword = false;
   /** @type {string} */
   let provider = '';
@@ -295,132 +312,72 @@ export function initEmailsPage() {
     b.addEventListener('click', () => setProvider(b.dataset.mailProvider || 'other', true));
   }
 
-  // ---- Affichage connexion / compte ----
+  // ---- Formulaire de compte ----
+
+  function resetForm() {
+    provider = '';
+    providerPicked = false;
+    for (const b of $$('[data-mail-provider]')) b.setAttribute('aria-pressed', 'false');
+    field('host').value = '';
+    field('port').value = '';
+    field('secure').checked = true;
+    field('user').value = '';
+    field('password').value = '';
+    field('password').placeholder = '';
+    field('mailbox').value = '';
+    field('maxEmails').value = '';
+    hasPassword = false;
+    if (helpEl) helpEl.hidden = true;
+    if (advanced) advanced.open = false;
+  }
+
+  /** @param {MailAccount} a */
+  function fillForm(a) {
+    resetForm();
+    field('user').value = a.user || '';
+    hasPassword = Boolean(a.hasPassword);
+    field('password').placeholder = hasPassword ? t('mail.setup.passwordSaved') : '';
+    field('mailbox').value = a.mailbox || '';
+    field('maxEmails').value = a.maxEmails ? String(a.maxEmails) : '';
+    const id = providerOfHost(a.host || '');
+    if (id) {
+      providerPicked = true;
+      setProvider(id, true);
+    }
+    field('host').value = a.host || '';
+    field('port').value = a.port ? String(a.port) : '';
+    field('secure').checked = Boolean(a.secure);
+  }
 
   /** @param {boolean} showForm */
   function showSetup(showForm) {
     if (setupBox) setupBox.hidden = !showForm;
-    if (accountBox) accountBox.hidden = showForm || !configured;
-    if (cancelBtn) cancelBtn.hidden = !configured;
+    if (accountsBox) accountsBox.hidden = showForm || accounts.length === 0;
+    if (cancelBtn) cancelBtn.hidden = accounts.length === 0;
   }
 
-  function currentModel() {
-    return modelSel.value || savedModel;
-  }
-
-  function modelLabel() {
-    const opt = [...modelSel.options].find((o) => o.value === currentModel());
-    return opt?.textContent || currentModel();
-  }
-
-  function refreshAccount() {
-    if (accountUser) accountUser.textContent = field('user').value.trim();
-    if (accountModel) accountModel.textContent = modelLabel() || t('mail.account.noModel');
-  }
-
-  function refreshRun() {
-    let reason = '';
-    if (!available) reason = t('chat.engine.unavailable');
-    else if (!configured) reason = t('mail.run.needSetup');
-    else if (!currentModel()) reason = t('mail.run.needModel');
-    analyzeBtn.disabled = running || reason !== '';
-    if (!running) say(hint, reason);
-  }
-
-  // ---- Réglages ----
-
-  /** @param {MailSettings} s */
-  function fillForm(s) {
-    field('host').value = s.host || '';
-    field('port').value = s.port ? String(s.port) : '';
-    field('secure').checked = Boolean(s.secure);
-    field('user').value = s.user || '';
-    field('password').value = '';
-    hasPassword = Boolean(s.hasPassword);
-    field('password').placeholder = hasPassword ? t('mail.setup.passwordSaved') : '';
-    field('mailbox').value = s.mailbox || '';
-    field('maxEmails').value = s.maxEmails ? String(s.maxEmails) : '';
-    savedModel = s.model || '';
-    if (savedModel && ![...modelSel.options].some((o) => o.value === savedModel)) {
-      const opt = document.createElement('option');
-      opt.value = savedModel;
-      opt.textContent = savedModel;
-      modelSel.append(opt);
-    }
-    // Un seul modèle installé : on le choisit d'office.
-    const real = [...modelSel.options].filter((o) => o.value);
-    modelSel.value = savedModel || (real.length === 1 ? real[0].value : '');
-    configured = Boolean(s.host && s.user && s.hasPassword);
-    const id = providerOfHost(s.host || '');
-    if (id) {
-      providerPicked = true;
-      setProvider(id, true);
-      field('host').value = s.host || '';
-      field('port').value = s.port ? String(s.port) : '';
-      field('secure').checked = Boolean(s.secure);
-    }
-    refreshAccount();
-  }
-
-  async function fillModels() {
-    modelSel.replaceChildren();
-    if (!available) {
-      modelSel.disabled = true;
-      if (modelRow) modelRow.hidden = true;
-      if (engineNote) {
-        engineNote.hidden = false;
-        engineNote.textContent = t('chat.engine.unavailable');
-      }
-      return;
-    }
-    try {
-      const models = await listModels();
-      const first = document.createElement('option');
-      first.value = '';
-      first.textContent = models.length ? t('mail.setup.modelChoose') : t('mail.setup.modelNone');
-      modelSel.append(first);
-      for (const m of models) {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.name || m.id;
-        modelSel.append(opt);
-      }
-      modelSel.disabled = models.length === 0;
-      if (models.length === 1) {
-        modelSel.value = models[0].id;
-        if (modelRow) modelRow.hidden = true;
-      }
-    } catch (e) {
-      modelSel.disabled = true;
-      say(settingsStatus, messageOf(e), true);
-    }
-  }
-
-  async function loadSettings() {
-    await fillModels();
-    try {
-      const s = await api('/api/mail/settings');
-      fillForm(s);
-      showSetup(!configured);
-    } catch (e) {
-      showSetup(true);
-      say(settingsStatus, messageOf(e) || t('mail.setup.loadError'), true);
-    }
-    refreshRun();
-  }
-
-  editBtn?.addEventListener('click', () => {
+  /** @param {MailAccount|null} account */
+  function openForm(account) {
+    editingId = account ? account.id : null;
     say(settingsStatus, '');
+    if (account) fillForm(account);
+    else resetForm();
+    if (setupTitle) {
+      setupTitle.textContent = account
+        ? t('mail.setup.editTitle')
+        : accounts.length === 0
+          ? t('mail.setup.title')
+          : t('mail.setup.addTitle');
+    }
     showSetup(true);
     field('user').focus();
-  });
+  }
+
+  addBtn?.addEventListener('click', () => openForm(null));
   cancelBtn?.addEventListener('click', () => {
     say(settingsStatus, '');
+    editingId = null;
     showSetup(false);
-  });
-  modelSel.addEventListener('change', () => {
-    refreshAccount();
-    refreshRun();
   });
 
   form.addEventListener('submit', async (ev) => {
@@ -449,29 +406,201 @@ export function initEmailsPage() {
     try {
       const body = {
         host,
-        port: Number(field('port').value) || 0,
+        port: Number(field('port').value) || 993,
         secure: field('secure').checked,
         user,
         password: field('password').value,
         mailbox: field('mailbox').value.trim(),
-        model: modelSel.value,
-        maxEmails: Number(field('maxEmails').value) || 0,
+        // Champ vide : on laisse le serveur garder sa valeur (30 par défaut).
+        maxEmails: Number(field('maxEmails').value) || undefined,
       };
-      const s = await api('/api/mail/settings', {
-        method: 'PUT',
+      const editing = editingId !== null;
+      await api(editing ? `/api/mail/accounts/${editingId}` : '/api/mail/accounts', {
+        method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      fillForm(s);
+      editingId = null;
+      await loadAccounts();
       say(settingsStatus, '');
-      showSetup(!configured);
-      refreshRun();
+      showSetup(accounts.length === 0);
     } catch (e) {
       say(settingsStatus, messageOf(e), true);
     } finally {
       saveBtn.disabled = false;
     }
   });
+
+  // ---- Liste des comptes ----
+
+  /** @param {string} text @param {string} extra */
+  function accountButton(text, extra) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.mailAccountAction = '';
+    b.disabled = running;
+    b.className = `h-9 shrink-0 cursor-pointer rounded-lg px-3 text-sm transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${extra}`;
+    b.textContent = text;
+    return b;
+  }
+
+  /** @param {MailAccount} a */
+  function buildAccountCard(a) {
+    const li = document.createElement('li');
+    li.className = 'flex items-center gap-3 rounded-2xl border border-border bg-surface/50 px-4 py-3';
+
+    const badge = document.createElement('span');
+    badge.className = 'flex size-10 shrink-0 items-center justify-center rounded-full bg-fg/10 text-sm font-medium';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = initialOf(a.user);
+
+    const name = document.createElement('p');
+    name.className = 'min-w-0 flex-1 truncate text-sm font-medium';
+    name.textContent = a.user;
+
+    const actions = document.createElement('div');
+    actions.className = 'flex shrink-0 items-center gap-1';
+
+    function showNormal() {
+      const edit = accountButton(t('mail.account.edit'), 'text-muted hover:text-fg');
+      edit.setAttribute('aria-label', t('mail.account.editLabel', { user: a.user }));
+      edit.addEventListener('click', () => openForm(a));
+      const del = accountButton(t('mail.account.delete'), 'text-muted hover:text-fg');
+      del.setAttribute('aria-label', t('mail.account.deleteLabel', { user: a.user }));
+      del.addEventListener('click', showConfirm);
+      name.textContent = a.user;
+      actions.replaceChildren(edit, del);
+    }
+
+    function showConfirm() {
+      name.textContent = t('mail.account.deleteAsk', { user: a.user });
+      const cancel = accountButton(t('mail.setup.cancel'), 'text-muted hover:text-fg');
+      cancel.addEventListener('click', showNormal);
+      const confirmBtn = accountButton(t('mail.account.deleteConfirm'), 'font-medium text-danger');
+      confirmBtn.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        say(accountsStatus, '');
+        try {
+          await api(`/api/mail/accounts/${a.id}`, { method: 'DELETE' });
+          await loadAccounts();
+          if (accounts.length === 0) openForm(null);
+        } catch (e) {
+          say(accountsStatus, messageOf(e), true);
+          showNormal();
+        }
+      });
+      actions.replaceChildren(cancel, confirmBtn);
+      cancel.focus();
+    }
+
+    showNormal();
+    li.append(badge, name, actions);
+    return li;
+  }
+
+  function renderAccounts() {
+    accountList?.replaceChildren(...accounts.map(buildAccountCard));
+    if (addBtn) addBtn.hidden = accounts.length >= MAX_ACCOUNTS;
+    if (accountsBox) accountsBox.hidden = accounts.length === 0 || (setupBox ? !setupBox.hidden : false);
+    refreshRun();
+  }
+
+  async function loadAccounts() {
+    const data = await api('/api/mail/accounts');
+    accounts = Array.isArray(data?.accounts) ? data.accounts : [];
+    renderAccounts();
+  }
+
+  // ---- Modèle ----
+
+  function refreshModelDisabled() {
+    modelSel.disabled = running || modelCount === 0;
+  }
+
+  async function fillModels() {
+    modelSel.replaceChildren();
+    modelCount = 0;
+    if (!available) {
+      if (modelRow) modelRow.hidden = true;
+      return;
+    }
+    try {
+      const models = await listModels();
+      modelCount = models.length;
+      const first = document.createElement('option');
+      first.value = '';
+      first.textContent = models.length ? t('mail.model.choose') : t('mail.model.none');
+      modelSel.append(first);
+      for (const m of models) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name || m.id;
+        modelSel.append(opt);
+      }
+    } catch (e) {
+      say(modelStatus, messageOf(e), true);
+    }
+    refreshModelDisabled();
+  }
+
+  /** @param {string} value */
+  async function persistModel(value) {
+    clearTimeout(modelTimer);
+    say(modelStatus, '');
+    try {
+      const s = await api('/api/mail/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: value }),
+      });
+      savedModel = typeof s?.model === 'string' ? s.model : value;
+      say(modelStatus, t('mail.model.saved'));
+      modelTimer = setTimeout(() => say(modelStatus, ''), 2500);
+    } catch (e) {
+      say(modelStatus, messageOf(e), true);
+    }
+  }
+
+  async function loadModelSetting() {
+    await fillModels();
+    try {
+      const s = await api('/api/mail/settings');
+      savedModel = typeof s?.model === 'string' ? s.model : '';
+    } catch (e) {
+      say(modelStatus, messageOf(e), true);
+    }
+    if (savedModel && ![...modelSel.options].some((o) => o.value === savedModel)) {
+      const opt = document.createElement('option');
+      opt.value = savedModel;
+      opt.textContent = savedModel;
+      modelSel.append(opt);
+    }
+    const real = [...modelSel.options].filter((o) => o.value);
+    if (savedModel) modelSel.value = savedModel;
+    else if (real.length === 1) {
+      // Un seul modèle installé : choisi et enregistré d'office.
+      modelSel.value = real[0].value;
+      await persistModel(real[0].value);
+    }
+  }
+
+  modelSel.addEventListener('change', () => {
+    refreshRun();
+    if (modelSel.value) persistModel(modelSel.value);
+  });
+
+  function currentModel() {
+    return modelSel.value || savedModel;
+  }
+
+  function refreshRun() {
+    let reason = '';
+    if (!available) reason = t('chat.engine.unavailable');
+    else if (accounts.length === 0) reason = t('mail.run.needSetup');
+    else if (!currentModel()) reason = t('mail.run.needModel');
+    analyzeBtn.disabled = running || reason !== '';
+    if (!running) say(hint, reason);
+  }
 
   // ---- Résultats ----
 
@@ -519,6 +648,26 @@ export function initEmailsPage() {
     refreshResults();
   }
 
+  /** @param {{ user: string, message: string }[]} errors */
+  function renderErrors(errors) {
+    if (!errorsBox || !errorList) return;
+    errorsBox.hidden = errors.length === 0;
+    errorList.replaceChildren(
+      ...errors.map((er) => {
+        const li = document.createElement('li');
+        li.className = 'text-sm';
+        const who = document.createElement('p');
+        who.className = 'font-medium';
+        who.textContent = er.user;
+        const msg = document.createElement('p');
+        msg.className = 'text-danger';
+        msg.textContent = er.message;
+        li.append(who, msg);
+        return li;
+      }),
+    );
+  }
+
   /** @param {KeyboardEvent} ev */
   function onTabKey(ev) {
     const visible = $$('[data-mail-tab]').filter((b) => !b.hidden);
@@ -540,6 +689,13 @@ export function initEmailsPage() {
   }
 
   // ---- Analyse ----
+
+  /** @param {string} id @param {string} text */
+  function setLabel(id, text) {
+    const el = $(`[data-mail-step-label="${id}"]`);
+    if (el) el.textContent = text;
+    if (live) live.textContent = text;
+  }
 
   /** @param {'fetch'|'model'|'read'|null} current */
   function setStep(current) {
@@ -566,18 +722,10 @@ export function initEmailsPage() {
     stopBtn.textContent = t('mail.run.stop');
     if (progressBox) progressBox.hidden = !on;
     saveBtn.disabled = on;
-    if (editBtn) /** @type {HTMLButtonElement} */ (editBtn).disabled = on;
+    if (addBtn) addBtn.disabled = on;
+    for (const b of $$('[data-mail-account-action]')) /** @type {HTMLButtonElement} */ (b).disabled = on;
+    refreshModelDisabled();
     refreshRun();
-  }
-
-  /** @param {number} done @param {number} total */
-  function setProgress(done, total) {
-    bar.max = Math.max(total, 1);
-    bar.value = done;
-    const text = t('mail.run.step.readCount', { done, total });
-    const el = $('[data-mail-step-label="read"]');
-    if (el) el.textContent = text;
-    if (live) live.textContent = text;
   }
 
   stopBtn.addEventListener('click', () => {
@@ -596,70 +744,113 @@ export function initEmailsPage() {
       return;
     }
     if (!model) {
-      showSetup(true);
       say(statusEl, t('mail.analyze.noModel'), true);
       return;
     }
+    if (accounts.length === 0) return;
 
     const ctl = new AbortController();
     controller = ctl;
+    const checkAbort = () => {
+      if (ctl.signal.aborted) throw new DOMException('abort', 'AbortError');
+    };
     resetResults();
+    renderErrors([]);
     if (results) results.hidden = true;
+    if (none) none.hidden = true;
+    if (board) board.hidden = true;
     setRunning(true);
-    setStep('fetch');
-    bar.removeAttribute('value');
-    if (live) live.textContent = t('mail.run.step.fetch');
 
+    const queue = accounts.slice();
+    const n = queue.length;
+    /** @type {{ user: string, message: string }[]} */
+    const errors = [];
+    let modelReady = false;
     let done = 0;
     let total = 0;
     try {
-      const data = await api('/api/mail/unread');
-      /** @type {MailItem[]} */
-      const emails = Array.isArray(data?.emails) ? data.emails : [];
-      total = emails.length;
-      totalCount = total;
-      if (results) results.hidden = false;
-      if (total === 0) {
+      for (let idx = 0; idx < n; idx += 1) {
+        const acc = queue[idx];
+        checkAbort();
+        const i = idx + 1;
+        setStep('fetch');
+        bar.removeAttribute('value');
+        setLabel('read', t('mail.run.step.read'));
+        setLabel('fetch', n > 1 ? t('mail.run.step.fetchAccount', { i, n, user: acc.user }) : t('mail.run.step.fetch'));
+
+        /** @type {MailItem[]} */
+        let emails;
+        try {
+          const data = await api(`/api/mail/unread?account=${acc.id}`);
+          emails = Array.isArray(data?.emails) ? data.emails : [];
+        } catch (e) {
+          checkAbort();
+          errors.push({ user: acc.user, message: messageOf(e) });
+          continue;
+        }
+        checkAbort();
+        if (emails.length === 0) continue;
+
+        total += emails.length;
+        totalCount = total;
+        if (results) results.hidden = false;
+        if (board) board.hidden = false;
+        refreshResults();
+
+        if (!modelReady) {
+          setStep('model');
+          setLabel('model', t('mail.run.step.model'));
+          const status = await getEngineStatus().catch(() => null);
+          if (!status || status.loadedModel !== model) await loadModel(model);
+          modelReady = true;
+          checkAbort();
+        }
+
+        setStep('read');
+        const count = emails.length;
+        const progress = (/** @type {number} */ k) => {
+          bar.max = Math.max(count, 1);
+          bar.value = k;
+          setLabel(
+            'read',
+            n > 1
+              ? t('mail.run.step.readAccount', { i, n, user: acc.user, done: k, total: count })
+              : t('mail.run.step.readCount', { done: k, total: count }),
+          );
+        };
+        progress(0);
+        let k = 0;
+        for (const mail of emails) {
+          checkAbort();
+          /** @type {{ verdict: Verdict, reason: string }} */
+          let res;
+          try {
+            const text = await generateText({ model, messages: buildMessages(mail), maxTokens: MAX_TOKENS });
+            checkAbort();
+            res = parseVerdict(text);
+          } catch (e) {
+            if (ctl.signal.aborted) throw e;
+            res = { verdict: 'uncertain', reason: t('mail.results.uncertainReason') };
+          }
+          list(res.verdict)?.append(buildCard(mail, res.reason, res.verdict, n > 1 ? acc.user : ''));
+          refreshResults();
+          done += 1;
+          k += 1;
+          progress(k);
+        }
+      }
+      if (total === 0 && errors.length === 0) {
+        if (results) results.hidden = false;
         if (summary) summary.textContent = '';
         if (none) none.hidden = false;
         if (board) board.hidden = true;
-        return;
-      }
-      if (none) none.hidden = true;
-      if (board) board.hidden = false;
-      refreshResults();
-      if (ctl.signal.aborted) throw new DOMException('abort', 'AbortError');
-
-      setStep('model');
-      if (live) live.textContent = t('mail.run.step.model');
-      const status = await getEngineStatus().catch(() => null);
-      if (!status || status.loadedModel !== model) await loadModel(model);
-      if (ctl.signal.aborted) throw new DOMException('abort', 'AbortError');
-
-      setStep('read');
-      setProgress(0, total);
-      for (const mail of emails) {
-        if (ctl.signal.aborted) throw new DOMException('abort', 'AbortError');
-        /** @type {{ verdict: Verdict, reason: string }} */
-        let res;
-        try {
-          const text = await generateText({ model, messages: buildMessages(mail), maxTokens: MAX_TOKENS });
-          if (ctl.signal.aborted) throw new DOMException('abort', 'AbortError');
-          res = parseVerdict(text);
-        } catch (e) {
-          if (ctl.signal.aborted) throw e;
-          res = { verdict: 'uncertain', reason: t('mail.results.uncertainReason') };
-        }
-        list(res.verdict)?.append(buildCard(mail, res.reason, res.verdict));
-        refreshResults();
-        done += 1;
-        setProgress(done, total);
       }
       say(statusEl, t('mail.analyze.done'));
     } catch (e) {
       if (ctl.signal.aborted) say(statusEl, t('mail.analyze.stopped', { done, total }));
       else say(statusEl, messageOf(e), true);
     } finally {
+      renderErrors(errors);
       controller = null;
       setRunning(false);
     }
@@ -670,5 +861,16 @@ export function initEmailsPage() {
   resetResults();
   setStep(null);
   refreshRun();
-  loadSettings();
+  (async () => {
+    await loadModelSetting();
+    try {
+      await loadAccounts();
+      if (accounts.length === 0) openForm(null);
+      else showSetup(false);
+    } catch (e) {
+      showSetup(true);
+      say(settingsStatus, messageOf(e) || t('mail.setup.loadError'), true);
+    }
+    refreshRun();
+  })();
 }

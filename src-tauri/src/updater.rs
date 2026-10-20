@@ -113,13 +113,20 @@ pub async fn app_install_update(app: tauri::AppHandle) -> Result<(), String> {
   let path = std::env::temp_dir().join(UPDATER_FILE);
   tokio::fs::write(&path, &bytes).await.map_err(|e| format!("Écriture de la mise à jour impossible : {e}"))?;
 
-  let mut cmd = std::process::Command::new(&path);
+  // L'app se ferme d'abord ; l'installateur n'est lancé qu'après un court délai (via cmd, détaché),
+  // pour qu'aucun fichier ne soit encore utilisé au moment du remplacement.
   #[cfg(windows)]
   {
     use std::os::windows::process::CommandExt;
-    cmd.creation_flags(0x0000_0008); // DETACHED_PROCESS
+    let mut cmd = std::process::Command::new("cmd.exe");
+    cmd.raw_arg(format!("/C ping -n 4 127.0.0.1 >nul & start \"\" \"{}\"", path.display()));
+    cmd.creation_flags(0x0000_0008 | 0x0800_0000); // DETACHED_PROCESS | CREATE_NO_WINDOW
+    cmd.spawn().map_err(|e| format!("Lancement de la mise à jour impossible : {e}"))?;
   }
-  cmd.spawn().map_err(|e| format!("Lancement de la mise à jour impossible : {e}"))?;
+  #[cfg(not(windows))]
+  std::process::Command::new(&path)
+    .spawn()
+    .map_err(|e| format!("Lancement de la mise à jour impossible : {e}"))?;
 
   std::thread::spawn(move || {
     std::thread::sleep(Duration::from_millis(300));

@@ -211,12 +211,41 @@ function migrateV8(db: DatabaseSync) {
   )`);
 }
 
+// v9 : plusieurs comptes e-mail. `mail_settings` ne sert plus qu'au modèle ; l'ancien compte unique
+// (s'il était renseigné) devient le premier compte, une seule fois (garde par schema_version).
+function migrateV9(db: DatabaseSync) {
+  db.exec(`CREATE TABLE IF NOT EXISTS mail_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 993,
+    secure INTEGER NOT NULL DEFAULT 1,
+    user TEXT NOT NULL,
+    password TEXT NOT NULL DEFAULT '',
+    mailbox TEXT NOT NULL DEFAULT 'INBOX',
+    max_emails INTEGER NOT NULL DEFAULT 30,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  const old = db
+    .prepare('SELECT host, port, secure, user, password, mailbox, max_emails FROM mail_settings WHERE id = 1')
+    .get() as unknown as
+    | { host: string; port: number; secure: number; user: string; password: string; mailbox: string; max_emails: number }
+    | undefined;
+  if (old && old.host.trim() !== '' && old.user.trim() !== '') {
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO mail_accounts (host, port, secure, user, password, mailbox, max_emails, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(old.host, old.port, old.secure, old.user, old.password, old.mailbox || 'INBOX', old.max_emails, now, now);
+  }
+}
+
 function migrateSchema(db: DatabaseSync) {
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as unknown as
     | { value: string }
     | undefined;
   const version = Number(row?.value ?? '1');
-  if (version >= 8) return;
+  if (version >= 9) return;
   db.exec('BEGIN IMMEDIATE');
   try {
     if (version < 5) {
@@ -250,6 +279,8 @@ function migrateSchema(db: DatabaseSync) {
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '7')");
     migrateV8(db);
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '8')");
+    migrateV9(db);
+    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '9')");
     db.exec('COMMIT');
   } catch (e) {
     try {

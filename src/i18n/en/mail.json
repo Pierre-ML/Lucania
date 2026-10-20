@@ -4,9 +4,14 @@
   "back": "Back",
   "intro": "Spot the emails that really matter in one click, without reading them all.",
   "account": {
-    "model": "Model:",
+    "title": "Your addresses",
+    "add": "Add an address",
     "edit": "Edit",
-    "noModel": "none"
+    "delete": "Delete",
+    "deleteAsk": "Delete {user}?",
+    "deleteConfirm": "Delete",
+    "editLabel": "Edit {user}",
+    "deleteLabel": "Delete {user}"
   },
   "setup": {
     "title": "Connect your mailbox",
@@ -25,9 +30,6 @@
     "secure": "Secure connection (SSL)",
     "mailbox": "Folder",
     "maxEmails": "Maximum number of emails",
-    "model": "AI model",
-    "modelNone": "No model installed",
-    "modelChoose": "Choose a model",
     "save": "Save and continue",
     "cancel": "Cancel",
     "saving": "Saving…",
@@ -35,7 +37,15 @@
     "pickProvider": "Pick your email provider above.",
     "needEmail": "Enter your email address.",
     "needHost": "Enter the server in the advanced settings.",
-    "needPassword": "Enter your password."
+    "needPassword": "Enter your password.",
+    "addTitle": "Add an address",
+    "editTitle": "Edit address"
+  },
+  "model": {
+    "label": "AI model",
+    "none": "No model installed",
+    "choose": "Choose a model",
+    "saved": "Saved"
   },
   "run": {
     "title": "Sort my emails",
@@ -44,13 +54,15 @@
     "stop": "Stop",
     "stopping": "Stopping…",
     "needSetup": "Connect your mailbox above first.",
-    "needModel": "Choose an AI model in the connection to continue.",
+    "needModel": "Choose an AI model above to continue.",
     "progressLabel": "Sorting progress",
     "step": {
       "fetch": "Fetching emails",
       "model": "Preparing the model",
       "read": "Reading emails",
-      "readCount": "Reading {done}/{total}"
+      "readCount": "Reading {done}/{total}",
+      "fetchAccount": "Account {i}/{n}: {user} — fetching",
+      "readAccount": "Account {i}/{n}: {user} — reading {done}/{total}"
     }
   },
   "analyze": {
@@ -78,5 +90,8 @@
     "noSubject": "(no subject)",
     "unknownSender": "Unknown sender",
     "uncertainReason": "The AI’s answer could not be understood."
+  },
+  "errors": {
+    "title": "Some accounts could not be read:"
   }
 }

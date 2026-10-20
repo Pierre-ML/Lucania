@@ -1,89 +1,118 @@
-// E-mails non lus : réglages (table `mail_settings`, une seule ligne) et client IMAP minimal en lecture seule.
+// E-mails non lus : comptes (table `mail_accounts`), modèle (table `mail_settings`) et client IMAP minimal en lecture seule.
 // Serveur uniquement. Le mot de passe n'est JAMAIS renvoyé au client (seul `hasPassword` est exposé)
 // et n'apparaît jamais dans les journaux ni dans les messages d'erreur.
 import net from 'node:net';
 import tls from 'node:tls';
 import { getDb, withTransaction } from './db';
-import { validModel } from './http';
 
 // ---------------------------------------------------------------------------
-// Réglages
+// Modèle (table `mail_settings`, une seule ligne : seul `model` sert encore)
 // ---------------------------------------------------------------------------
 
-export interface MailSettingsPublic {
+export function getMailModel(): string {
+  const r = getDb().prepare('SELECT model FROM mail_settings WHERE id = 1').get() as unknown as
+    | { model: string }
+    | undefined;
+  return r?.model ?? '';
+}
+
+export function saveMailModel(model: string): string {
+  withTransaction((db) => {
+    const now = new Date().toISOString();
+    db.prepare('INSERT OR IGNORE INTO mail_settings (id, updated_at) VALUES (1, ?)').run(now);
+    db.prepare('UPDATE mail_settings SET model = ?, updated_at = ? WHERE id = 1').run(model, now);
+  });
+  return getMailModel();
+}
+
+// ---------------------------------------------------------------------------
+// Comptes (table `mail_accounts`)
+// ---------------------------------------------------------------------------
+
+export const MAX_MAIL_ACCOUNTS = 10;
+
+export interface MailAccountPublic {
+  id: number;
   host: string;
   port: number;
   secure: boolean;
   user: string;
   hasPassword: boolean;
   mailbox: string;
-  model: string;
   maxEmails: number;
 }
 
 /** Vue interne (serveur) incluant le mot de passe : ne jamais sérialiser vers le client. */
-export interface MailSettingsSecret {
+export interface MailAccountSecret {
+  id: number;
   host: string;
   port: number;
   secure: boolean;
   user: string;
   password: string;
   mailbox: string;
-  model: string;
   maxEmails: number;
 }
 
-interface MailRow {
+interface AccountRow {
+  id: number;
   host: string;
   port: number;
   secure: number;
   user: string;
   password: string;
   mailbox: string;
-  model: string;
   max_emails: number;
 }
 
-const DEFAULTS: MailSettingsSecret = {
-  host: '',
-  port: 993,
-  secure: true,
-  user: '',
-  password: '',
-  mailbox: 'INBOX',
-  model: '',
-  maxEmails: 30,
-};
+const ACCOUNT_COLS = 'id, host, port, secure, user, password, mailbox, max_emails';
 
-export function getMailSettingsSecret(): MailSettingsSecret {
-  const r = getDb()
-    .prepare('SELECT host, port, secure, user, password, mailbox, model, max_emails FROM mail_settings WHERE id = 1')
-    .get() as unknown as MailRow | undefined;
-  if (!r) return { ...DEFAULTS };
+function toAccount(r: AccountRow): MailAccountSecret {
   return {
+    id: Number(r.id),
     host: r.host,
     port: Number(r.port),
     secure: Number(r.secure) !== 0,
     user: r.user,
     password: r.password,
     mailbox: r.mailbox || 'INBOX',
-    model: r.model,
     maxEmails: Number(r.max_emails),
   };
 }
 
 /** Retire le mot de passe : forme publique conforme au contrat. */
-export function publicMailSettings(s: MailSettingsSecret): MailSettingsPublic {
+export function publicMailAccount(a: MailAccountSecret): MailAccountPublic {
   return {
-    host: s.host,
-    port: s.port,
-    secure: s.secure,
-    user: s.user,
-    hasPassword: s.password !== '',
-    mailbox: s.mailbox,
-    model: s.model,
-    maxEmails: s.maxEmails,
+    id: a.id,
+    host: a.host,
+    port: a.port,
+    secure: a.secure,
+    user: a.user,
+    hasPassword: a.password !== '',
+    mailbox: a.mailbox,
+    maxEmails: a.maxEmails,
   };
+}
+
+export function listMailAccounts(): MailAccountSecret[] {
+  const rows = getDb()
+    .prepare(`SELECT ${ACCOUNT_COLS} FROM mail_accounts ORDER BY id`)
+    .all() as unknown as AccountRow[];
+  return rows.map(toAccount);
+}
+
+export function getMailAccount(id: number): MailAccountSecret | null {
+  const r = getDb().prepare(`SELECT ${ACCOUNT_COLS} FROM mail_accounts WHERE id = ?`).get(id) as unknown as
+    | AccountRow
+    | undefined;
+  return r ? toAccount(r) : null;
+}
+
+/** Identifiant de compte issu d'une chaîne (route ou paramètre) : entier strictement positif, sinon null. */
+export function parseAccountId(v: unknown): number | null {
+  if (typeof v !== 'string' || !/^\d{1,9}$/.test(v)) return null;
+  const n = Number(v);
+  return n > 0 ? n : null;
 }
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
@@ -91,55 +120,58 @@ const isLocalHost = (h: string) => LOCAL_HOSTS.has(h.trim().toLowerCase());
 const HOST_RE = /^[A-Za-z0-9._:-]{1,253}$/;
 const CTRL_RE = /[\u0000-\u001f\u007f]/;
 
-export interface MailSettingsChanges {
+export interface MailAccountChanges {
   host: string;
   port: number;
   secure: boolean;
   user: string;
   /** Nouveau mot de passe ; undefined = conserver l'ancien. */
   password?: string;
-  clearPassword: boolean;
   mailbox: string;
-  model: string;
   maxEmails: number;
 }
 
-/** Valide le corps d'un PUT. Les champs absents gardent la valeur actuelle (`cur`). */
-export function parseMailSettingsInput(
+/**
+ * Valide un corps de POST (`cur` = null : serveur, identifiant et mot de passe obligatoires) ou de PUT
+ * (`cur` = compte existant : champs absents conservés, mot de passe absent ou '' = conservé).
+ */
+export function parseMailAccountInput(
   body: any,
-  cur: MailSettingsSecret,
-): { ok: true; value: MailSettingsChanges } | { ok: false; error: string } {
+  cur: MailAccountSecret | null,
+): { ok: true; value: MailAccountChanges } | { ok: false; error: string } {
   const fail = (error: string) => ({ ok: false as const, error });
 
-  let host = cur.host;
+  let host = cur?.host ?? '';
   if (body.host !== undefined) {
     if (typeof body.host !== 'string') return fail('Serveur invalide');
     host = body.host.trim();
     if (host !== '' && !HOST_RE.test(host))
       return fail('Serveur invalide (nom d’hôte seul, sans schéma, sans espace ni chemin)');
   }
+  if (host === '') return fail('Serveur requis');
 
-  let port = cur.port;
+  let port = cur?.port ?? 993;
   if (body.port !== undefined) {
     if (typeof body.port !== 'number' || !Number.isInteger(body.port) || body.port < 1 || body.port > 65535)
       return fail('Port invalide (1 à 65535)');
     port = body.port;
   }
 
-  let secure = cur.secure;
+  let secure = cur?.secure ?? true;
   if (body.secure !== undefined) {
     if (typeof body.secure !== 'boolean') return fail('secure invalide');
     secure = body.secure;
   }
-  if (!secure && host !== '' && !isLocalHost(host))
+  if (!secure && !isLocalHost(host))
     return fail('Connexion non chiffrée refusée : sans TLS, seuls localhost et 127.0.0.1 sont autorisés');
 
-  let user = cur.user;
+  let user = cur?.user ?? '';
   if (body.user !== undefined) {
     if (typeof body.user !== 'string') return fail('Identifiant invalide');
     user = body.user.trim();
     if (user.length > 254 || user.includes('\0')) return fail('Identifiant invalide (254 caractères maximum)');
   }
+  if (user === '') return fail('Identifiant requis');
 
   let password: string | undefined;
   if (body.password !== undefined) {
@@ -147,25 +179,16 @@ export function parseMailSettingsInput(
       return fail('Mot de passe invalide (500 caractères maximum)');
     if (body.password !== '') password = body.password;
   }
-  if (body.clearPassword !== undefined && typeof body.clearPassword !== 'boolean')
-    return fail('clearPassword invalide');
-  const clearPassword = body.clearPassword === true && password === undefined;
+  if (!cur && password === undefined) return fail('Mot de passe requis');
 
-  let mailbox = cur.mailbox;
+  let mailbox = cur?.mailbox ?? 'INBOX';
   if (body.mailbox !== undefined) {
     if (typeof body.mailbox !== 'string') return fail('Boîte invalide');
     mailbox = body.mailbox.trim() || 'INBOX';
     if (mailbox.length > 100 || CTRL_RE.test(mailbox)) return fail('Boîte invalide (100 caractères maximum)');
   }
 
-  let model = cur.model;
-  if (body.model !== undefined) {
-    if (typeof body.model !== 'string') return fail('Modèle invalide');
-    model = body.model.trim();
-    if (model !== '' && !validModel(model)) return fail('Modèle invalide');
-  }
-
-  let maxEmails = cur.maxEmails;
+  let maxEmails = cur?.maxEmails ?? 30;
   if (body.maxEmails !== undefined) {
     if (
       typeof body.maxEmails !== 'number' ||
@@ -177,22 +200,65 @@ export function parseMailSettingsInput(
     maxEmails = body.maxEmails;
   }
 
-  return { ok: true, value: { host, port, secure, user, password, clearPassword, mailbox, model, maxEmails } };
+  return { ok: true, value: { host, port, secure, user, password, mailbox, maxEmails } };
 }
 
-export function saveMailSettings(v: MailSettingsChanges): MailSettingsSecret {
-  withTransaction((db) => {
-    const cur = getMailSettingsSecret();
-    const password = v.clearPassword ? '' : (v.password ?? cur.password);
-    db.prepare(
-      `INSERT OR REPLACE INTO mail_settings
-         (id, host, port, secure, user, password, mailbox, model, max_emails, updated_at)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(v.host, v.port, v.secure ? 1 : 0, v.user, password, v.mailbox, v.model, v.maxEmails, new Date().toISOString());
+export type MailAccountResult =
+  | { ok: true; account: MailAccountSecret }
+  | { ok: false; status: 400 | 404 | 409; error: string };
+
+const DUPLICATE = 'Ce compte existe déjà (même serveur et même identifiant)';
+
+function isDuplicate(host: string, user: string, exceptId: number): boolean {
+  const h = host.toLowerCase();
+  const u = user.toLowerCase();
+  return listMailAccounts().some((a) => a.id !== exceptId && a.host.toLowerCase() === h && a.user.toLowerCase() === u);
+}
+
+export function createMailAccount(v: MailAccountChanges): MailAccountResult {
+  return withTransaction((db): MailAccountResult => {
+    if (listMailAccounts().length >= MAX_MAIL_ACCOUNTS)
+      return { ok: false, status: 400, error: `Nombre maximal de comptes atteint (${MAX_MAIL_ACCOUNTS})` };
+    if (isDuplicate(v.host, v.user, 0)) return { ok: false, status: 409, error: DUPLICATE };
+    const now = new Date().toISOString();
+    const r = db
+      .prepare(
+        `INSERT INTO mail_accounts (host, port, secure, user, password, mailbox, max_emails, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(v.host, v.port, v.secure ? 1 : 0, v.user, v.password ?? '', v.mailbox, v.maxEmails, now, now);
+    const account = getMailAccount(Number(r.lastInsertRowid));
+    return account ? { ok: true, account } : { ok: false, status: 400, error: 'Création du compte impossible' };
   });
-  return getMailSettingsSecret();
 }
 
+export function updateMailAccount(id: number, v: MailAccountChanges): MailAccountResult {
+  return withTransaction((db): MailAccountResult => {
+    const cur = getMailAccount(id);
+    if (!cur) return { ok: false, status: 404, error: 'Compte introuvable' };
+    if (isDuplicate(v.host, v.user, id)) return { ok: false, status: 409, error: DUPLICATE };
+    db.prepare(
+      `UPDATE mail_accounts SET host = ?, port = ?, secure = ?, user = ?, password = ?, mailbox = ?, max_emails = ?,
+         updated_at = ? WHERE id = ?`,
+    ).run(
+      v.host,
+      v.port,
+      v.secure ? 1 : 0,
+      v.user,
+      v.password ?? cur.password,
+      v.mailbox,
+      v.maxEmails,
+      new Date().toISOString(),
+      id,
+    );
+    const account = getMailAccount(id);
+    return account ? { ok: true, account } : { ok: false, status: 404, error: 'Compte introuvable' };
+  });
+}
+
+export function deleteMailAccount(id: number): boolean {
+  return Number(getDb().prepare('DELETE FROM mail_accounts WHERE id = ?').run(id).changes) > 0;
+}
 // ---------------------------------------------------------------------------
 // Client IMAP minimal (lecture seule : EXAMINE + BODY.PEEK, rien n'est marqué comme lu)
 // ---------------------------------------------------------------------------
@@ -398,12 +464,17 @@ function mapNetError(e: unknown): Error {
     case 'EPIPE':
       return new MailError('Connexion interrompue par le serveur (port ou chiffrement incorrect ?)');
     case 'CERT_HAS_EXPIRED':
+    case 'CERT_NOT_YET_VALID':
+    case 'CERT_UNTRUSTED':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
     case 'SELF_SIGNED_CERT_IN_CHAIN':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
     case 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY':
     case 'ERR_TLS_CERT_ALTNAME_INVALID':
-      return new MailError('Certificat du serveur non valide : connexion refusée');
+      // Le code (constante publique OpenSSL/Node, sans donnée sensible) aide au diagnostic.
+      return new MailError(
+        `Certificat du serveur non reconnu. Si un antivirus analyse les connexions sécurisées, vérifiez qu’il est à jour ou désactivez l’analyse des e-mails. (${code})`,
+      );
     default:
       if (code.startsWith('ERR_SSL') || code.startsWith('ERR_TLS'))
         return new MailError('Échec de la négociation TLS (port ou chiffrement incorrect ?)');
@@ -655,6 +726,29 @@ export interface ImapConfig {
   maxEmails: number;
 }
 
+let caCache: string[] | undefined;
+
+/**
+ * Autorités de confiance : magasin Mozilla intégré à Node + magasin du système. Un antivirus qui
+ * intercepte le TLS installe sa propre racine dans le magasin Windows, que Node ignore par défaut.
+ * Calculé une seule fois ; repli sur le magasin intégré si le magasin système est illisible.
+ */
+function trustedCAs(): string[] {
+  if (caCache) return caCache;
+  let base: string[] = [];
+  try {
+    base = tls.getCACertificates('default');
+  } catch {
+    base = [...tls.rootCertificates];
+  }
+  try {
+    caCache = [...new Set([...base, ...tls.getCACertificates('system')])];
+  } catch {
+    caCache = base;
+  }
+  return caCache;
+}
+
 function connect(cfg: ImapConfig, onSocket: (s: net.Socket) => void): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
     const host = cfg.host.trim();
@@ -670,6 +764,7 @@ function connect(cfg: ImapConfig, onSocket: (s: net.Socket) => void): Promise<ne
             port: cfg.port,
             servername: net.isIP(host) === 0 ? host : undefined,
             minVersion: 'TLSv1.2',
+            ca: trustedCAs(),
             rejectUnauthorized: true,
           })
         : net.connect({ host, port: cfg.port });
