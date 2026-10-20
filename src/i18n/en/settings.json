@@ -355,10 +355,10 @@
       "step1": "Install WireGuard on both machines.",
       "step1Link": "wireguard.com/install",
       "step2": "Create the WireGuard tunnel: for example 10.0.0.1 for the tower and 10.0.0.2 for the laptop, then bring it up on both sides.",
-      "step3": "On the tower: Lucania › Remote access, in Advanced options pick the WireGuard interface, turn on server mode, then copy the code shown.",
+      "step3": "On the tower: Lucania › Connect machines › Remote access, in Advanced options pick the WireGuard interface, turn on server mode, then copy the code shown.",
       "step3Firewall": "Windows asks to allow Lucania through the firewall: accept for private networks, or create inbound TCP 4750 and UDP 4751 (automatic search) rules limited to the chosen network.",
       "step4": "On the laptop: paste the tower code. Automatic search rarely crosses WireGuard: in Advanced options, enter the address http://10.0.0.1:4750, then “Connect with this address”.",
-      "step5": "The header dot follows the tower: gray when unreachable, orange with no model loaded, green when ready. Shutting the tower down uses Settings › Connections.",
+      "step5": "The header dot follows the tower: gray when unreachable, orange with no model loaded, green when ready. Shutting the tower down is set up in Connect machines › Shutdown.",
       "security": "Security: the connection uses plain HTTP, with no encryption of its own. Use it ONLY inside the WireGuard tunnel; the key only travels through that tunnel.",
       "docs": "Full guide: docs/wireguard.md in the repository."
     }

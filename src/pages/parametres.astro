@@ -1,28 +1,20 @@
 ---
 import ChevronLeftIcon from '../assets/icons/chevron-left.svg';
-import PowerSmallIcon from '../assets/icons/power-small.svg';
 import { getLang, t } from '../i18n/index';
 import Layout from '../layouts/Layout.astro';
 import ConfirmDialog from '../components/ConfirmDialog.astro';
 import ModelSettingsDialog from '../components/ModelSettingsDialog.astro';
 import EngineSection from '../components/settings/EngineSection.astro';
 import HfSection from '../components/settings/HfSection.astro';
-import ConnectionsSection from '../components/settings/ConnectionsSection.astro';
-import ConnectionForm from '../components/settings/ConnectionForm.astro';
 import AppearanceSection from '../components/settings/AppearanceSection.astro';
 import AboutSection from '../components/settings/AboutSection.astro';
-import ShutdownSection from '../components/settings/ShutdownSection.astro';
 import MemorySection from '../components/settings/MemorySection.astro';
-import RemoteSection from '../components/settings/RemoteSection.astro';
 
 const lang = getLang(Astro);
 const tabs = [
 	{ id: 'moteur', label: t(lang, 'settings.nav.engine') },
 	{ id: 'huggingface', label: t(lang, 'settings.nav.hf') },
-	{ id: 'connexions', label: t(lang, 'settings.nav.connections') },
 	{ id: 'memoire', label: t(lang, 'settings.nav.memory') },
-	{ id: 'acces-distant', label: t(lang, 'settings.nav.remote') },
-	{ id: 'extinction', label: t(lang, 'settings.nav.shutdown'), icon: true },
 	{ id: 'apparence', label: t(lang, 'settings.nav.appearance') },
 	{ id: 'a-propos', label: t(lang, 'settings.nav.about') },
 ];
@@ -41,30 +33,25 @@ const panel = 'animate-pop-in motion-reduce:animate-none';
 		<div class="mt-8 grid gap-6 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-10">
 			<nav aria-label={t(lang, 'settings.navLabel')} class="-mx-6 flex gap-1 overflow-x-auto border-b border-border px-6 pb-3 md:sticky md:top-10 md:mx-0 md:flex-col md:self-start md:overflow-visible md:border-0 md:px-0 md:pb-0">
 				{tabs.map((tab, i) => (
-					<a href={`#${tab.id}`} data-nav={tab.id} aria-current={i === 0 ? 'page' : undefined} class="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-[current=page]:bg-fg/5 aria-[current=page]:text-fg">{tab.label}{tab.icon && (<PowerSmallIcon stroke-width="1.5" aria-hidden="true" class="ml-1.5 inline-block size-3 align-[-1px] opacity-60" />)}</a>
+					<a href={`#${tab.id}`} data-nav={tab.id} aria-current={i === 0 ? 'page' : undefined} class="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-[current=page]:bg-fg/5 aria-[current=page]:text-fg">{tab.label}</a>
 				))}
 			</nav>
 
 			<div class="min-w-0 max-w-2xl">
 				<div data-panel="moteur" class={panel}><EngineSection /></div>
 				<div data-panel="huggingface" hidden class={panel}><HfSection /></div>
-				<div data-panel="connexions" hidden class={panel}><ConnectionsSection /></div>
 				<div data-panel="memoire" hidden class={panel}><MemorySection /></div>
-				<div data-panel="acces-distant" hidden class={panel}><RemoteSection /></div>
-				<div data-panel="extinction" hidden class={panel}><ShutdownSection /></div>
 				<div data-panel="apparence" hidden class={panel}><AppearanceSection /></div>
 				<div data-panel="a-propos" hidden class={panel}><AboutSection /></div>
 			</div>
 		</div>
 	</main>
 
-	<ConnectionForm />
 	<ModelSettingsDialog />
 	<ConfirmDialog />
 	<script>import '../lib/client/settings.js';</script>
 	<script>import { initModelSettings } from '../lib/client/model-settings.js'; initModelSettings();</script>
 	<script>import '../lib/client/memory-settings.js';</script>
 	<script>import '../lib/client/hf-settings.js';</script>
-	<script>import { initRemoteSettings } from '../lib/client/remote-settings.js'; initRemoteSettings();</script>
 	<script>import { guardServerMode } from '../lib/client/server-guard.js'; guardServerMode();</script>
 </Layout>

@@ -355,10 +355,10 @@
       "step1": "Installe WireGuard sur les deux machines.",
       "step1Link": "wireguard.com/install",
       "step2": "Crée le tunnel WireGuard : par exemple 10.0.0.1 pour la tour et 10.0.0.2 pour le portable, puis active-le des deux côtés.",
-      "step3": "Sur la tour : Lucania › Accès distant, dans Options avancées, choisis l'interface WireGuard, active le mode serveur, puis copie le code affiché.",
+      "step3": "Sur la tour : Lucania › Connexion entre machines › Accès distant, dans Options avancées, choisis l'interface WireGuard, active le mode serveur, puis copie le code affiché.",
       "step3Firewall": "Windows demande d'autoriser Lucania dans le pare-feu : accepte pour les réseaux privés, ou crée des règles entrantes TCP 4750 et UDP 4751 (recherche automatique) limitées au réseau voulu.",
       "step4": "Sur le portable : colle le code de la tour. La recherche automatique passe rarement par WireGuard : dans Options avancées, saisis l'adresse http://10.0.0.1:4750, puis « Connecter avec cette adresse ».",
-      "step5": "La pastille de l'en-tête suit la tour : grise si elle est injoignable, orange sans modèle chargé, verte quand elle est prête. L'extinction de la tour utilise Paramètres › Connexions.",
+      "step5": "La pastille de l'en-tête suit la tour : grise si elle est injoignable, orange sans modèle chargé, verte quand elle est prête. L'extinction de la tour se règle dans Connexion entre machines › Extinction.",
       "security": "Sécurité : la connexion est en HTTP, sans chiffrement propre. À utiliser UNIQUEMENT dans le tunnel WireGuard ; la clé ne circule que dans ce tunnel.",
       "docs": "Guide complet : docs/wireguard.md du dépôt."
     }

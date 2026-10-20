@@ -1,0 +1,91 @@
+{
+  "docTitle": "Connexion entre machines — Lucania",
+  "title": "Connexion entre machines",
+  "back": "Retour au chat",
+  "mode": {
+    "label": "Mode d'affichage",
+    "guided": "Guidé",
+    "advanced": "Avancé"
+  },
+  "nav": {
+    "label": "Sections de la connexion",
+    "remote": "Accès distant",
+    "connections": "Connexions",
+    "shutdown": "Extinction"
+  },
+  "steps": {
+    "label": "Étapes de l'assistant",
+    "counter": "Étape {current}/{total}",
+    "role": "Rôle",
+    "link": "Liaison",
+    "shutdown": "Extinction",
+    "recap": "Récapitulatif"
+  },
+  "wizard": {
+    "prev": "Précédent",
+    "next": "Suivant",
+    "skip": "Passer cette étape",
+    "finish": "Terminer"
+  },
+  "role": {
+    "title": "Rôle de cette machine",
+    "description": "Lucania relie deux machines : le serveur fait tourner les modèles, le récepteur s'en sert.",
+    "label": "Rôle de cette machine",
+    "tower": {
+      "title": "Cette machine est utilisée comme serveur",
+      "text": "Elle fait tourner les modèles et les met à disposition d'une autre machine."
+    },
+    "laptop": {
+      "title": "Cette machine est utilisée comme récepteur",
+      "text": "Le chat reste ici, les modèles tournent sur la machine serveur."
+    }
+  },
+  "tower": {
+    "title": "Configurer le serveur",
+    "description": "Activez le mode serveur, puis copiez le code à coller sur l'autre machine.",
+    "note": "Une fois le mode serveur activé, l'écran est réservé au serveur jusqu'à son arrêt."
+  },
+  "laptop": {
+    "title": "Se connecter au serveur",
+    "description": "Collez le code affiché sur la machine serveur, choisissez le réseau, puis connectez."
+  },
+  "shutdown": {
+    "title": "Extinction à distance (facultatif)",
+    "description": "Ajoutez les machines que vous voulez pouvoir éteindre depuis Lucania. Vous pourrez le faire plus tard."
+  },
+  "recap": {
+    "title": "Récapitulatif",
+    "description": "Voici l'état de la connexion entre vos machines.",
+    "loading": "Vérification…",
+    "unavailable": "Indisponible",
+    "role": {
+      "label": "Rôle",
+      "tower": "Serveur",
+      "laptop": "Récepteur",
+      "none": "Non choisi"
+    },
+    "server": {
+      "label": "Mode serveur",
+      "running": "Actif, à l'écoute sur {address}",
+      "off": "Inactif",
+      "error": "Erreur : {error}"
+    },
+    "client": {
+      "label": "Serveur utilisé",
+      "connected": "Connecté au serveur {url}",
+      "unreachable": "Serveur {url} injoignable",
+      "unreachableError": "Serveur {url} injoignable : {error}",
+      "none": "Aucun serveur : cette machine utilise son propre moteur"
+    },
+    "shutdown": {
+      "label": "Extinction à distance",
+      "count": {
+        "zero": "Aucune machine éteignable",
+        "one": "{count} machine éteignable",
+        "other": "{count} machines éteignables"
+      },
+      "error": "Liste des machines indisponible"
+    },
+    "advanced": "Passer en mode avancé"
+  }
+}

@@ -1,6 +1,7 @@
 ---
 import PlusIcon from '../assets/icons/plus.svg';
 import FolderPlusIcon from '../assets/icons/folder-plus.svg';
+import ServerIcon from '../assets/icons/server.svg';
 import SettingsIcon from '../assets/icons/settings.svg';
 import SparklePlusIcon from '../assets/icons/sparkle-plus.svg';
 import { getLang, t } from '../i18n/index';
@@ -40,6 +41,10 @@ const lang = getLang(Astro);
 				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SparklePlusIcon width="16" height="16" aria-hidden="true" /></span>
 				{t(lang, 'chat.addModel.button')}
 			</button>
+			<a href="/connexion" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
+				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><ServerIcon width="16" height="16" aria-hidden="true" /></span>
+				{t(lang, 'chat.sidebar.connect')}
+			</a>
 			<a href="/parametres" class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors duration-200 hover:bg-white/5 hover:text-fg focus-visible:outline-2">
 				<span class="flex size-4.5 shrink-0 items-center justify-center text-muted transition-colors group-hover:text-fg"><SettingsIcon width="16" height="16" aria-hidden="true" /></span>
 				{t(lang, 'chat.sidebar.settings')}

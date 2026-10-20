@@ -53,7 +53,7 @@ stopBtn?.addEventListener('click', async () => {
   stopBtn.textContent = t('settings.server.screen.stopping');
   try {
     await stopServer();
-    location.replace('/parametres#acces-distant');
+    location.replace('/connexion');
   } catch (e) {
     stopping = false;
     stopBtn.disabled = false;

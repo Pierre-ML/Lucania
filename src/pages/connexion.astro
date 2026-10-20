@@ -1,0 +1,183 @@
+---
+import CheckSmallIcon from '../assets/icons/check-small.svg';
+import ChevronLeftIcon from '../assets/icons/chevron-left.svg';
+import MonitorIcon from '../assets/icons/monitor.svg';
+import ServerIcon from '../assets/icons/server.svg';
+import { getLang, t } from '../i18n/index';
+import Layout from '../layouts/Layout.astro';
+import ConfirmDialog from '../components/ConfirmDialog.astro';
+import ConnectionsSection from '../components/settings/ConnectionsSection.astro';
+import ConnectionForm from '../components/settings/ConnectionForm.astro';
+import RemoteSection from '../components/settings/RemoteSection.astro';
+import ShutdownSection from '../components/settings/ShutdownSection.astro';
+
+const lang = getLang(Astro);
+const total = 4;
+const tabs = [
+	{ id: 'acces-distant', label: t(lang, 'connect.nav.remote') },
+	{ id: 'connexions', label: t(lang, 'connect.nav.connections') },
+	{ id: 'extinction', label: t(lang, 'connect.nav.shutdown') },
+];
+const stepLabels = [
+	t(lang, 'connect.steps.role'),
+	t(lang, 'connect.steps.link'),
+	t(lang, 'connect.steps.shutdown'),
+	t(lang, 'connect.steps.recap'),
+];
+const panel = 'animate-pop-in motion-reduce:animate-none';
+const seg = 'h-8 cursor-pointer rounded-md px-3 text-xs font-medium text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-checked:bg-fg aria-checked:text-bg motion-reduce:transition-none';
+const primaryBtn = 'inline-flex h-12 min-w-36 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-fg px-8 text-base font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const secondaryBtn = 'inline-flex h-12 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border px-6 text-base font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const roleCard = 'group flex cursor-pointer flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-[border-color,background-color,transform] duration-150 hover:bg-fg/[0.03] focus-visible:outline-fg/40 active:scale-[0.99] aria-checked:border-fg aria-checked:bg-fg/5 motion-reduce:transition-none';
+const stepItem = 'group flex items-center text-muted last:flex-none flex-1 aria-[current=step]:text-fg data-[done=true]:text-fg';
+const stepDot = 'grid size-10 shrink-0 place-items-center rounded-full border border-border text-sm font-medium tabular-nums transition-[background-color,box-shadow,border-color] duration-150 group-aria-[current=step]:border-fg group-aria-[current=step]:bg-fg group-aria-[current=step]:text-bg group-aria-[current=step]:ring-4 group-aria-[current=step]:ring-fg/10 group-data-[done=true]:border-fg motion-reduce:transition-none';
+const stepLine = 'mx-3 h-0.5 flex-1 rounded-full bg-border transition-colors duration-150 group-data-[done=true]:bg-fg motion-reduce:transition-none';
+const heading = 'font-serif text-xl focus:outline-none';
+const recapRow = 'flex items-center justify-between gap-4 px-4 py-3';
+const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=true]:text-danger';
+---
+<Layout title={t(lang, 'connect.docTitle')}>
+	<main data-connect-page class="group/page mx-auto min-h-dvh w-full max-w-4xl px-6 py-10">
+		<header>
+			<a href="/" class="group -ml-2.5 inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-muted transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:bg-fg/5 focus-visible:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg/40 motion-reduce:transition-none">
+				<ChevronLeftIcon class="size-4 shrink-0 transition-transform duration-150 ease-out group-hover:-translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none" aria-hidden="true" />
+				<span>{t(lang, 'connect.back')}</span>
+			</a>
+			<div class="mt-4 flex flex-wrap items-center justify-between gap-4">
+				<h1 class="font-serif text-2xl">{t(lang, 'connect.title')}</h1>
+				<div role="radiogroup" aria-label={t(lang, 'connect.mode.label')} data-mode-switch class="invisible inline-flex gap-1 rounded-lg border border-border p-0.5 group-data-[ready=true]/page:visible [[hidden]]:hidden">
+					<button type="button" role="radio" data-mode-btn="guided" aria-checked="true" class={seg}>{t(lang, 'connect.mode.guided')}</button>
+					<button type="button" role="radio" data-mode-btn="advanced" aria-checked="false" class={seg}>{t(lang, 'connect.mode.advanced')}</button>
+				</div>
+			</div>
+		</header>
+
+		<div class="invisible mt-8 group-data-[ready=true]/page:visible">
+			<!-- Mode avancé : les trois sections au choix -->
+			<nav data-view="advanced" hidden aria-label={t(lang, 'connect.nav.label')} class="-mx-6 flex gap-1 overflow-x-auto border-b border-border px-6 pb-3">
+				{tabs.map((tab) => (
+					<a href={`#${tab.id}`} data-nav={tab.id} class="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-[current=page]:bg-fg/5 aria-[current=page]:text-fg">{tab.label}</a>
+				))}
+			</nav>
+
+			<!-- Mode guidé : indicateur d'étapes + en-tête de chaque étape -->
+			<div data-view="guided" class="max-w-2xl">
+				<div class="rounded-2xl border border-border p-5">
+					<ol aria-label={t(lang, 'connect.steps.label')} class="flex items-center">
+						{stepLabels.map((label, i) => (
+							<li data-step-item={i + 1} data-done="false" class={stepItem}>
+								<span class="flex shrink-0 items-center gap-3">
+									<span class={stepDot}>
+										<span class="group-data-[done=true]:hidden">{i + 1}</span>
+										<CheckSmallIcon class="hidden size-5 group-data-[done=true]:block" aria-hidden="true" />
+									</span>
+									<span class="hidden text-sm group-aria-[current=step]:inline group-aria-[current=step]:font-medium sm:inline">{label}</span>
+								</span>
+								{i < stepLabels.length - 1 && <span data-step-line aria-hidden="true" class={stepLine}></span>}
+							</li>
+						))}
+					</ol>
+					<p data-step-counter role="status" aria-live="polite" class="mt-4 text-sm text-muted">{t(lang, 'connect.steps.counter', { current: 1, total })}</p>
+				</div>
+
+				<div data-step="1" class={`mt-8 ${panel}`}>
+					<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.role.title')}</h2>
+					<p class="mt-1 text-sm text-muted">{t(lang, 'connect.role.description')}</p>
+					<div role="radiogroup" aria-label={t(lang, 'connect.role.label')} class="mt-6 grid gap-4 sm:grid-cols-2">
+						<button type="button" role="radio" data-role-btn="tower" aria-checked="false" class={roleCard}>
+							<span class="flex w-full items-center justify-between">
+								<ServerIcon class="size-7 text-fg" aria-hidden="true" />
+								<CheckSmallIcon class="invisible size-5 text-fg group-aria-checked:visible" aria-hidden="true" />
+							</span>
+							<span class="text-sm font-medium">{t(lang, 'connect.role.tower.title')}</span>
+							<span class="text-xs text-muted">{t(lang, 'connect.role.tower.text')}</span>
+						</button>
+						<button type="button" role="radio" data-role-btn="laptop" aria-checked="false" class={roleCard}>
+							<span class="flex w-full items-center justify-between">
+								<MonitorIcon class="size-7 text-fg" aria-hidden="true" />
+								<CheckSmallIcon class="invisible size-5 text-fg group-aria-checked:visible" aria-hidden="true" />
+							</span>
+							<span class="text-sm font-medium">{t(lang, 'connect.role.laptop.title')}</span>
+							<span class="text-xs text-muted">{t(lang, 'connect.role.laptop.text')}</span>
+						</button>
+					</div>
+				</div>
+
+				<div data-step="2" hidden class={`mt-6 ${panel}`}>
+					<div data-role-show="tower" hidden>
+						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.tower.title')}</h2>
+						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.tower.description')}</p>
+						<p class="mt-1 text-xs text-muted">{t(lang, 'connect.tower.note')}</p>
+					</div>
+					<div data-role-show="laptop" hidden>
+						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.laptop.title')}</h2>
+						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.laptop.description')}</p>
+					</div>
+				</div>
+
+				<div data-step="3" hidden class={`mt-6 ${panel}`}>
+					<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.title')}</h2>
+					<p class="mt-1 text-sm text-muted">{t(lang, 'connect.shutdown.description')}</p>
+				</div>
+
+				<div data-step="4" hidden class={`mt-6 ${panel}`}>
+					<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.recap.title')}</h2>
+					<p class="mt-1 text-sm text-muted">{t(lang, 'connect.recap.description')}</p>
+					<p data-recap="unavailable" role="status" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-6 text-center text-sm text-muted"></p>
+					<dl class="mt-6 divide-y divide-border rounded-xl border border-border text-sm">
+						<div class={recapRow}>
+							<dt class="text-muted">{t(lang, 'connect.recap.role.label')}</dt>
+							<dd data-recap="role" data-bad="false" class={recapValue}></dd>
+						</div>
+						<div data-recap-row="server" class={recapRow}>
+							<dt class="text-muted">{t(lang, 'connect.recap.server.label')}</dt>
+							<dd data-recap="server" data-bad="false" class={recapValue}></dd>
+						</div>
+						<div data-recap-row="client" class={recapRow}>
+							<dt class="text-muted">{t(lang, 'connect.recap.client.label')}</dt>
+							<dd data-recap="client" data-bad="false" class={recapValue}></dd>
+						</div>
+						<div class={recapRow}>
+							<dt class="text-muted">{t(lang, 'connect.recap.shutdown.label')}</dt>
+							<dd data-recap="shutdown" data-bad="false" class={recapValue}></dd>
+						</div>
+					</dl>
+					<button type="button" data-wiz="advanced" class="mt-5 cursor-pointer rounded text-sm text-fg underline decoration-fg/30 underline-offset-2 transition-colors duration-150 hover:decoration-fg focus-visible:outline-fg/40">{t(lang, 'connect.recap.advanced')}</button>
+				</div>
+			</div>
+
+			<!-- Sections affichées une seule fois : le mode guidé et le mode avancé les montrent ou les masquent -->
+			<div class="mt-8 flex max-w-2xl flex-col gap-12">
+				<div data-sec="remote" hidden class={panel}><RemoteSection /></div>
+				<div data-sec="connections" hidden class={panel}><ConnectionsSection /></div>
+				<div data-sec="shutdown" hidden class={panel}><ShutdownSection /></div>
+			</div>
+
+			<!-- Mode guidé : navigation entre les étapes -->
+			<div data-view="guided" class="mt-12 flex max-w-2xl flex-wrap items-center gap-4 border-t border-border pt-8">
+				<button type="button" data-wiz="prev" hidden class={secondaryBtn}>{t(lang, 'connect.wizard.prev')}</button>
+				<div class="ml-auto flex flex-wrap items-center gap-4">
+					<button type="button" data-wiz="skip" hidden class={secondaryBtn}>{t(lang, 'connect.wizard.skip')}</button>
+					<button type="button" data-wiz="next" disabled class={primaryBtn}>{t(lang, 'connect.wizard.next')}</button>
+					<a href="/" data-wiz="finish" hidden class={primaryBtn}>{t(lang, 'connect.wizard.finish')}</a>
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<ConnectionForm />
+	<ConfirmDialog />
+	<script>
+		import { initConnexionPage } from '../lib/client/connexion-page.js';
+		import { initConnectionsSettings } from '../lib/client/connections-settings.js';
+		import { initRemoteSettings } from '../lib/client/remote-settings.js';
+		import { initShutdownSettings } from '../lib/client/shutdown-settings.js';
+		import { guardServerMode } from '../lib/client/server-guard.js';
+		initConnexionPage();
+		initRemoteSettings();
+		initConnectionsSettings();
+		initShutdownSettings();
+		guardServerMode();
+	</script>
+</Layout>
+

@@ -1,0 +1,91 @@
+{
+  "docTitle": "Connect machines — Lucania",
+  "title": "Connect machines",
+  "back": "Back to chat",
+  "mode": {
+    "label": "Display mode",
+    "guided": "Guided",
+    "advanced": "Advanced"
+  },
+  "nav": {
+    "label": "Connection sections",
+    "remote": "Remote access",
+    "connections": "Connections",
+    "shutdown": "Shutdown"
+  },
+  "steps": {
+    "label": "Wizard steps",
+    "counter": "Step {current}/{total}",
+    "role": "Role",
+    "link": "Link",
+    "shutdown": "Shutdown",
+    "recap": "Summary"
+  },
+  "wizard": {
+    "prev": "Previous",
+    "next": "Next",
+    "skip": "Skip this step",
+    "finish": "Finish"
+  },
+  "role": {
+    "title": "Role of this machine",
+    "description": "Lucania links two machines: the server runs the models, the receiver uses them.",
+    "label": "Role of this machine",
+    "tower": {
+      "title": "This machine is used as a server",
+      "text": "It runs the models and makes them available to another machine."
+    },
+    "laptop": {
+      "title": "This machine is used as a receiver",
+      "text": "The chat stays here, the models run on the server machine."
+    }
+  },
+  "tower": {
+    "title": "Set up the server",
+    "description": "Turn on server mode, then copy the code to paste on the other machine.",
+    "note": "Once server mode is on, the screen is reserved for the server until it is stopped."
+  },
+  "laptop": {
+    "title": "Connect to the server",
+    "description": "Paste the code shown on the server machine, pick the network, then connect."
+  },
+  "shutdown": {
+    "title": "Remote shutdown (optional)",
+    "description": "Add the machines you want to be able to shut down from Lucania. You can also do this later."
+  },
+  "recap": {
+    "title": "Summary",
+    "description": "Here is the state of the connection between your machines.",
+    "loading": "Checking…",
+    "unavailable": "Unavailable",
+    "role": {
+      "label": "Role",
+      "tower": "Server",
+      "laptop": "Receiver",
+      "none": "Not chosen"
+    },
+    "server": {
+      "label": "Server mode",
+      "running": "On, listening on {address}",
+      "off": "Off",
+      "error": "Error: {error}"
+    },
+    "client": {
+      "label": "Server in use",
+      "connected": "Connected to server {url}",
+      "unreachable": "Server {url} unreachable",
+      "unreachableError": "Server {url} unreachable: {error}",
+      "none": "No server: this machine uses its own engine"
+    },
+    "shutdown": {
+      "label": "Remote shutdown",
+      "count": {
+        "zero": "No machine to shut down",
+        "one": "{count} machine to shut down",
+        "other": "{count} machines to shut down"
+      },
+      "error": "Machine list unavailable"
+    },
+    "advanced": "Switch to advanced mode"
+  }
+}

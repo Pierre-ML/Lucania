@@ -3,7 +3,8 @@
     "newChat": "New chat",
     "newFolder": "New folder",
     "conversations": "Conversations",
-    "settings": "Settings"
+    "settings": "Settings",
+    "connect": "Connect machines"
   },
   "header": {
     "toggleSidebar": "Show/hide sidebar",
@@ -263,7 +264,7 @@
     }
   },
   "power": {
-    "noTarget": "No remote machine to shut down (Settings › Connections)",
+    "noTarget": "No remote machine to shut down (Connect machines)",
     "clickToShutdown": "Click to shut down {name}",
     "error": "Engine status unavailable"
   },

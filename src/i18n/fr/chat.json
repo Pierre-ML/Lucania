@@ -3,7 +3,8 @@
     "newChat": "Nouvelle conversation",
     "newFolder": "Nouveau dossier",
     "conversations": "Conversations",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "connect": "Connexion entre machines"
   },
   "header": {
     "toggleSidebar": "Afficher/masquer la barre latérale",
@@ -263,7 +264,7 @@
     }
   },
   "power": {
-    "noTarget": "Aucune machine distante à éteindre (Paramètres › Connexions)",
+    "noTarget": "Aucune machine distante à éteindre (Connexion entre machines)",
     "clickToShutdown": "Cliquer pour éteindre {name}",
     "error": "État du moteur indisponible"
   },
