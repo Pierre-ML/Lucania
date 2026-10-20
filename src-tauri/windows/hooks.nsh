@@ -45,11 +45,8 @@
   ${EndIf}
 !macroend
 
-; Page de fin : la case « Lancer Lucania » est décochée par défaut. Le template l'exécute via
-; nsis_tauri_utils::RunAsUser sur l'exe tout juste installé ; l'antivirus (Norton) l'analyse à
-; cet instant et l'appel bloque, ce qui fige l'installateur sur « Terminer ». L'utilisateur
-; lance l'application via le raccourci.
-!define MUI_FINISHPAGE_RUN_NOTCHECKED
+; LUCANIA: page de fin : la case « Lancer Lucania » est COCHÉE par défaut (setup et update) ;
+; MUI_FINISHPAGE_RUN_NOTCHECKED n'est donc plus défini nulle part.
 
 ; Case « Créer un raccourci sur le Bureau » décochée par défaut (évite un blocage sur
 ; « Terminer » pendant la création du raccourci/analyse antivirus) ; l'utilisateur peut la cocher.

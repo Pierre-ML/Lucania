@@ -10,4 +10,8 @@ const label = t(lang, 'chat.update.title');
 		<span aria-hidden="true" class="absolute right-1 top-1 hidden size-2 rounded-full bg-amber-500 ring-2 ring-bg group-data-[available=true]:block"></span>
 	</button>
 	<p id="update-note" role="status" aria-live="polite" hidden class="absolute right-0 top-full z-20 mt-2 w-max max-w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-fg shadow-[0_12px_32px_rgb(0_0_0/0.55)]"></p>
+	<div id="update-progress" hidden class="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-fg shadow-[0_12px_32px_rgb(0_0_0/0.55)]">
+		<p data-update-progress-text role="status" aria-live="polite"></p>
+		<progress data-update-progress-bar value="0" max="1" aria-label={t(lang, 'chat.update.progressLabel')} class="mt-2 h-1 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-fg [&::-webkit-progress-bar]:bg-fg/10 [&::-webkit-progress-value]:bg-fg"></progress>
+	</div>
 </div>

@@ -154,7 +154,11 @@ export function initEmailsPage() {
   if (!page) return;
 
   const form = /** @type {HTMLFormElement} */ ($('[data-mail-form]'));
-  const setupBox = $('[data-mail-setup]');
+  const dialog = /** @type {HTMLDialogElement|null} */ ($('[data-mail-dialog]'));
+  const ctaBox = $('[data-mail-cta]');
+  const connectBtn = $('[data-mail-connect]');
+  const welcome = $('[data-mail-welcome]');
+  const tilesBox = $('[data-mail-tiles]');
   const setupTitle = $('[data-mail-setup-title]');
   const accountsBox = $('[data-mail-accounts]');
   const accountList = $('[data-mail-account-list]');
@@ -292,11 +296,34 @@ export function initEmailsPage() {
     field('secure').checked = Boolean(a.secure);
   }
 
-  /** @param {boolean} showForm */
+  /** Ouvre ou ferme la fenêtre du formulaire de compte. @param {boolean} showForm */
   function showSetup(showForm) {
-    if (setupBox) setupBox.hidden = !showForm;
-    if (accountsBox) accountsBox.hidden = showForm || accounts.length === 0;
-    if (cancelBtn) cancelBtn.hidden = accounts.length === 0;
+    if (!dialog) return;
+    if (showForm && !dialog.open) dialog.showModal();
+    else if (!showForm && dialog.open) dialog.close();
+  }
+
+  // Échap ou « Annuler » : on oublie le compte en cours de modification.
+  dialog?.addEventListener('close', () => {
+    editingId = null;
+    say(settingsStatus, '');
+  });
+
+  /** L'invite centrale n'est visible que tant qu'aucun résultat n'est affiché. */
+  function syncWelcome() {
+    if (welcome && results) welcome.hidden = !results.hidden;
+  }
+
+  /** @param {boolean} on */
+  function showResults(on) {
+    if (results) results.hidden = !on;
+    syncWelcome();
+  }
+
+  /** @param {boolean} on */
+  function showBoard(on) {
+    if (board) board.hidden = !on;
+    if (tilesBox) tilesBox.hidden = !on;
   }
 
   /** @param {MailAccount|null} account */
@@ -317,11 +344,8 @@ export function initEmailsPage() {
   }
 
   addBtn?.addEventListener('click', () => openForm(null));
-  cancelBtn?.addEventListener('click', () => {
-    say(settingsStatus, '');
-    editingId = null;
-    showSetup(false);
-  });
+  connectBtn?.addEventListener('click', () => openForm(null));
+  cancelBtn?.addEventListener('click', () => showSetup(false));
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -366,7 +390,7 @@ export function initEmailsPage() {
       editingId = null;
       await loadAccounts();
       say(settingsStatus, '');
-      showSetup(accounts.length === 0);
+      showSetup(false);
     } catch (e) {
       say(settingsStatus, messageOf(e), true);
     } finally {
@@ -382,7 +406,7 @@ export function initEmailsPage() {
     b.type = 'button';
     b.dataset.mailAccountAction = '';
     b.disabled = running;
-    b.className = `h-9 shrink-0 cursor-pointer rounded-lg px-3 text-sm transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${extra}`;
+    b.className = `h-8 shrink-0 cursor-pointer rounded-lg px-2 text-xs transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${extra}`;
     b.textContent = text;
     return b;
   }
@@ -390,15 +414,15 @@ export function initEmailsPage() {
   /** @param {MailAccount} a */
   function buildAccountCard(a) {
     const li = document.createElement('li');
-    li.className = 'flex items-center gap-3 rounded-2xl border border-border bg-surface/50 px-4 py-3';
+    li.className = 'flex flex-wrap items-center gap-2 rounded-xl border border-border bg-bg/50 py-1.5 pl-2.5 pr-1.5';
 
     const badge = document.createElement('span');
-    badge.className = 'flex size-10 shrink-0 items-center justify-center rounded-full bg-fg/10 text-sm font-medium';
+    badge.className = 'flex size-7 shrink-0 items-center justify-center rounded-full bg-fg/10 text-sm font-medium';
     badge.setAttribute('aria-hidden', 'true');
     badge.textContent = initialOf(a.user);
 
     const name = document.createElement('p');
-    name.className = 'min-w-0 flex-1 truncate text-sm font-medium';
+    name.className = 'min-w-24 flex-1 text-sm font-medium wrap-anywhere';
     name.textContent = a.user;
 
     const actions = document.createElement('div');
@@ -426,7 +450,6 @@ export function initEmailsPage() {
         try {
           await api(`/api/mail/accounts/${a.id}`, { method: 'DELETE' });
           await loadAccounts();
-          if (accounts.length === 0) openForm(null);
         } catch (e) {
           say(accountsStatus, messageOf(e), true);
           showNormal();
@@ -444,7 +467,8 @@ export function initEmailsPage() {
   function renderAccounts() {
     accountList?.replaceChildren(...accounts.map(buildAccountCard));
     if (addBtn) addBtn.hidden = accounts.length >= MAX_ACCOUNTS;
-    if (accountsBox) accountsBox.hidden = accounts.length === 0 || (setupBox ? !setupBox.hidden : false);
+    if (accountsBox) accountsBox.hidden = accounts.length === 0;
+    if (ctaBox) ctaBox.hidden = accounts.length > 0;
     refreshRun();
   }
 
@@ -671,7 +695,7 @@ export function initEmailsPage() {
   function buildRow(entry, multi) {
     const { mail } = entry;
     const li = document.createElement('li');
-    li.className = 'px-3 py-2.5 opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none sm:px-4';
+    li.className = 'px-3 py-2 opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none';
     const name = senderName(mail.from) || t('mail.results.unknownSender');
     const subjectText = mail.subject || t('mail.results.noSubject');
     const reasonText = entry.reason || t('mail.results.noReason');
@@ -893,9 +917,9 @@ export function initEmailsPage() {
     };
     resetResults();
     renderErrors([]);
-    if (results) results.hidden = true;
+    showResults(false);
     if (none) none.hidden = true;
-    if (board) board.hidden = true;
+    showBoard(false);
     setRunning(true);
 
     const queue = accounts.slice();
@@ -944,8 +968,8 @@ export function initEmailsPage() {
 
         total += emails.length;
         totalCount = total;
-        if (results) results.hidden = false;
-        if (board) board.hidden = false;
+        showResults(true);
+        showBoard(true);
         refreshResults();
 
         if (!modelReady) {
@@ -994,10 +1018,10 @@ export function initEmailsPage() {
         }
       }
       if (total === 0 && errors.length === 0) {
-        if (results) results.hidden = false;
+        showResults(true);
         if (summary) summary.textContent = '';
         if (none) none.hidden = false;
-        if (board) board.hidden = true;
+        showBoard(false);
       }
       say(statusEl, t('mail.analyze.done'));
     } catch (e) {
@@ -1020,7 +1044,6 @@ export function initEmailsPage() {
     try {
       await loadAccounts();
       if (accounts.length === 0) openForm(null);
-      else showSetup(false);
     } catch (e) {
       showSetup(true);
       say(settingsStatus, messageOf(e) || t('mail.setup.loadError'), true);

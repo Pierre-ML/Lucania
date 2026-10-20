@@ -89,7 +89,7 @@ export function initMailAiPanel() {
     const isInstalled = stem !== '' && installed.some((n) => n.includes(stem));
 
     const li = document.createElement('li');
-    li.className = 'flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-border px-4 py-3';
+    li.className = 'flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border px-3 py-2';
 
     const info = document.createElement('div');
     info.className = 'min-w-0 flex-1';
@@ -121,7 +121,7 @@ export function initMailAiPanel() {
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.className =
-      'inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm text-muted underline underline-offset-4 transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:outline-fg/40 motion-reduce:transition-none';
+      'inline-flex h-8 shrink-0 items-center rounded-lg px-2 text-xs text-muted underline underline-offset-4 transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:outline-fg/40 motion-reduce:transition-none';
     link.textContent = t('mailai.models.repo');
     link.setAttribute('aria-label', t('mailai.models.repoLabel', { name: m.name }));
 
@@ -279,7 +279,7 @@ export function initMailAiPanel() {
   /** @param {MemoryEntry} entry */
   function buildEntry(entry) {
     const li = document.createElement('li');
-    li.className = 'flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-surface/50 px-4 py-2.5';
+    li.className = 'flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface/50 px-3 py-2';
     const body = document.createElement('div');
     body.className = 'min-w-0 flex-1';
     const actions = document.createElement('div');

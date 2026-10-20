@@ -283,6 +283,10 @@
     "upToDate": "Lucania est à jour (v{current}).",
     "error": "Vérification impossible : {error}",
     "downloading": "Téléchargement de la mise à jour…",
+    "progress": "Téléchargement de la mise à jour… {percent} ({done} / {total} Mo)",
+    "progressNoTotal": "Téléchargement de la mise à jour… ({done} Mo)",
+    "progressLabel": "Progression du téléchargement de la mise à jour",
+    "launching": "Fermeture de Lucania et lancement de la mise à jour…",
     "confirm": {
       "title": "Mettre à jour Lucania ?",
       "message": "La version {latest} est disponible (installée : {current}). Lucania va se fermer pour installer la mise à jour.",

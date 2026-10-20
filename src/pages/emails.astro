@@ -6,14 +6,15 @@ import MailAiPanel from '../components/mail/MailAiPanel.astro';
 
 const lang = getLang(Astro);
 const primaryBtn = 'inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-fg px-6 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
-const bigBtn = 'inline-flex h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl bg-fg px-8 text-base font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none sm:w-auto';
-const secondaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const bigBtn = 'inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-fg px-6 text-base font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none';
+const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const label = 'flex flex-col gap-1.5 text-sm';
 const labelText = 'font-medium';
 const field = 'h-11 w-full rounded-xl border border-border bg-transparent px-3.5 text-sm text-fg placeholder:text-muted focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50';
-const compactField = field.replace('h-11', 'h-10');
-const chip = 'inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-border px-4 text-sm transition-[background-color,color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] aria-pressed:border-fg aria-pressed:bg-fg aria-pressed:text-bg motion-reduce:transition-none';
-const tile = 'flex w-full cursor-pointer flex-col gap-1 rounded-xl border border-border px-3.5 py-3 text-left transition-[background-color,border-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg/40 active:scale-[0.98] aria-pressed:border-fg aria-pressed:bg-fg/5 motion-reduce:transition-none motion-reduce:active:scale-100';
+const compactField = 'h-10 w-full rounded-xl border border-border bg-transparent px-3.5 text-sm text-fg placeholder:text-muted focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50';
+const chip = 'inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-border px-3.5 text-sm transition-[background-color,color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] aria-pressed:border-fg aria-pressed:bg-fg aria-pressed:text-bg motion-reduce:transition-none';
+const tile = 'flex w-full cursor-pointer flex-col gap-0.5 rounded-lg border border-border px-3 py-2 text-left transition-[background-color,border-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg/40 active:scale-[0.98] aria-pressed:border-fg aria-pressed:bg-fg/5 motion-reduce:transition-none motion-reduce:active:scale-100';
+const sectionLabel = 'text-xs font-medium uppercase tracking-wide text-muted';
 // Pastilles neutres (classes écrites en entier).
 const dots = {
 	all: 'border border-fg/50',
@@ -43,172 +44,187 @@ const providers = [
 const steps = ['fetch', 'model', 'read'];
 ---
 <Layout title={t(lang, 'mail.docTitle')}>
-	<main data-mail-page class="mx-auto min-h-dvh w-full max-w-5xl px-5 py-10 sm:px-6">
-		<header>
-			<a href="/" class="group -ml-2.5 inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-muted transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:bg-fg/5 focus-visible:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg/40 motion-reduce:transition-none">
+	<main data-mail-page class="flex min-h-dvh w-full flex-col lg:h-dvh lg:overflow-hidden">
+		<header class="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+			<a href="/" class="group -ml-2 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm text-muted transition-colors duration-150 hover:bg-fg/5 hover:text-fg focus-visible:bg-fg/5 focus-visible:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg/40 motion-reduce:transition-none">
 				<ChevronLeftIcon class="size-4 shrink-0 transition-transform duration-150 ease-out group-hover:-translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none" aria-hidden="true" />
 				<span>{t(lang, 'mail.back')}</span>
 			</a>
-			<h1 class="mt-4 font-serif text-3xl">{t(lang, 'mail.title')}</h1>
-			<p class="mt-2 max-w-xl text-sm leading-relaxed text-muted">{t(lang, 'mail.intro')}</p>
+			<h1 class="shrink-0 font-serif text-lg">{t(lang, 'mail.title')}</h1>
+			<p data-mail-status role="status" aria-live="polite" class="min-w-0 flex-1 truncate text-right text-sm text-muted data-[error=true]:text-danger"></p>
 		</header>
 
-		<!-- Liste des adresses -->
-		<section data-mail-accounts hidden class="mt-8">
-			<h2 class="font-serif text-xl">{t(lang, 'mail.account.title')}</h2>
-			<ul data-mail-account-list class="mt-3 flex flex-col gap-2"></ul>
-			<div class="mt-3 flex flex-wrap items-center gap-3">
-				<button type="button" data-mail-add class={secondaryBtn}>{t(lang, 'mail.account.add')}</button>
-				<p data-mail-accounts-status role="status" aria-live="polite" class="text-sm text-muted data-[error=true]:text-danger"></p>
-			</div>
-		</section>
-
-		<!-- Connexion guidée -->
-		<section data-mail-setup class="mt-8 rounded-2xl border border-border p-5 sm:p-6">
-			<h2 data-mail-setup-title class="font-serif text-xl">{t(lang, 'mail.setup.title')}</h2>
-			<p class="mt-1 text-sm text-muted">{t(lang, 'mail.setup.subtitle')}</p>
-			<form data-mail-form novalidate class="mt-5 flex flex-col gap-5">
-				<div role="group" aria-labelledby="mail-provider-label" class="flex flex-col gap-2">
-					<span id="mail-provider-label" class="text-sm font-medium">{t(lang, 'mail.setup.provider')}</span>
-					<div class="flex flex-wrap gap-2">
-						{providers.map((p) => (
-							<button type="button" data-mail-provider={p.id} aria-pressed="false" class={chip}>{p.name}</button>
-						))}
+		<div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)_21rem] lg:grid-rows-[minmax(0,1fr)]">
+			<!-- Gauche : comptes, modèle, lancement -->
+			<aside class="flex flex-col gap-5 border-b border-border bg-surface/60 p-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+				<section aria-labelledby="mail-accounts-label">
+					<h2 id="mail-accounts-label" class={sectionLabel}>{t(lang, 'mail.account.title')}</h2>
+					<div data-mail-accounts hidden class="mt-2">
+						<ul data-mail-account-list class="flex flex-col gap-1.5"></ul>
+						<button type="button" data-mail-add class={`${secondaryBtn} mt-2 w-full`}>{t(lang, 'mail.account.add')}</button>
 					</div>
-				</div>
-				<label class={label}>
-					<span class={labelText}>{t(lang, 'mail.setup.email')}</span>
-					<input type="text" inputmode="email" name="user" data-mail-field="user" autocomplete="off" spellcheck="false" placeholder={t(lang, 'mail.setup.emailPlaceholder')} class={field} />
-				</label>
-				<label class={label}>
-					<span class={labelText}>{t(lang, 'mail.setup.password')}</span>
-					<input type="password" name="password" data-mail-field="password" autocomplete="new-password" class={field} />
-				</label>
-				<p data-mail-help hidden class="rounded-xl bg-fg/5 px-4 py-3 text-sm leading-relaxed text-muted"></p>
+					<div data-mail-cta hidden class="mt-2 rounded-xl border border-dashed border-border p-4 text-center">
+						<p class="text-sm leading-relaxed text-muted">{t(lang, 'mail.setup.subtitle')}</p>
+						<button type="button" data-mail-connect class={`${primaryBtn} mt-3 h-10 w-full px-4`}>{t(lang, 'mail.setup.title')}</button>
+					</div>
+					<p data-mail-accounts-status role="status" aria-live="polite" class="mt-2 text-sm text-muted empty:hidden data-[error=true]:text-danger"></p>
+				</section>
 
-				<details data-mail-advanced class="group rounded-xl border border-border">
-					<summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-fg/40 [&::-webkit-details-marker]:hidden">
-						<span>{t(lang, 'mail.setup.advanced')}</span>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0 text-muted transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">
-							<path d="m6 9 6 6 6-6"></path>
+				<section data-mail-run class="flex flex-col gap-3">
+					<div data-mail-model-row class="flex flex-col gap-1.5 text-sm">
+						<label for="mail-model" class={sectionLabel}>{t(lang, 'mail.model.label')}</label>
+						<select id="mail-model" data-mail-model class={compactField}></select>
+						<p data-mail-model-status role="status" aria-live="polite" class="text-xs text-muted empty:hidden data-[error=true]:text-danger"></p>
+					</div>
+					<button type="button" data-mail-analyze disabled class={bigBtn}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-5" aria-hidden="true">
+							<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"></path>
+							<path d="M19 15l.7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15z"></path>
 						</svg>
-					</summary>
-					<div class="flex flex-col gap-4 border-t border-border px-4 pb-4 pt-4">
-						<div class="grid gap-4 sm:grid-cols-[1fr_8rem]">
-							<label class={label}>
-								<span class={labelText}>{t(lang, 'mail.setup.host')}</span>
-								<input type="text" name="host" data-mail-field="host" autocomplete="off" spellcheck="false" placeholder="imap.example.com" class={field} />
-							</label>
-							<label class={label}>
-								<span class={labelText}>{t(lang, 'mail.setup.port')}</span>
-								<input type="number" name="port" data-mail-field="port" min="1" max="65535" placeholder="993" class={field} />
-							</label>
-						</div>
-						<label class="flex items-center gap-2 text-sm">
-							<input type="checkbox" data-mail-field="secure" class="size-4 cursor-pointer accent-current" />
-							<span>{t(lang, 'mail.setup.secure')}</span>
-						</label>
-						<div class="grid gap-4 sm:grid-cols-2">
-							<label class={label}>
-								<span class={labelText}>{t(lang, 'mail.setup.mailbox')}</span>
-								<input type="text" name="mailbox" data-mail-field="mailbox" autocomplete="off" spellcheck="false" placeholder="INBOX" class={field} />
-							</label>
-							<label class={label}>
-								<span class={labelText}>{t(lang, 'mail.setup.maxEmails')}</span>
-								<input type="number" name="maxEmails" data-mail-field="maxEmails" min="1" max="500" placeholder="20" class={field} />
-							</label>
+						<span>{t(lang, 'mail.run.start')}</span>
+					</button>
+					<p data-mail-hint role="status" class="text-sm text-muted empty:hidden"></p>
+
+					<div data-mail-progress hidden class="flex flex-col gap-3">
+						<ol class="flex flex-col gap-2 text-sm">
+							{steps.map((s) => (
+								<li data-mail-step={s} data-state="todo" class="group flex items-center gap-2.5 text-muted/60 data-[state=active]:text-fg data-[state=done]:text-muted">
+									<span class="size-3.5 shrink-0 rounded-full border border-current group-data-[state=active]:bg-fg/20 group-data-[state=done]:bg-fg/60" aria-hidden="true"></span>
+									<span data-mail-step-label={s} class="min-w-0 wrap-anywhere"></span>
+								</li>
+							))}
+						</ol>
+						<progress data-mail-bar value="0" max="1" aria-label={t(lang, 'mail.run.progressLabel')} class="h-1 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-fg [&::-webkit-progress-bar]:bg-fg/10 [&::-webkit-progress-value]:bg-fg"></progress>
+						<button type="button" data-mail-stop class={`${secondaryBtn} w-full`}>{t(lang, 'mail.run.stop')}</button>
+					</div>
+					<p data-mail-progress-live class="sr-only" role="status" aria-live="polite"></p>
+				</section>
+
+				<!-- Comptes en erreur -->
+				<section data-mail-errors hidden class="rounded-xl border border-dashed border-border px-3 py-3">
+					<p class="text-sm font-medium">{t(lang, 'mail.errors.title')}</p>
+					<ul data-mail-error-list class="mt-2 flex flex-col gap-2"></ul>
+				</section>
+			</aside>
+
+			<!-- Centre : résultats (seule zone qui défile) -->
+			<section aria-label={t(lang, 'mail.results.listLabel')} class="flex min-h-96 min-w-0 flex-col lg:min-h-0 lg:overflow-y-auto">
+				<div data-mail-welcome class="m-auto flex max-w-md flex-col items-center px-6 py-12 text-center">
+					<h2 class="font-serif text-2xl">{t(lang, 'mail.run.title')}</h2>
+					<p class="mt-2 text-sm leading-relaxed text-muted">{t(lang, 'mail.intro')}</p>
+					<p class="mt-2 text-sm leading-relaxed text-muted">{t(lang, 'mail.run.intro')}</p>
+				</div>
+
+				<div data-mail-results hidden class="flex min-h-full flex-col">
+					<div class="sticky top-0 z-10 border-b border-border bg-bg px-4 pb-3 pt-3">
+						<h2 data-mail-summary class="min-h-6 truncate font-serif text-lg"></h2>
+						<div data-mail-tiles hidden role="group" aria-label={t(lang, 'mail.results.filtersLabel')} class="mt-2 grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1.5">
+							{tiles.map((tl) => (
+								<div data-mail-tile={tl.id} hidden={tl.hidden}>
+									<button type="button" data-mail-filter={tl.id} aria-pressed={tl.id === 'all' ? 'true' : 'false'} class={tile}>
+										<span class="flex items-center gap-1.5 text-xs text-muted">
+											<span class={`size-2 shrink-0 rounded-full ${dots[tl.id as keyof typeof dots]}`} aria-hidden="true"></span>
+											<span class="truncate">{t(lang, `mail.category.${tl.id}`)}</span>
+										</span>
+										<span data-mail-count={tl.id} class="text-xl font-medium tabular-nums">0</span>
+										<span class="block h-1 w-full overflow-hidden rounded-full bg-fg/10" aria-hidden="true">
+											<span data-mail-fill={tl.id} class="block h-full w-full origin-left scale-x-0 rounded-full bg-fg/60 transition-transform duration-300 ease-out motion-reduce:transition-none"></span>
+										</span>
+									</button>
+								</div>
+							))}
 						</div>
 					</div>
-				</details>
-
-				<div class="flex flex-wrap items-center gap-3">
-					<button type="submit" data-mail-save class={primaryBtn}>{t(lang, 'mail.setup.save')}</button>
-					<button type="button" data-mail-cancel hidden class={secondaryBtn}>{t(lang, 'mail.setup.cancel')}</button>
-					<p data-mail-settings-status role="status" aria-live="polite" class="text-sm text-muted data-[error=true]:text-danger"></p>
+					<div data-mail-none hidden class="m-auto px-6 py-12 text-center">
+						<p class="font-serif text-lg">{t(lang, 'mail.results.noUnreadTitle')}</p>
+						<p class="mt-1 text-sm text-muted">{t(lang, 'mail.results.noUnread')}</p>
+					</div>
+					<div data-mail-board hidden class="px-4 py-3">
+						<ul data-mail-list aria-label={t(lang, 'mail.results.listLabel')} class="divide-y divide-border overflow-hidden rounded-xl border border-border"></ul>
+						<p data-mail-empty hidden class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">{t(lang, 'mail.results.emptyFilter')}</p>
+					</div>
 				</div>
-			</form>
-		</section>
+			</section>
 
-		<!-- Action principale -->
-		<section data-mail-run class="mt-8 rounded-2xl bg-surface/60 px-5 py-8 text-center sm:px-8">
-			<h2 class="font-serif text-2xl">{t(lang, 'mail.run.title')}</h2>
-			<p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">{t(lang, 'mail.run.intro')}</p>
-			<div data-mail-model-row class="mx-auto mt-5 flex max-w-xs flex-col gap-1.5 text-left text-sm">
-				<label for="mail-model" class={labelText}>{t(lang, 'mail.model.label')}</label>
-				<select id="mail-model" data-mail-model class={compactField}></select>
-				<p data-mail-model-status role="status" aria-live="polite" class="min-h-4 text-xs text-muted data-[error=true]:text-danger"></p>
-			</div>
-			<div class="mt-3 flex justify-center">
-				<button type="button" data-mail-analyze disabled class={bigBtn}>
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-5" aria-hidden="true">
-						<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"></path>
-						<path d="M19 15l.7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15z"></path>
-					</svg>
-					<span>{t(lang, 'mail.run.start')}</span>
-				</button>
-			</div>
-			<p data-mail-hint role="status" class="mt-3 text-sm text-muted"></p>
+			<!-- Droite : réglages de l'IA -->
+			<aside class="flex flex-col border-t border-border bg-surface/60 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
+				<MailAiPanel />
+				<p class="border-t border-border px-4 py-3 text-xs leading-relaxed text-muted">{t(lang, 'mail.results.help')}</p>
+			</aside>
+		</div>
 
-			<div data-mail-progress hidden class="mx-auto mt-2 max-w-md text-left">
-				<ol class="flex flex-col gap-2 text-sm">
-					{steps.map((s) => (
-						<li data-mail-step={s} data-state="todo" class="group flex items-center gap-2.5 text-muted/60 data-[state=active]:text-fg data-[state=done]:text-muted">
-							<span class="size-3.5 shrink-0 rounded-full border border-current group-data-[state=active]:bg-fg/20 group-data-[state=done]:bg-fg/60" aria-hidden="true"></span>
-							<span data-mail-step-label={s}></span>
-						</li>
-					))}
-				</ol>
-				<progress data-mail-bar value="0" max="1" aria-label={t(lang, 'mail.run.progressLabel')} class="mt-4 h-1 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-fg [&::-webkit-progress-bar]:bg-fg/10 [&::-webkit-progress-value]:bg-fg"></progress>
-				<div class="mt-4 flex justify-center">
-					<button type="button" data-mail-stop class={secondaryBtn}>{t(lang, 'mail.run.stop')}</button>
-				</div>
-			</div>
-			<p data-mail-progress-live class="sr-only" role="status" aria-live="polite"></p>
-			<p data-mail-status role="status" aria-live="polite" class="mt-3 text-sm text-muted data-[error=true]:text-danger"></p>
-		</section>
-
-		<MailAiPanel />
-
-		<!-- Comptes en erreur -->
-		<section data-mail-errors hidden class="mt-6 rounded-2xl border border-dashed border-border px-5 py-4">
-			<p class="text-sm font-medium">{t(lang, 'mail.errors.title')}</p>
-			<ul data-mail-error-list class="mt-2 flex flex-col gap-2"></ul>
-		</section>
-
-		<!-- Résultats -->
-		<section data-mail-results hidden class="mt-10">
-			<h2 data-mail-summary class="font-serif text-xl"></h2>
-			<div data-mail-none hidden class="mt-4 rounded-2xl border border-dashed border-border px-6 py-10 text-center">
-				<p class="font-serif text-lg">{t(lang, 'mail.results.noUnreadTitle')}</p>
-				<p class="mt-1 text-sm text-muted">{t(lang, 'mail.results.noUnread')}</p>
-			</div>
-			<div data-mail-board hidden>
-				<div role="group" aria-label={t(lang, 'mail.results.filtersLabel')} class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-					{tiles.map((tl) => (
-						<div data-mail-tile={tl.id} hidden={tl.hidden}>
-							<button type="button" data-mail-filter={tl.id} aria-pressed={tl.id === 'all' ? 'true' : 'false'} class={tile}>
-								<span class="flex items-center gap-1.5 text-xs text-muted">
-									<span class={`size-2 shrink-0 rounded-full ${dots[tl.id as keyof typeof dots]}`} aria-hidden="true"></span>
-									<span class="truncate">{t(lang, `mail.category.${tl.id}`)}</span>
-								</span>
-								<span data-mail-count={tl.id} class="text-2xl font-medium tabular-nums">0</span>
-								<span class="mt-1 block h-1 w-full overflow-hidden rounded-full bg-fg/10" aria-hidden="true">
-									<span data-mail-fill={tl.id} class="block h-full w-full origin-left scale-x-0 rounded-full bg-fg/60 transition-transform duration-300 ease-out motion-reduce:transition-none"></span>
-								</span>
-							</button>
+		<!-- Connexion / modification d'une adresse -->
+		<dialog data-mail-dialog aria-labelledby="mail-dialog-title" class="m-auto max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] scale-100 overflow-y-auto rounded-2xl border border-border bg-bg p-0 text-fg opacity-100 transition-[opacity,transform] duration-200 ease-out backdrop:bg-black/50 starting:open:scale-95 starting:open:opacity-0 motion-reduce:transition-none">
+			<div data-mail-setup class="p-5 sm:p-6">
+				<h2 id="mail-dialog-title" data-mail-setup-title class="font-serif text-xl">{t(lang, 'mail.setup.title')}</h2>
+				<p class="mt-1 text-sm text-muted">{t(lang, 'mail.setup.subtitle')}</p>
+				<form data-mail-form novalidate class="mt-5 flex flex-col gap-5">
+					<div role="group" aria-labelledby="mail-provider-label" class="flex flex-col gap-2">
+						<span id="mail-provider-label" class="text-sm font-medium">{t(lang, 'mail.setup.provider')}</span>
+						<div class="flex flex-wrap gap-2">
+							{providers.map((p) => (
+								<button type="button" data-mail-provider={p.id} aria-pressed="false" class={chip}>{p.name}</button>
+							))}
 						</div>
-					))}
-				</div>
-				<ul data-mail-list aria-label={t(lang, 'mail.results.listLabel')} class="mt-4 divide-y divide-border overflow-hidden rounded-2xl border border-border"></ul>
-				<p data-mail-empty hidden class="mt-4 rounded-2xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">{t(lang, 'mail.results.emptyFilter')}</p>
-				<p class="mt-4 text-xs leading-relaxed text-muted">{t(lang, 'mail.results.help')}</p>
+					</div>
+					<label class={label}>
+						<span class={labelText}>{t(lang, 'mail.setup.email')}</span>
+						<input type="text" inputmode="email" name="user" data-mail-field="user" autocomplete="off" spellcheck="false" placeholder={t(lang, 'mail.setup.emailPlaceholder')} class={field} />
+					</label>
+					<label class={label}>
+						<span class={labelText}>{t(lang, 'mail.setup.password')}</span>
+						<input type="password" name="password" data-mail-field="password" autocomplete="new-password" class={field} />
+					</label>
+					<p data-mail-help hidden class="rounded-xl bg-fg/5 px-4 py-3 text-sm leading-relaxed text-muted"></p>
+
+					<details data-mail-advanced class="group rounded-xl border border-border">
+						<summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-fg/40 [&::-webkit-details-marker]:hidden">
+							<span>{t(lang, 'mail.setup.advanced')}</span>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0 text-muted transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">
+								<path d="m6 9 6 6 6-6"></path>
+							</svg>
+						</summary>
+						<div class="flex flex-col gap-4 border-t border-border px-4 pb-4 pt-4">
+							<div class="grid gap-4 sm:grid-cols-[1fr_8rem]">
+								<label class={label}>
+									<span class={labelText}>{t(lang, 'mail.setup.host')}</span>
+									<input type="text" name="host" data-mail-field="host" autocomplete="off" spellcheck="false" placeholder="imap.example.com" class={field} />
+								</label>
+								<label class={label}>
+									<span class={labelText}>{t(lang, 'mail.setup.port')}</span>
+									<input type="number" name="port" data-mail-field="port" min="1" max="65535" placeholder="993" class={field} />
+								</label>
+							</div>
+							<label class="flex items-center gap-2 text-sm">
+								<input type="checkbox" data-mail-field="secure" class="size-4 cursor-pointer accent-current" />
+								<span>{t(lang, 'mail.setup.secure')}</span>
+							</label>
+							<div class="grid gap-4 sm:grid-cols-2">
+								<label class={label}>
+									<span class={labelText}>{t(lang, 'mail.setup.mailbox')}</span>
+									<input type="text" name="mailbox" data-mail-field="mailbox" autocomplete="off" spellcheck="false" placeholder="INBOX" class={field} />
+								</label>
+								<label class={label}>
+									<span class={labelText}>{t(lang, 'mail.setup.maxEmails')}</span>
+									<input type="number" name="maxEmails" data-mail-field="maxEmails" min="1" max="500" placeholder="20" class={field} />
+								</label>
+							</div>
+						</div>
+					</details>
+
+					<div class="flex flex-wrap items-center gap-3">
+						<button type="submit" data-mail-save class={primaryBtn}>{t(lang, 'mail.setup.save')}</button>
+						<button type="button" data-mail-cancel class={secondaryBtn}>{t(lang, 'mail.setup.cancel')}</button>
+						<p data-mail-settings-status role="status" aria-live="polite" class="min-w-0 text-sm text-muted data-[error=true]:text-danger"></p>
+					</div>
+				</form>
 			</div>
-		</section>
+		</dialog>
 	</main>
 	<script>
 		import { initEmailsPage } from '../lib/client/emails-page.js';
-			import { initMailAiPanel } from '../lib/client/mail-ai-panel.js';
+		import { initMailAiPanel } from '../lib/client/mail-ai-panel.js';
 		initEmailsPage();
-			initMailAiPanel();
+		initMailAiPanel();
 	</script>
 </Layout>

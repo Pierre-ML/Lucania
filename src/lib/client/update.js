@@ -1,9 +1,10 @@
 // Bouton « mise à jour » de l'en-tête (application de bureau uniquement) : vérifie les nouvelles versions
 // et lance l'installation après confirmation.
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { engineAvailable } from './engine.js';
 import { confirmDialog } from './dialog.js';
-import { t } from './i18n.js';
+import { getLang, t } from './i18n.js';
 
 /** @typedef {{ current: string, latest: string, available: boolean, url: string }} UpdateInfo */
 
@@ -16,13 +17,17 @@ export function initUpdate() {
   const wrap = document.getElementById('update-wrap');
   const btn = /** @type {HTMLButtonElement|null} */ (document.getElementById('update-btn'));
   const note = document.getElementById('update-note');
-  if (!wrap || !btn || !note) return;
+  const progress = document.getElementById('update-progress');
+  const progressText = progress?.querySelector('[data-update-progress-text]');
+  const progressBar = /** @type {HTMLProgressElement|null} */ (progress?.querySelector('[data-update-progress-bar]'));
+  if (!wrap || !btn || !note || !progress || !progressText || !progressBar) return;
   wrap.hidden = false;
   wrap.classList.remove('hidden');
 
   /** @type {UpdateInfo|null} */
   let known = null;
   let busy = false;
+  let installing = false;
   /** @type {ReturnType<typeof setTimeout>|undefined} */
   let noteTimer;
 
@@ -37,6 +42,21 @@ export function initUpdate() {
     note.textContent = text;
     note.hidden = false;
     if (!sticky) noteTimer = setTimeout(hideNote, NOTE_MS);
+  };
+
+  /** @param {number} bytes */
+  const formatMb = (bytes) =>
+    new Intl.NumberFormat(getLang(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(bytes / (1024 * 1024));
+
+  /**
+   * Carte de progression du téléchargement (sans valeur : barre indéterminée).
+   * @param {string} text @param {number|null} value
+   */
+  const setProgress = (text, value) => {
+    progressText.textContent = text;
+    if (value === null) progressBar.removeAttribute('value');
+    else progressBar.value = value;
+    progress.hidden = false;
   };
 
   /** @param {UpdateInfo|null} info */
@@ -68,12 +88,33 @@ export function initUpdate() {
       confirmLabel: t('chat.update.confirm.ok'),
       danger: false,
     });
-    if (!ok) return;
+    if (!ok || installing) return;
+    installing = true;
     btn.disabled = true;
-    showNote(t('chat.update.downloading'), true);
+    hideNote();
+    setProgress(t('chat.update.downloading'), null);
+    /** @type {(() => void)|undefined} */
+    let unlisten;
     try {
+      unlisten = await listen('app-update-progress', (event) => {
+        const { downloaded, total } = /** @type {{ downloaded: number, total: number|null }} */ (event.payload);
+        const done = formatMb(downloaded);
+        if (total) {
+          const ratio = Math.min(1, downloaded / total);
+          const percent = new Intl.NumberFormat(getLang(), { style: 'percent', maximumFractionDigits: 0 }).format(ratio);
+          setProgress(t('chat.update.progress', { percent, done, total: formatMb(total) }), ratio);
+        } else {
+          setProgress(t('chat.update.progressNoTotal', { done }), null);
+        }
+      });
       await invoke('app_install_update');
+      unlisten();
+      setProgress(t('chat.update.launching'), 1);
+      // Succès : l'app se ferme d'elle-même ; le bouton reste désactivé (aucun second lancement).
     } catch (err) {
+      unlisten?.();
+      installing = false;
+      progress.hidden = true;
       btn.disabled = false;
       showNote(err instanceof Error ? err.message : String(err));
     }

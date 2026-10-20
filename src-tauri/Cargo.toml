@@ -1,6 +1,6 @@
 [package]
 name = "lucania"
-version = "0.3.2"
+version = "0.3.3"
 description = "Lucania - interface de chat locale pour modèles GGUF (llama.cpp)"
 authors = ["Pierre Mouilleseaux Lhuillier"]
 license = "MIT"

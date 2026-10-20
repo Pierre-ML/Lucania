@@ -325,7 +325,8 @@ Var LucaniaDesktopDone
   !define MUI_FINISHPAGE_TEXT "$(lucaniaUpdateDoneText)"
 !endif
 ; Show run app after installation.
-; LUCANIA: case décochée par défaut dans les deux exe (MUI_FINISHPAGE_RUN_NOTCHECKED, hooks.nsh)
+; LUCANIA: case « Lancer » cochée par défaut dans les deux exe (pas de MUI_FINISHPAGE_RUN_NOTCHECKED).
+; LUCANIA: Seul chemin de lancement en mode graphique ; .onInstSuccess ne lance qu'en passif/silencieux avec /R.
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive

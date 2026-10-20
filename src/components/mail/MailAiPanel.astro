@@ -1,63 +1,77 @@
 ---
-// Panneau « Réglages de l'IA du tri » : modèles conseillés, prompt système, mémoire du tri.
+// Panneau « Réglages de l'IA du tri » (colonne de droite) : modèles conseillés, instructions, mémoire du tri.
 import { getLang, t } from '../../i18n/index';
 
 const lang = getLang(Astro);
-const primaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-fg px-5 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
-const secondaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border px-5 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
-const field = 'h-10 w-full min-w-0 rounded-xl border border-border bg-transparent px-3.5 text-sm text-fg placeholder:text-muted focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50';
+const primaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const field = 'h-9 w-full min-w-0 rounded-xl border border-border bg-transparent px-3 text-sm text-fg placeholder:text-muted focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50';
 const statusCls = 'text-sm text-muted data-[error=true]:text-danger';
+const summaryCls = 'flex h-10 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-medium transition-colors duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 motion-reduce:transition-none [&::-webkit-details-marker]:hidden';
+const chevronCls = 'size-4 shrink-0 text-muted transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none';
 ---
-<section data-mail-ai class="mt-6 rounded-2xl border border-border">
-	<details data-mail-ai-details class="group">
-		<summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 focus-visible:outline-fg/40 sm:px-6 [&::-webkit-details-marker]:hidden">
-			<span class="min-w-0">
-				<span class="block font-serif text-xl">{t(lang, 'mailai.title')}</span>
-				<span class="mt-0.5 block text-sm text-muted">{t(lang, 'mailai.subtitle')}</span>
-			</span>
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0 text-muted transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">
+<section data-mail-ai class="flex flex-col">
+	<div class="px-4 pb-2 pt-4">
+		<h2 class="text-xs font-medium uppercase tracking-wide text-muted">{t(lang, 'mailai.title')}</h2>
+		<p class="mt-1 text-xs leading-relaxed text-muted">{t(lang, 'mailai.subtitle')}</p>
+	</div>
+
+	<!-- 1. Modèles conseillés -->
+	<details open class="group border-t border-border">
+		<summary class={summaryCls}>
+			<span>{t(lang, 'mailai.models.title')}</span>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={chevronCls} aria-hidden="true">
 				<path d="m6 9 6 6 6-6"></path>
 			</svg>
 		</summary>
+		<div data-mail-ai-models class="px-4 pb-4">
+			<p data-mail-ai-hw role="status" class="text-xs text-muted data-[error=true]:text-danger">{t(lang, 'mailai.models.loading')}</p>
+			<p data-mail-ai-tier hidden class="mt-2 rounded-lg bg-fg/5 px-3 py-2 text-xs leading-relaxed"></p>
+			<p data-mail-ai-note hidden class="mt-2 rounded-lg bg-fg/5 px-3 py-2 text-xs leading-relaxed text-muted"></p>
+			<div data-mail-ai-model-list class="mt-2 flex flex-col gap-3"></div>
+		</div>
+	</details>
 
-		<div class="flex flex-col gap-8 border-t border-border px-5 py-6 sm:px-6">
-			<!-- 1. Modèles conseillés -->
-			<div data-mail-ai-models>
-				<h3 class="font-serif text-lg">{t(lang, 'mailai.models.title')}</h3>
-				<p data-mail-ai-hw role="status" class="mt-1 text-sm text-muted data-[error=true]:text-danger">{t(lang, 'mailai.models.loading')}</p>
-				<p data-mail-ai-tier hidden class="mt-3 rounded-xl bg-fg/5 px-4 py-3 text-sm leading-relaxed"></p>
-				<p data-mail-ai-note hidden class="mt-3 rounded-xl bg-fg/5 px-4 py-3 text-sm leading-relaxed text-muted"></p>
-				<div data-mail-ai-model-list class="mt-3 flex flex-col gap-4"></div>
+	<!-- 2. Instructions de l'IA (prompt système) -->
+	<details class="group border-t border-border">
+		<summary class={summaryCls}>
+			<span>{t(lang, 'mailai.prompt.title')}</span>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={chevronCls} aria-hidden="true">
+				<path d="m6 9 6 6 6-6"></path>
+			</svg>
+		</summary>
+		<div class="px-4 pb-4">
+			<p class="text-xs leading-relaxed text-muted">{t(lang, 'mailai.prompt.help')}</p>
+			<label for="mail-ai-prompt" class="mt-3 block text-sm font-medium">{t(lang, 'mailai.prompt.label')}</label>
+			<textarea id="mail-ai-prompt" data-mail-ai-prompt rows="8" spellcheck="false" class="mt-1.5 w-full resize-y rounded-xl border border-border bg-transparent px-3 py-2.5 font-mono text-xs leading-relaxed text-fg focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50"></textarea>
+			<div class="mt-2 flex flex-wrap items-center gap-2">
+				<button type="button" data-mail-ai-prompt-save class={primaryBtn}>{t(lang, 'mailai.prompt.save')}</button>
+				<button type="button" data-mail-ai-prompt-reset class={secondaryBtn}>{t(lang, 'mailai.prompt.reset')}</button>
+				<p data-mail-ai-prompt-status role="status" aria-live="polite" class={`min-w-0 ${statusCls}`}></p>
 			</div>
+		</div>
+	</details>
 
-			<!-- 2. Prompt système -->
-			<div>
-				<h3 class="font-serif text-lg">{t(lang, 'mailai.prompt.title')}</h3>
-				<p class="mt-1 text-sm leading-relaxed text-muted">{t(lang, 'mailai.prompt.help')}</p>
-				<label for="mail-ai-prompt" class="mt-3 block text-sm font-medium">{t(lang, 'mailai.prompt.label')}</label>
-				<textarea id="mail-ai-prompt" data-mail-ai-prompt rows="10" spellcheck="false" class="mt-1.5 w-full resize-y rounded-xl border border-border bg-transparent px-3.5 py-3 font-mono text-xs leading-relaxed text-fg focus-visible:outline-fg/40 disabled:cursor-not-allowed disabled:opacity-50"></textarea>
-				<div class="mt-3 flex flex-wrap items-center gap-3">
-					<button type="button" data-mail-ai-prompt-save class={primaryBtn}>{t(lang, 'mailai.prompt.save')}</button>
-					<button type="button" data-mail-ai-prompt-reset class={secondaryBtn}>{t(lang, 'mailai.prompt.reset')}</button>
-					<p data-mail-ai-prompt-status role="status" aria-live="polite" class={statusCls}></p>
-				</div>
-			</div>
-
-			<!-- 3. Mémoire du tri -->
-			<div>
-				<h3 class="font-serif text-lg">{t(lang, 'mailai.memory.title')}</h3>
-				<p class="mt-1 text-sm leading-relaxed text-muted">{t(lang, 'mailai.memory.help')}</p>
-				<ul data-mail-ai-memory-list aria-label={t(lang, 'mailai.memory.listLabel')} class="mt-3 flex flex-col gap-2"></ul>
-				<p data-mail-ai-memory-empty hidden class="mt-3 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted">{t(lang, 'mailai.memory.empty')}</p>
-				<form data-mail-ai-memory-form novalidate class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-					<label class="flex min-w-0 flex-1 flex-col gap-1.5 text-sm">
-						<span class="font-medium">{t(lang, 'mailai.memory.addLabel')}</span>
-						<input type="text" data-mail-ai-memory-input maxlength="500" autocomplete="off" placeholder={t(lang, 'mailai.memory.addPlaceholder')} class={field} />
-					</label>
-					<button type="submit" data-mail-ai-memory-add class={primaryBtn}>{t(lang, 'mailai.memory.add')}</button>
-				</form>
-				<p data-mail-ai-memory-status role="status" aria-live="polite" class={`mt-2 min-h-5 ${statusCls}`}></p>
-			</div>
+	<!-- 3. Mémoire du tri -->
+	<details class="group border-t border-border">
+		<summary class={summaryCls}>
+			<span>{t(lang, 'mailai.memory.title')}</span>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={chevronCls} aria-hidden="true">
+				<path d="m6 9 6 6 6-6"></path>
+			</svg>
+		</summary>
+		<div class="px-4 pb-4">
+			<p class="text-xs leading-relaxed text-muted">{t(lang, 'mailai.memory.help')}</p>
+			<ul data-mail-ai-memory-list aria-label={t(lang, 'mailai.memory.listLabel')} class="mt-3 flex flex-col gap-1.5"></ul>
+			<p data-mail-ai-memory-empty hidden class="mt-3 rounded-xl border border-dashed border-border px-3 py-4 text-center text-sm text-muted">{t(lang, 'mailai.memory.empty')}</p>
+			<form data-mail-ai-memory-form novalidate class="mt-3 flex flex-col gap-2">
+				<label class="flex min-w-0 flex-col gap-1.5 text-sm">
+					<span class="font-medium">{t(lang, 'mailai.memory.addLabel')}</span>
+					<input type="text" data-mail-ai-memory-input maxlength="500" autocomplete="off" placeholder={t(lang, 'mailai.memory.addPlaceholder')} class={field} />
+				</label>
+				<button type="submit" data-mail-ai-memory-add class={primaryBtn}>{t(lang, 'mailai.memory.add')}</button>
+			</form>
+			<p data-mail-ai-memory-status role="status" aria-live="polite" class={`mt-2 empty:hidden ${statusCls}`}></p>
 		</div>
 	</details>
 </section>
