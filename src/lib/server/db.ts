@@ -195,12 +195,28 @@ function migrateV7(db: DatabaseSync) {
   if (!hasColumn(db, 'folders', 'icon')) db.exec('ALTER TABLE folders ADD COLUMN icon TEXT');
 }
 
+// v8 : réglages e-mail (une seule ligne, id = 1). Le mot de passe ne part jamais vers le navigateur.
+function migrateV8(db: DatabaseSync) {
+  db.exec(`CREATE TABLE IF NOT EXISTS mail_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    host TEXT NOT NULL DEFAULT '',
+    port INTEGER NOT NULL DEFAULT 993,
+    secure INTEGER NOT NULL DEFAULT 1,
+    user TEXT NOT NULL DEFAULT '',
+    password TEXT NOT NULL DEFAULT '',
+    mailbox TEXT NOT NULL DEFAULT 'INBOX',
+    model TEXT NOT NULL DEFAULT '',
+    max_emails INTEGER NOT NULL DEFAULT 30,
+    updated_at TEXT NOT NULL
+  )`);
+}
+
 function migrateSchema(db: DatabaseSync) {
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as unknown as
     | { value: string }
     | undefined;
   const version = Number(row?.value ?? '1');
-  if (version >= 7) return;
+  if (version >= 8) return;
   db.exec('BEGIN IMMEDIATE');
   try {
     if (version < 5) {
@@ -232,6 +248,8 @@ function migrateSchema(db: DatabaseSync) {
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '6')");
     migrateV7(db);
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '7')");
+    migrateV8(db);
+    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '8')");
     db.exec('COMMIT');
   } catch (e) {
     try {

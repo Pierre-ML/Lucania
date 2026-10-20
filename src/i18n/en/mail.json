@@ -1,0 +1,82 @@
+{
+  "docTitle": "Email — Lucania",
+  "title": "Email",
+  "back": "Back",
+  "intro": "Spot the emails that really matter in one click, without reading them all.",
+  "account": {
+    "model": "Model:",
+    "edit": "Edit",
+    "noModel": "none"
+  },
+  "setup": {
+    "title": "Connect your mailbox",
+    "subtitle": "It takes a few seconds, once. Your login stays on this computer.",
+    "provider": "Your email provider",
+    "other": "Other",
+    "email": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordSaved": "saved",
+    "helpApp": "{provider} asks for an “app password”: a special password you create in your account’s security settings, to use instead of your usual password.",
+    "helpOther": "Enter your address and password. If needed, fill in the server in the advanced settings.",
+    "advanced": "Advanced settings",
+    "host": "Server",
+    "port": "Port",
+    "secure": "Secure connection (SSL)",
+    "mailbox": "Folder",
+    "maxEmails": "Maximum number of emails",
+    "model": "AI model",
+    "modelNone": "No model installed",
+    "modelChoose": "Choose a model",
+    "save": "Save and continue",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "loadError": "Could not read the settings.",
+    "pickProvider": "Pick your email provider above.",
+    "needEmail": "Enter your email address.",
+    "needHost": "Enter the server in the advanced settings.",
+    "needPassword": "Enter your password."
+  },
+  "run": {
+    "title": "Sort my emails",
+    "intro": "An AI reads your unread emails and shows you the important ones. Everything stays on your computer, and nothing is marked as read.",
+    "start": "Sort my emails",
+    "stop": "Stop",
+    "stopping": "Stopping…",
+    "needSetup": "Connect your mailbox above first.",
+    "needModel": "Choose an AI model in the connection to continue.",
+    "progressLabel": "Sorting progress",
+    "step": {
+      "fetch": "Fetching emails",
+      "model": "Preparing the model",
+      "read": "Reading emails",
+      "readCount": "Reading {done}/{total}"
+    }
+  },
+  "analyze": {
+    "noModel": "Choose an AI model to continue.",
+    "stopped": "Sorting stopped: {done}/{total} emails read.",
+    "done": "Sorting complete.",
+    "error": "Something went wrong while sorting."
+  },
+  "results": {
+    "important": "Important",
+    "normal": "Others",
+    "uncertain": "To check",
+    "tabsLabel": "Sorting results",
+    "empty": {
+      "important": "Nothing urgent right now. You can relax.",
+      "normal": "No other emails here.",
+      "uncertain": "Nothing to check."
+    },
+    "noUnreadTitle": "All caught up!",
+    "noUnread": "No new emails to sort right now.",
+    "summaryNone": "No important emails out of {total}",
+    "summaryOne": "1 important email out of {total}",
+    "summaryMany": "{n} important emails out of {total}",
+    "noReason": "No explanation provided.",
+    "noSubject": "(no subject)",
+    "unknownSender": "Unknown sender",
+    "uncertainReason": "The AI’s answer could not be understood."
+  }
+}

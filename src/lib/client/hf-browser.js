@@ -36,10 +36,11 @@ import { getLang, t } from './i18n.js';
  * @typedef {{
  *   id: string, repo: string, files: string[], installed: boolean, sizeBytes: number, annexHint: boolean,
  *   li: HTMLElement, el: HTMLElement, detailEl: HTMLElement, fitEl: HTMLElement, annexEl: HTMLElement, errorEl: HTMLElement,
- *   state: 'idle'|'queued'|'running'|'done'|'failed', result: HfFileCheck|null
+ *   state: 'idle'|'queued'|'running'|'done'|'failed', result: HfFileCheck|null,
+ *   fit: import('./hardware.js').Fit|null
  * }} FileActionRef
  */
-/** @typedef {{ ul: HTMLElement, note: HTMLElement, refs: FileActionRef[] }} FileGroup */
+/** @typedef {{ ul: HTMLElement, note: HTMLElement, repoBadge: HTMLElement, refs: FileActionRef[] }} FileGroup */
 
 /** Erreurs qui ressemblent à un refus d'accès : on renvoie vers le réglage du jeton. */
 const AUTH_ERROR = /\b(401|403|token|jeton|gated|unauthori[sz]ed|forbidden|restreint|restricted)\b/i;
@@ -139,6 +140,21 @@ function formatSize(bytes) {
 /** Compte compact (1,2 M). @param {number} n */
 function formatCount(n) {
   return new Intl.NumberFormat(getLang(), { notation: 'compact', maximumFractionDigits: 1 }).format(n || 0);
+}
+
+/** Temps restant lisible (« ~2 min 30 s restantes »), ou '' si inconnu. @param {DownloadInfo} info */
+function formatEta(info) {
+  const total = info.totalBytes;
+  if (typeof total !== 'number' || total <= 0 || !(info.speedBps > 0)) return '';
+  const left = Math.max(0, total - info.downloadedBytes);
+  const secs = Math.max(1, Math.round(left / info.speedBps));
+  if (secs >= 3600) {
+    const h = Math.floor(secs / 3600);
+    const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+    return t('chat.addModel.downloads.etaHours', { h, m });
+  }
+  if (secs >= 60) return t('chat.addModel.downloads.etaMinutes', { m: Math.floor(secs / 60), s: secs % 60 });
+  return t('chat.addModel.downloads.etaSeconds', { s: secs });
 }
 
 /** @param {string} path */
@@ -269,6 +285,8 @@ export function mountHfBrowser(root, { onChange } = {}) {
     let state = '';
     if (info.state === 'downloading') {
       state = info.speedBps > 0 ? `${formatSize(info.speedBps)}/s` : t('chat.addModel.downloads.state.downloading');
+      const eta = formatEta(info);
+      if (eta) state += ` · ${eta}`;
     } else if (info.state === 'paused') state = t('chat.addModel.downloads.state.paused');
     else if (info.state === 'completed') state = t('chat.addModel.downloads.state.completed');
     else state = t('chat.addModel.downloads.state.error');
@@ -364,12 +382,33 @@ export function mountHfBrowser(root, { onChange } = {}) {
     if (dl) {
       ref.errorEl.hidden = true;
       let text = t('chat.addModel.downloads.state.error');
-      if (dl.state === 'downloading') {
-        text =
-          typeof dl.totalBytes === 'number' && dl.totalBytes > 0
-            ? `${Math.min(100, Math.floor((dl.downloadedBytes / dl.totalBytes) * 100))} %`
-            : t('chat.addModel.downloads.state.downloading');
-      } else if (dl.state === 'paused') text = t('chat.addModel.downloads.state.paused');
+      if (dl.state === 'downloading' || dl.state === 'paused') {
+        // Vraie barre de progression + pourcentage + vitesse + temps restant, sans remonter à la section des téléchargements.
+        const known = typeof dl.totalBytes === 'number' && dl.totalBytes > 0;
+        const wrap = document.createElement('div');
+        wrap.className = 'flex w-44 flex-col gap-1';
+        const bar = document.createElement('progress');
+        bar.className = 'progress h-1.5 w-full text-fg';
+        if (known) {
+          bar.max = /** @type {number} */ (dl.totalBytes);
+          bar.setAttribute('value', String(Math.min(dl.downloadedBytes, /** @type {number} */ (dl.totalBytes))));
+        }
+        const pct = known ? `${Math.min(100, Math.floor((dl.downloadedBytes / /** @type {number} */ (dl.totalBytes)) * 100))} %` : '';
+        const bits = [];
+        if (dl.state === 'paused') bits.push(t('chat.addModel.downloads.state.paused'));
+        if (pct) bits.push(pct);
+        if (dl.state === 'downloading') {
+          if (dl.speedBps > 0) bits.push(`${formatSize(dl.speedBps)}/s`);
+          else if (!pct) bits.push(t('chat.addModel.downloads.state.downloading'));
+        }
+        wrap.append(bar, span(bits.join(' · '), 'text-xs text-muted'));
+        if (dl.state === 'downloading') {
+          const eta = formatEta(dl);
+          if (eta) wrap.append(span(eta, 'text-[11px] text-muted'));
+        }
+        ref.el.replaceChildren(wrap);
+        return;
+      }
       ref.el.replaceChildren(span(text, 'text-xs text-muted'));
       return;
     }
@@ -380,7 +419,12 @@ export function mountHfBrowser(root, { onChange } = {}) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = smallBtn;
-    btn.textContent = t('chat.addModel.files.download');
+    if (ref.fit === 'too-big') {
+      btn.textContent = t('chat.addModel.files.downloadTooBig');
+      btn.title = t('chat.addModel.files.downloadTooBigHint');
+    } else {
+      btn.textContent = t('chat.addModel.files.download');
+    }
     btn.addEventListener('click', async () => {
       // L'erreur (ex. fichier non autonome refusé par le serveur) s'affiche dans la ligne du fichier.
       ref.errorEl.hidden = true;
@@ -434,7 +478,12 @@ export function mountHfBrowser(root, { onChange } = {}) {
     ref.detailEl.hidden = !text;
     // Le badge « Annexe probable » ne sert que tant que la vérification n'a pas tranché.
     ref.annexEl.hidden = !ref.annexHint || ref.result !== null;
-    ref.li.classList.toggle('opacity-60', Boolean(res && !res.standalone));
+    updateDim(ref);
+  }
+
+  /** Ligne atténuée : fichier non autonome ou trop gros pour cette machine. @param {FileActionRef} ref */
+  function updateDim(ref) {
+    ref.li.classList.toggle('opacity-60', Boolean((ref.result && !ref.result.standalone) || ref.fit === 'too-big'));
   }
 
   /** @param {FileActionRef} ref */
@@ -513,10 +562,30 @@ export function mountHfBrowser(root, { onChange } = {}) {
 
   /** Affiche le badge et masque éventuellement le fichier. @param {FileActionRef} ref @param {import('./hardware.js').Fit} fit */
   function showFit(ref, fit) {
-    ref.fitEl.replaceChildren(buildFitBadge(fit));
+    const before = ref.fit;
+    ref.fit = fit;
+    const badge = buildFitBadge(fit);
+    if (fit === 'too-big') {
+      // Bien visible : pastille danger pleine taille, avec icône.
+      badge.className = 'inline-flex shrink-0 items-center gap-1 rounded-full border border-danger bg-danger/10 px-2.5 py-1 text-xs font-semibold text-danger';
+      badge.textContent = `⚠ ${t('chat.addModel.files.tooBigBadge')}`;
+    }
+    ref.fitEl.replaceChildren(badge);
     const dl = downloads.get(ref.id);
     const keep = ref.installed || (dl && dl.state === 'completed');
     ref.li.hidden = hideTooBig && fit === 'too-big' && !keep;
+    updateDim(ref);
+    if (before !== fit) {
+      renderFileAction(ref); // libellé du bouton Télécharger
+      const g = [...groups].find((x) => x.refs.includes(ref));
+      if (g) updateGroup(g);
+    }
+  }
+
+  /** Avertissement « tous trop gros » sur le dépôt et note « tout masqué ». @param {FileGroup} g */
+  function updateGroup(g) {
+    g.note.hidden = !g.refs.every((r) => r.li.hidden);
+    g.repoBadge.hidden = !g.refs.every((r) => r.fit === 'too-big');
   }
 
   /**
@@ -531,6 +600,10 @@ export function mountHfBrowser(root, { onChange } = {}) {
     if (!current || !current.known) {
       ref.fitEl.replaceChildren();
       ref.li.hidden = false;
+      ref.fit = null;
+      updateDim(ref);
+      const g0 = [...groups].find((x) => x.refs.includes(ref));
+      if (g0) updateGroup(g0);
       return;
     }
     showFit(ref, estimateFit(ref.sizeBytes, current));
@@ -540,7 +613,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
       if (fitTokens.get(ref) !== token || profile !== current) return; // réponse périmée
       showFit(ref, fit);
       const g = [...groups].find((x) => x.refs.includes(ref));
-      if (g) g.note.hidden = !g.refs.every((r) => r.li.hidden);
+      if (g) updateGroup(g);
     });
   }
 
@@ -551,7 +624,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
         continue;
       }
       for (const ref of g.refs) applyFit(ref);
-      g.note.hidden = !g.refs.every((r) => r.li.hidden);
+      updateGroup(g);
       enqueueChecks(g.refs); // les fichiers redevenus visibles sont vérifiés à leur tour
     }
   }
@@ -629,6 +702,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
       errorEl,
       state: cached ? 'done' : 'idle',
       result: cached,
+      fit: null,
     };
     fileActions.add(ref);
     applyFit(ref);
@@ -637,8 +711,8 @@ export function mountHfBrowser(root, { onChange } = {}) {
     return ref;
   }
 
-  /** @param {HfRepo} repo @param {HTMLElement} panel */
-  async function loadFiles(repo, panel) {
+  /** @param {HfRepo} repo @param {HTMLElement} panel @param {HTMLElement} repoBadge */
+  async function loadFiles(repo, panel, repoBadge) {
     setPanelMessage(panel, t('chat.addModel.files.loading'));
     try {
       const list = await listRepoFiles(repo.id);
@@ -655,7 +729,10 @@ export function mountHfBrowser(root, { onChange } = {}) {
       note.textContent = t('chat.addModel.files.allHidden');
       note.hidden = !refs.every((r) => r.li.hidden);
       panel.replaceChildren(ul, note);
-      groups.add({ ul, note, refs });
+      /** @type {FileGroup} */
+      const group = { ul, note, repoBadge, refs };
+      groups.add(group);
+      updateGroup(group);
       enqueueChecks(refs);
       return true;
     } catch (e) {
@@ -685,6 +762,11 @@ export function mountHfBrowser(root, { onChange } = {}) {
       ),
     );
     head.append(buildAvatar(author, true), info);
+    // Visible dès que les fichiers sont connus et tous trop gros (les tailles ne viennent qu'avec les fichiers).
+    const repoBadge = span(`⚠ ${t('chat.addModel.files.tooBigRepo')}`, 'shrink-0 rounded-full border border-danger bg-danger/10 px-2.5 py-1 text-xs font-semibold text-danger');
+    repoBadge.title = t('chat.addModel.files.tooBigRepoHint');
+    repoBadge.hidden = true;
+    head.append(repoBadge);
     if (repo.gated) head.append(span(t('chat.addModel.search.gated'), 'shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted'));
 
     const panel = document.createElement('div');
@@ -698,7 +780,7 @@ export function mountHfBrowser(root, { onChange } = {}) {
       panel.hidden = !open;
       if (open && !loaded && !loading) {
         loading = true;
-        loaded = await loadFiles(repo, panel);
+        loaded = await loadFiles(repo, panel, repoBadge);
         loading = false;
       }
     });

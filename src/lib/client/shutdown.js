@@ -107,6 +107,9 @@ export function initShutdown() {
     const model = power.status && power.status.loadedModel ? ` · ${power.status.loadedModel}` : '';
     const action = target ? t('chat.power.clickToShutdown', { name: target.name }) : '';
     btn.dataset.state = computePowerState(power);
+    // Sans machine distante configurée : simple témoin d'état du moteur, non cliquable (pas d'extinction possible).
+    btn.dataset.actionable = String(Boolean(target));
+    btn.tabIndex = target ? 0 : -1;
     btn.dataset.loading = String(Boolean(power.engineAvailable && !power.error && power.status && power.status.loading));
     btn.title = action ? `${label}${model}\n${action}` : `${label}${model}`;
     btn.setAttribute('aria-label', action ? `${label}${model}. ${action}` : `${label}${model}`);

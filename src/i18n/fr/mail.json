@@ -1,0 +1,82 @@
+{
+  "docTitle": "E-mails — Lucania",
+  "title": "E-mails",
+  "back": "Retour",
+  "intro": "Repérez en un clic les e-mails qui comptent vraiment, sans rien lire.",
+  "account": {
+    "model": "Modèle :",
+    "edit": "Modifier",
+    "noModel": "aucun"
+  },
+  "setup": {
+    "title": "Connecter votre boîte mail",
+    "subtitle": "Quelques secondes, une seule fois. Vos identifiants restent sur cet ordinateur.",
+    "provider": "Votre messagerie",
+    "other": "Autre",
+    "email": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "password": "Mot de passe",
+    "passwordSaved": "enregistré",
+    "helpApp": "{provider} demande un « mot de passe d’application » : un mot de passe spécial, créé dans les paramètres de sécurité de votre compte, à utiliser à la place de votre mot de passe habituel.",
+    "helpOther": "Indiquez votre adresse et votre mot de passe. Si besoin, complétez le serveur dans les réglages avancés.",
+    "advanced": "Réglages avancés",
+    "host": "Serveur",
+    "port": "Port",
+    "secure": "Connexion sécurisée (SSL)",
+    "mailbox": "Dossier",
+    "maxEmails": "Nombre maximum d’e-mails",
+    "model": "Modèle d’IA",
+    "modelNone": "Aucun modèle installé",
+    "modelChoose": "Choisir un modèle",
+    "save": "Enregistrer et continuer",
+    "cancel": "Annuler",
+    "saving": "Enregistrement…",
+    "loadError": "Impossible de lire les réglages.",
+    "pickProvider": "Choisissez votre messagerie ci-dessus.",
+    "needEmail": "Saisissez votre adresse e-mail.",
+    "needHost": "Indiquez le serveur dans les réglages avancés.",
+    "needPassword": "Saisissez votre mot de passe."
+  },
+  "run": {
+    "title": "Trier mes e-mails",
+    "intro": "Une IA lit vos e-mails non lus et vous montre ceux qui sont importants. Tout reste sur votre ordinateur, et rien n’est marqué comme lu.",
+    "start": "Trier mes e-mails",
+    "stop": "Arrêter",
+    "stopping": "Arrêt en cours…",
+    "needSetup": "Connectez d’abord votre boîte mail ci-dessus.",
+    "needModel": "Choisissez un modèle d’IA dans la connexion pour continuer.",
+    "progressLabel": "Progression du tri",
+    "step": {
+      "fetch": "Récupération des e-mails",
+      "model": "Préparation du modèle",
+      "read": "Lecture des e-mails",
+      "readCount": "Lecture {done}/{total}"
+    }
+  },
+  "analyze": {
+    "noModel": "Choisissez un modèle d’IA pour continuer.",
+    "stopped": "Tri arrêté : {done}/{total} e-mails lus.",
+    "done": "Tri terminé.",
+    "error": "Une erreur est survenue pendant le tri."
+  },
+  "results": {
+    "important": "Importants",
+    "normal": "Autres",
+    "uncertain": "À vérifier",
+    "tabsLabel": "Résultats du tri",
+    "empty": {
+      "important": "Rien d’urgent pour le moment. Vous pouvez souffler.",
+      "normal": "Aucun autre e-mail ici.",
+      "uncertain": "Rien à vérifier."
+    },
+    "noUnreadTitle": "Tout est lu !",
+    "noUnread": "Aucun nouvel e-mail à trier pour le moment.",
+    "summaryNone": "Aucun e-mail important sur {total}",
+    "summaryOne": "1 e-mail important sur {total}",
+    "summaryMany": "{n} e-mails importants sur {total}",
+    "noReason": "Pas d’explication fournie.",
+    "noSubject": "(sans objet)",
+    "unknownSender": "Expéditeur inconnu",
+    "uncertainReason": "La réponse de l’IA n’a pas pu être comprise."
+  }
+}
