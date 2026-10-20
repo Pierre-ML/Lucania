@@ -26,6 +26,232 @@ export function saveMailModel(model: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Tri par IA : prompt système, mémoire dédiée aux e-mails et notes de l'utilisateur
+// (la mémoire générale de `memory.ts` n'est pas concernée)
+// ---------------------------------------------------------------------------
+
+export const MAIL_CATEGORIES = ['personnel', 'pro', 'notification', 'pub', 'indesirable'] as const;
+export type MailCategory = (typeof MAIL_CATEGORIES)[number];
+
+export function isMailCategory(v: unknown): v is MailCategory {
+  return typeof v === 'string' && (MAIL_CATEGORIES as readonly string[]).includes(v);
+}
+
+const SYSTEM_PROMPT_MAX = 6000;
+const MEMORY_CONTENT_MAX = 500;
+const MEMORY_MAX_ENTRIES = 200;
+const FEEDBACK_KEEP = 500;
+const FEEDBACK_FIELD_MAX = 300;
+
+/** Prompt système personnalisé ('' = prompt par défaut, géré côté client). */
+export function getMailSystemPrompt(): string {
+  const r = getDb().prepare('SELECT system_prompt FROM mail_settings WHERE id = 1').get() as unknown as
+    | { system_prompt: string }
+    | undefined;
+  return r?.system_prompt ?? '';
+}
+
+export function saveMailSystemPrompt(prompt: string): string {
+  withTransaction((db) => {
+    const now = new Date().toISOString();
+    db.prepare('INSERT OR IGNORE INTO mail_settings (id, updated_at) VALUES (1, ?)').run(now);
+    db.prepare('UPDATE mail_settings SET system_prompt = ?, updated_at = ? WHERE id = 1').run(prompt, now);
+  });
+  return getMailSystemPrompt();
+}
+
+/** Valide un prompt système : chaîne, trim, 6000 caractères max, sans caractère nul. */
+export function parseSystemPrompt(v: unknown): { ok: true; value: string } | { ok: false; error: string } {
+  if (typeof v !== 'string') return { ok: false, error: 'Prompt invalide' };
+  const s = v.trim();
+  if (s.includes('\0')) return { ok: false, error: 'Prompt invalide' };
+  if (s.length > SYSTEM_PROMPT_MAX) return { ok: false, error: `Prompt trop long (${SYSTEM_PROMPT_MAX} caractères max)` };
+  return { ok: true, value: s };
+}
+
+export interface MailMemoryEntry {
+  id: number;
+  content: string;
+  source: 'user' | 'feedback';
+  sender: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface MailMemoryRow {
+  id: number;
+  content: string;
+  source: string;
+  sender: string;
+  created_at: string;
+  updated_at: string;
+}
+
+const MEMORY_COLS = 'id, content, source, sender, created_at, updated_at';
+
+function toMemoryEntry(r: MailMemoryRow): MailMemoryEntry {
+  return {
+    id: Number(r.id),
+    content: r.content,
+    source: r.source === 'feedback' ? 'feedback' : 'user',
+    sender: r.sender,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export function listMailMemory(): MailMemoryEntry[] {
+  const rows = getDb().prepare(`SELECT ${MEMORY_COLS} FROM mail_memory ORDER BY id ASC`).all() as unknown as MailMemoryRow[];
+  return rows.map(toMemoryEntry);
+}
+
+export function getMailMemory(id: number): MailMemoryEntry | null {
+  const r = getDb().prepare(`SELECT ${MEMORY_COLS} FROM mail_memory WHERE id = ?`).get(id) as unknown as
+    | MailMemoryRow
+    | undefined;
+  return r ? toMemoryEntry(r) : null;
+}
+
+/** Valide le texte d'une entrée : trim, 1 à 500 caractères, sans caractère de contrôle (espace autorisé). */
+export function parseMemoryContent(v: unknown): { ok: true; value: string } | { ok: false; error: string } {
+  if (typeof v !== 'string') return { ok: false, error: 'Texte invalide' };
+  const s = v.trim();
+  if (s === '') return { ok: false, error: 'Texte vide' };
+  if (s.length > MEMORY_CONTENT_MAX) return { ok: false, error: `Texte trop long (${MEMORY_CONTENT_MAX} caractères max)` };
+  if (/[\u0000-\u001f\u007f]/.test(s)) return { ok: false, error: 'Texte invalide' };
+  return { ok: true, value: s };
+}
+
+export function createMailMemory(
+  content: string,
+): { ok: true; entry: MailMemoryEntry } | { ok: false; error: string } {
+  return withTransaction((db) => {
+    const n = db.prepare('SELECT COUNT(*) AS n FROM mail_memory').get() as unknown as { n: number };
+    if (Number(n.n) >= MEMORY_MAX_ENTRIES) {
+      return { ok: false as const, error: `Mémoire pleine (${MEMORY_MAX_ENTRIES} entrées max)` };
+    }
+    const now = new Date().toISOString();
+    const r = db
+      .prepare("INSERT INTO mail_memory (content, source, sender, created_at, updated_at) VALUES (?, 'user', '', ?, ?)")
+      .run(content, now, now);
+    const entry = getMailMemory(Number(r.lastInsertRowid));
+    return entry ? { ok: true as const, entry } : { ok: false as const, error: 'Création impossible' };
+  });
+}
+
+export function updateMailMemory(id: number, content: string): MailMemoryEntry | null {
+  const r = getDb()
+    .prepare('UPDATE mail_memory SET content = ?, updated_at = ? WHERE id = ?')
+    .run(content, new Date().toISOString(), id);
+  return Number(r.changes) > 0 ? getMailMemory(id) : null;
+}
+
+export function deleteMailMemory(id: number): boolean {
+  return Number(getDb().prepare('DELETE FROM mail_memory WHERE id = ?').run(id).changes) > 0;
+}
+
+export interface MailFeedbackItem {
+  sender: string;
+  subject: string;
+  aiCategory: string;
+  userCategory: string | null;
+  rating: number;
+  createdAt: string;
+}
+
+export interface MailFeedbackInput {
+  sender: string;
+  subject: string;
+  /** 'incertain' : réponse de l'IA incomprise, corrigée par l'utilisateur. */
+  aiCategory: MailCategory | 'incertain';
+  rating: 1 | -1;
+  userCategory: MailCategory | null;
+}
+
+export function parseMailFeedbackInput(
+  body: Record<string, unknown>,
+): { ok: true; value: MailFeedbackInput } | { ok: false; error: string } {
+  const { sender, subject, aiCategory, rating, userCategory } = body;
+  if (typeof sender !== 'string' || sender.length > FEEDBACK_FIELD_MAX) return { ok: false, error: 'Expéditeur invalide' };
+  if (typeof subject !== 'string' || subject.length > FEEDBACK_FIELD_MAX) return { ok: false, error: 'Objet invalide' };
+  if (!isMailCategory(aiCategory) && aiCategory !== 'incertain') return { ok: false, error: 'Catégorie invalide' };
+  if (rating !== 1 && rating !== -1) return { ok: false, error: 'Note invalide' };
+  if (aiCategory === 'incertain' && rating === 1) return { ok: false, error: 'Note invalide' };
+  let user: MailCategory | null = null;
+  if (userCategory !== undefined && userCategory !== null) {
+    if (!isMailCategory(userCategory)) return { ok: false, error: 'Catégorie invalide' };
+    user = userCategory;
+  }
+  if (rating === -1 && (user === null || user === aiCategory)) {
+    return { ok: false, error: 'Catégorie corrigée requise' };
+  }
+  return { ok: true, value: { sender, subject, aiCategory, rating, userCategory: user } };
+}
+
+/** Adresse e-mail de l'expéditeur : entre `<>` si présente, sinon la chaîne entière tronquée à 200. */
+function senderAddress(from: string): string {
+  const m = /<([^<>]+)>/.exec(from);
+  return (m ? m[1] : from).trim().slice(0, 200);
+}
+
+/**
+ * Enregistre une note, ne garde que les 500 dernières et, pour une correction (-1), crée ou met à jour
+ * l'entrée de mémoire de cet expéditeur (même adresse en minuscules).
+ */
+export function addMailFeedback(input: MailFeedbackInput): MailMemoryEntry | null {
+  return withTransaction((db) => {
+    const now = new Date().toISOString();
+    db.prepare(
+      'INSERT INTO mail_feedback (sender, subject, ai_category, user_category, rating, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(input.sender, input.subject, input.aiCategory, input.userCategory, input.rating, now);
+    db.prepare(
+      'DELETE FROM mail_feedback WHERE id NOT IN (SELECT id FROM mail_feedback ORDER BY id DESC LIMIT ?)',
+    ).run(FEEDBACK_KEEP);
+    if (input.rating !== -1 || !input.userCategory) return null;
+
+    const address = senderAddress(input.sender);
+    const key = address.toLowerCase();
+    const content = `Les e-mails de « ${address} » sont à classer dans « ${input.userCategory} ».`;
+    const cur = db
+      .prepare("SELECT id FROM mail_memory WHERE source = 'feedback' AND sender = ?")
+      .get(key) as unknown as { id: number } | undefined;
+    if (cur) {
+      db.prepare('UPDATE mail_memory SET content = ?, updated_at = ? WHERE id = ?').run(content, now, cur.id);
+      return getMailMemory(Number(cur.id));
+    }
+    const n = db.prepare('SELECT COUNT(*) AS n FROM mail_memory').get() as unknown as { n: number };
+    if (Number(n.n) >= MEMORY_MAX_ENTRIES) return null;
+    const r = db
+      .prepare("INSERT INTO mail_memory (content, source, sender, created_at, updated_at) VALUES (?, 'feedback', ?, ?, ?)")
+      .run(content, key, now, now);
+    return getMailMemory(Number(r.lastInsertRowid));
+  });
+}
+
+export function listMailFeedback(limit: number): MailFeedbackItem[] {
+  const rows = getDb()
+    .prepare(
+      'SELECT sender, subject, ai_category, user_category, rating, created_at FROM mail_feedback ORDER BY id DESC LIMIT ?',
+    )
+    .all(limit) as unknown as {
+    sender: string;
+    subject: string;
+    ai_category: string;
+    user_category: string | null;
+    rating: number;
+    created_at: string;
+  }[];
+  return rows.map((r) => ({
+    sender: r.sender,
+    subject: r.subject,
+    aiCategory: r.ai_category,
+    userCategory: r.user_category,
+    rating: Number(r.rating),
+    createdAt: r.created_at,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Comptes (table `mail_accounts`)
 // ---------------------------------------------------------------------------
 
@@ -281,8 +507,8 @@ export class MailError extends Error {
 
 const TIMEOUT_MS = 20_000;
 const MAX_BUFFER = 16 * 1024 * 1024;
-const SNIPPET_MAX = 1500;
-const BODY_PREFIX_BYTES = 4000;
+const SNIPPET_MAX = 400;
+const BODY_PREFIX_BYTES = 2000;
 
 type Arg = string | { raw: string };
 

@@ -2,7 +2,7 @@
   "docTitle": "Email — Lucania",
   "title": "Email",
   "back": "Back",
-  "intro": "Spot the emails that really matter in one click, without reading them all.",
+  "intro": "Your unread emails, sorted into a dashboard: people, work, notifications, promos and junk. Rate the AI’s answers and it learns your preferences.",
   "account": {
     "title": "Your addresses",
     "add": "Add an address",
@@ -49,7 +49,7 @@
   },
   "run": {
     "title": "Sort my emails",
-    "intro": "An AI reads your unread emails and shows you the important ones. Everything stays on your computer, and nothing is marked as read.",
+    "intro": "An AI reads the sender, subject and date of your unread emails and sorts them by category. Everything stays on your computer, and nothing is marked as read.",
     "start": "Sort my emails",
     "stop": "Stop",
     "stopping": "Stopping…",
@@ -71,25 +71,37 @@
     "done": "Sorting complete.",
     "error": "Something went wrong while sorting."
   },
+  "category": {
+    "all": "All",
+    "personnel": "People",
+    "pro": "Work & services",
+    "notification": "Notifications",
+    "pub": "Ads & promos",
+    "indesirable": "Junk",
+    "incertain": "To check"
+  },
   "results": {
-    "important": "Important",
-    "normal": "Others",
-    "uncertain": "To check",
-    "tabsLabel": "Sorting results",
-    "empty": {
-      "important": "Nothing urgent right now. You can relax.",
-      "normal": "No other emails here.",
-      "uncertain": "Nothing to check."
-    },
+    "filtersLabel": "Filter by category",
+    "listLabel": "Sorted emails",
+    "emptyFilter": "No emails in this category.",
     "noUnreadTitle": "All caught up!",
     "noUnread": "No new emails to sort right now.",
-    "summaryNone": "No important emails out of {total}",
-    "summaryOne": "1 important email out of {total}",
-    "summaryMany": "{n} important emails out of {total}",
+    "summaryWait": "Sorting: {total} emails to read",
+    "summaryOne": "1 email sorted · {people} from people · {pro} work",
+    "summaryMany": "{n} emails sorted · {people} from people · {pro} work",
     "noReason": "No explanation provided.",
     "noSubject": "(no subject)",
     "unknownSender": "Unknown sender",
-    "uncertainReason": "The AI’s answer could not be understood."
+    "uncertainReason": "The AI’s answer could not be understood.",
+    "help": "Your ratings teach the AI your preferences: it uses them to sort your next emails better."
+  },
+  "rate": {
+    "up": "Good sorting: {subject}",
+    "down": "Wrong sorting, fix it: {subject}",
+    "pick": "Correct category:",
+    "pickChoice": "Move to {category}",
+    "saved": "Rated: the AI will remember",
+    "error": "Could not save the rating."
   },
   "errors": {
     "title": "Some accounts could not be read:"

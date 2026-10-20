@@ -240,12 +240,37 @@ function migrateV9(db: DatabaseSync) {
   }
 }
 
+// v10 : tri des e-mails par IA : prompt système personnalisable, mémoire dédiée aux e-mails
+// (distincte de la mémoire générale) et notes de l'utilisateur sur les réponses de l'IA.
+function migrateV10(db: DatabaseSync) {
+  if (!hasColumn(db, 'mail_settings', 'system_prompt')) {
+    db.exec("ALTER TABLE mail_settings ADD COLUMN system_prompt TEXT NOT NULL DEFAULT ''");
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS mail_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'user',
+    sender TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`);
+  db.exec(`CREATE TABLE IF NOT EXISTS mail_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    ai_category TEXT NOT NULL,
+    user_category TEXT,
+    rating INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  )`);
+}
+
 function migrateSchema(db: DatabaseSync) {
   const row = db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get() as unknown as
     | { value: string }
     | undefined;
   const version = Number(row?.value ?? '1');
-  if (version >= 9) return;
+  if (version >= 10) return;
   db.exec('BEGIN IMMEDIATE');
   try {
     if (version < 5) {
@@ -281,6 +306,8 @@ function migrateSchema(db: DatabaseSync) {
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '8')");
     migrateV9(db);
     db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '9')");
+    migrateV10(db);
+    db.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '10')");
     db.exec('COMMIT');
   } catch (e) {
     try {

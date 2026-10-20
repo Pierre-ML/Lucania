@@ -1,0 +1,65 @@
+{
+  "title": "Réglages de l'IA du tri",
+  "subtitle": "Modèles conseillés, instructions et mémoire de l'IA qui trie vos e-mails.",
+  "models": {
+    "title": "Modèles conseillés pour ce PC",
+    "loading": "Analyse de votre ordinateur…",
+    "hw": "RAM {ram} Go · carte graphique {vram} Go",
+    "hwNoGpu": "RAM {ram} Go · pas de carte graphique dédiée détectée",
+    "hwError": "Impossible de lire la configuration de ce PC. Voici les paliers génériques.",
+    "tierLabel": "Palier",
+    "tier": {
+      "light": "léger",
+      "medium": "moyen",
+      "strong": "puissant"
+    },
+    "tierText": {
+      "light": "Votre PC a des ressources modestes : choisissez de petits modèles, rapides mais moins fins.",
+      "medium": "Votre PC est à l'aise avec des modèles de taille moyenne : un bon équilibre entre vitesse et qualité.",
+      "strong": "Votre PC peut faire tourner de gros modèles : meilleure qualité de tri, un peu plus lent au démarrage."
+    },
+    "genericNote": "Dans le navigateur, Lucania ne peut pas lire la configuration de votre PC. Voici les modèles pour chaque palier. Dans l'application de bureau, la liste est adaptée à votre machine.",
+    "genericTier": "Palier {tier}",
+    "best": "Conseillé",
+    "installed": "Installé",
+    "size": "{size} Go",
+    "repo": "Voir sur Hugging Face",
+    "repoLabel": "Voir {name} sur Hugging Face (nouvel onglet)",
+    "none": "Aucun modèle à proposer."
+  },
+  "prompt": {
+    "title": "Instructions de l'IA (prompt système)",
+    "help": "Ce texte explique à l'IA comment trier vos e-mails. Laissez le texte par défaut si vous n'êtes pas sûr.",
+    "label": "Instructions envoyées à l'IA",
+    "save": "Enregistrer",
+    "reset": "Rétablir le texte par défaut",
+    "saving": "Enregistrement…",
+    "saved": "Instructions enregistrées.",
+    "resetDone": "Texte par défaut rétabli.",
+    "loadError": "Impossible de charger les instructions."
+  },
+  "memory": {
+    "title": "Mémoire du tri",
+    "help": "Notez ici ce que l'IA doit savoir sur vous (par exemple vos contacts importants). Cette mémoire sert uniquement aux IA qui trient les e-mails, pas à vos conversations. Vos notes 👎 sur les résultats l'enrichissent automatiquement.",
+    "listLabel": "Notes de la mémoire",
+    "empty": "La mémoire est vide. Ajoutez une première note ci-dessous.",
+    "fromFeedback": "Apprise de vos notes",
+    "edit": "Modifier",
+    "editLabel": "Modifier la note : {content}",
+    "editInput": "Texte de la note",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "deleteLabel": "Supprimer la note : {content}",
+    "deleteAsk": "Supprimer cette note ?",
+    "deleteConfirm": "Supprimer",
+    "addLabel": "Ajouter une note",
+    "addPlaceholder": "Les e-mails de ma banque sont pro",
+    "add": "Ajouter",
+    "needText": "Écrivez une note avant de l'ajouter.",
+    "added": "Note ajoutée.",
+    "updated": "Note modifiée.",
+    "deleted": "Note supprimée.",
+    "loadError": "Impossible de charger la mémoire."
+  }
+}

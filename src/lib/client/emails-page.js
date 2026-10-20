@@ -1,15 +1,36 @@
 // Page /emails : connexion guidée à la boîte mail et tri des e-mails non lus par un modèle local (moteur llama.cpp embarqué).
 import { engineAvailable, generateText, getEngineStatus, listModels, loadModel, stopGeneration } from './engine.js';
 import { getLang, t } from './i18n.js';
+import { MAIL_CATEGORIES, MAIL_MAX_TOKENS, buildMailMessages, parseMailVerdict } from './mail-ai.js';
 
-const SYSTEM_PROMPT =
-  'Tu es un assistant qui trie des e-mails. Pour chaque e-mail, décide s’il est important ' +
-  '(personnel, professionnel, urgent, administratif, facture, sécurité, rendez-vous) ou non ' +
-  '(publicité, newsletter, notification automatique, réseaux sociaux). ' +
-  'Réponds UNIQUEMENT par un objet JSON, sans autre texte : {"important":true ou false,"raison":"une phrase courte"}.';
-const MAX_SNIPPET = 600;
-const MAX_TOKENS = 120;
 const MAX_ACCOUNTS = 10;
+const FEEDBACK_LIMIT = 10;
+/** Ordre d'affichage : les catégories, puis « À vérifier ». */
+const ORDER = /** @type {string[]} */ ([...MAIL_CATEGORIES, 'incertain']);
+/**
+ * Pastilles neutres par catégorie (classes écrites en entier).
+ * @type {Record<string, string>}
+ */
+const DOTS = {
+  personnel: 'bg-fg',
+  pro: 'bg-fg/70',
+  notification: 'bg-fg/45',
+  pub: 'bg-fg/30',
+  indesirable: 'bg-fg/15',
+  incertain: 'border border-dashed border-fg/60',
+};
+const RATE_BTN =
+  'flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted transition-[background-color,color,transform] duration-150 hover:bg-fg/5 hover:text-fg focus-visible:outline-2 focus-visible:outline-fg/40 active:scale-90 aria-pressed:bg-fg/10 aria-pressed:text-fg disabled:cursor-default disabled:aria-[pressed=false]:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100';
+const PICK_BTN =
+  'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 text-xs transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-default disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:scale-100';
+const THUMB_UP = [
+  'M7 10v12',
+  'M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z',
+];
+const THUMB_DOWN = [
+  'M17 14V2',
+  'M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z',
+];
 
 /** Fournisseurs connus : serveur IMAP en SSL (993) et domaines reconnus dans l'adresse. */
 const PROVIDERS = {
@@ -23,7 +44,9 @@ const PROVIDERS = {
 /**
  * @typedef {{ id: number, host: string, port: number, secure: boolean, user: string, hasPassword: boolean, mailbox: string, maxEmails: number }} MailAccount
  * @typedef {{ uid: number, from: string, subject: string, date: string, snippet: string }} MailItem
- * @typedef {'important'|'normal'|'uncertain'} Verdict
+ * @typedef {import('./mail-ai.js').MailCategory} MailCategory
+ * @typedef {import('./mail-ai.js').MailVerdict} MailVerdict
+ * @typedef {{ mail: MailItem, accountUser: string, aiCategory: MailVerdict, category: MailVerdict, reason: string, rated: boolean, ts: number, el: HTMLElement, chip: HTMLElement }} Entry
  */
 
 /** @param {string} sel @param {ParentNode} [root] @returns {HTMLElement[]} */
@@ -87,49 +110,8 @@ function initialOf(name) {
   return m ? m[0].toUpperCase() : '?';
 }
 
-/**
- * Lit la réponse du modèle : premier objet {...}, sinon true/false isolé.
- * @param {string} text
- * @returns {{ verdict: Verdict, reason: string }}
- */
-export function parseVerdict(text) {
-  const raw = String(text ?? '');
-  const start = raw.indexOf('{');
-  const end = raw.indexOf('}', start + 1);
-  if (start !== -1 && end > start) {
-    try {
-      const obj = JSON.parse(raw.slice(start, end + 1));
-      if (obj && typeof obj === 'object') {
-        const flag = obj.important;
-        const reason = String(obj.raison ?? obj.reason ?? '').trim();
-        if (flag === true || flag === 'true') return { verdict: 'important', reason };
-        if (flag === false || flag === 'false') return { verdict: 'normal', reason };
-      }
-    } catch {
-      // JSON invalide : on cherche true/false dans le texte.
-    }
-  }
-  const m = /"?important"?\s*:\s*"?(true|false)\b/i.exec(raw) || /\b(true|false)\b/i.exec(raw);
-  if (m) {
-    const reasonMatch = /"?(?:raison|reason)"?\s*:\s*"([^"]*)/i.exec(raw);
-    return { verdict: m[1].toLowerCase() === 'true' ? 'important' : 'normal', reason: reasonMatch ? reasonMatch[1].trim() : '' };
-  }
-  return { verdict: 'uncertain', reason: t('mail.results.uncertainReason') };
-}
-
-/** @param {MailItem} mail */
-function buildMessages(mail) {
-  const snippet = String(mail.snippet || '').replace(/\s+/g, ' ').trim().slice(0, MAX_SNIPPET);
-  const content =
-    `Expéditeur : ${mail.from || ''}\nObjet : ${mail.subject || ''}\nDate : ${mail.date || ''}\nExtrait : ${snippet}`;
-  return [
-    { role: /** @type {'system'} */ ('system'), content: SYSTEM_PROMPT },
-    { role: /** @type {'user'} */ ('user'), content },
-  ];
-}
-
-/** Icône d'ampoule statique (SVG). */
-function reasonIcon() {
+/** Icône SVG statique (chemins constants). @param {string[]} paths @param {string} cls */
+function svgIcon(paths, cls) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('fill', 'none');
@@ -138,71 +120,33 @@ function reasonIcon() {
   svg.setAttribute('stroke-linecap', 'round');
   svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('class', 'mt-0.5 size-3.5 shrink-0');
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z');
-  svg.append(path);
+  svg.setAttribute('class', cls);
+  for (const d of paths) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
   return svg;
 }
 
-/** @param {MailItem} mail @param {string} reason @param {Verdict} verdict @param {string} accountUser adresse du compte d'origine ('' = masquée) */
-function buildCard(mail, reason, verdict, accountUser) {
-  const li = document.createElement('li');
-  const base =
-    'flex gap-3.5 rounded-2xl border p-4 opacity-0 translate-y-1 transition-[opacity,transform] duration-300 ease-out motion-reduce:translate-y-0 motion-reduce:transition-none';
-  li.className = verdict === 'important' ? `${base} border-border border-l-2 border-l-fg bg-fg/[0.03]` : `${base} border-border`;
+/** Adresse seule d'un « Nom <adresse> ». @param {string} from */
+function senderAddress(from) {
+  const raw = String(from || '').trim();
+  const m = /<([^>]*)>/.exec(raw);
+  return (m ? m[1] : raw).trim();
+}
 
-  const name = senderName(mail.from) || t('mail.results.unknownSender');
-
-  const badge = document.createElement('span');
-  badge.className = 'flex size-10 shrink-0 items-center justify-center rounded-full bg-fg/10 text-sm font-medium';
-  badge.setAttribute('aria-hidden', 'true');
-  badge.textContent = initialOf(name);
-
-  const bodyEl = document.createElement('div');
-  bodyEl.className = 'min-w-0 flex-1';
-
-  const top = document.createElement('div');
-  top.className = 'flex items-baseline justify-between gap-3';
-  const from = document.createElement('p');
-  from.className = 'truncate text-sm text-muted';
-  from.textContent = name;
-  const date = document.createElement('p');
-  date.className = 'shrink-0 text-xs text-muted';
-  date.textContent = formatDate(mail.date);
-  top.append(from, date);
-
-  const subject = document.createElement('p');
-  subject.className = 'mt-0.5 font-medium [overflow-wrap:anywhere]';
-  subject.textContent = mail.subject || t('mail.results.noSubject');
-
-  bodyEl.append(top, subject);
-
-  const snippet = String(mail.snippet || '').replace(/\s+/g, ' ').trim();
-  if (snippet) {
-    const sn = document.createElement('p');
-    sn.className = 'mt-1 line-clamp-2 text-sm text-muted [overflow-wrap:anywhere]';
-    sn.textContent = snippet;
-    bodyEl.append(sn);
-  }
-
-  const why = document.createElement('p');
-  why.className = 'mt-3 flex gap-2 rounded-lg bg-fg/5 px-3 py-2 text-xs text-muted';
-  const whyText = document.createElement('span');
-  whyText.textContent = reason || t('mail.results.noReason');
-  why.append(reasonIcon(), whyText);
-  bodyEl.append(why);
-
-  if (accountUser) {
-    const acc = document.createElement('p');
-    acc.className = 'mt-2 truncate text-xs text-muted/70';
-    acc.textContent = accountUser;
-    bodyEl.append(acc);
-  }
-
-  li.append(badge, bodyEl);
-  requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('opacity-0', 'translate-y-1')));
-  return li;
+/** Puce de catégorie : pastille neutre + libellé. @param {string} cat */
+function buildChip(cat) {
+  const chip = document.createElement('span');
+  chip.className = 'inline-flex h-5 shrink-0 items-center gap-1.5 rounded-full border border-border px-2 text-xs';
+  const dot = document.createElement('span');
+  dot.className = `size-1.5 shrink-0 rounded-full ${DOTS[cat] || DOTS.incertain}`;
+  dot.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.textContent = t(`mail.category.${cat}`);
+  chip.append(dot, label);
+  return chip;
 }
 
 export function initEmailsPage() {
@@ -241,7 +185,6 @@ export function initEmailsPage() {
   if (!form || !modelSel || !saveBtn || !analyzeBtn || !stopBtn || !bar) return;
 
   const available = engineAvailable();
-  const verdicts = /** @type {Verdict[]} */ (['important', 'normal', 'uncertain']);
   /** @type {AbortController|null} */
   let controller = null;
   let running = false;
@@ -257,7 +200,7 @@ export function initEmailsPage() {
   /** @type {string} */
   let provider = '';
   let providerPicked = false;
-  let activeTab = /** @type {Verdict} */ ('important');
+  let filter = 'all';
   let totalCount = 0;
 
   /** @param {HTMLElement|null} el @param {string} text @param {boolean} [error] */
@@ -604,48 +547,262 @@ export function initEmailsPage() {
 
   // ---- Résultats ----
 
-  /** @param {Verdict} v */
-  const list = (v) => $(`[data-mail-list="${v}"]`);
-  const countOf = (/** @type {Verdict} */ v) => list(v)?.children.length ?? 0;
+  const list = $('[data-mail-list]');
+  const emptyFilter = $('[data-mail-empty]');
+  /** @type {Entry[]} */
+  const entries = [];
+  const rankOf = (/** @type {string} */ c) => {
+    const i = ORDER.indexOf(c);
+    return i === -1 ? ORDER.length : i;
+  };
 
-  /** @param {Verdict} v */
-  function selectTab(v) {
-    activeTab = v;
-    for (const id of verdicts) {
-      const tab = $(`[data-mail-tab="${id}"]`);
-      const panel = $(`[data-mail-panel="${id}"]`);
-      const on = id === v;
-      tab?.setAttribute('aria-selected', String(on));
-      tab?.setAttribute('tabindex', on ? '0' : '-1');
-      if (panel) panel.hidden = !on;
-    }
+  function sortRows() {
+    if (!list) return;
+    const active = document.activeElement;
+    const sorted = entries.slice().sort((a, b) => rankOf(a.category) - rankOf(b.category) || b.ts - a.ts);
+    list.append(...sorted.map((e) => e.el));
+    if (active instanceof HTMLElement && document.activeElement !== active && active.isConnected) active.focus();
   }
 
   function refreshResults() {
-    for (const v of verdicts) {
-      const n = countOf(v);
-      const count = $(`[data-mail-count="${v}"]`);
+    /** @type {Record<string, number>} */
+    const counts = {};
+    for (const c of ORDER) counts[c] = 0;
+    for (const e of entries) counts[e.category] = (counts[e.category] || 0) + 1;
+    const total = entries.length;
+    if (filter !== 'all' && !counts[filter]) filter = 'all';
+    for (const id of ['all', ...ORDER]) {
+      const n = id === 'all' ? total : counts[id];
+      const count = $(`[data-mail-count="${id}"]`);
       if (count) count.textContent = String(n);
-      const empty = $(`[data-mail-empty="${v}"]`);
-      if (empty) empty.hidden = n > 0;
-      const tab = $(`[data-mail-tab="${v}"]`);
-      if (tab && v === 'uncertain') tab.hidden = n === 0;
+      const fill = $(`[data-mail-fill="${id}"]`);
+      if (fill) fill.style.transform = `scaleX(${total ? n / total : 0})`;
+      const btn = $(`[data-mail-filter="${id}"]`);
+      if (btn) btn.setAttribute('aria-pressed', String(id === filter));
     }
-    if (activeTab === 'uncertain' && countOf('uncertain') === 0) selectTab('important');
-    const n = countOf('important');
+    const tileWrap = $('[data-mail-tile="incertain"]');
+    if (tileWrap) tileWrap.hidden = counts.incertain === 0;
+    sortRows();
+    let visible = 0;
+    for (const e of entries) {
+      const show = filter === 'all' || e.category === filter;
+      e.el.hidden = !show;
+      if (show) visible += 1;
+    }
+    if (emptyFilter) emptyFilter.hidden = visible > 0 || total === 0;
     if (summary) {
       summary.textContent =
-        n === 0
-          ? t('mail.results.summaryNone', { total: totalCount })
-          : t(n === 1 ? 'mail.results.summaryOne' : 'mail.results.summaryMany', { n, total: totalCount });
+        total === 0
+          ? totalCount > 0
+            ? t('mail.results.summaryWait', { total: totalCount })
+            : ''
+          : t(total === 1 ? 'mail.results.summaryOne' : 'mail.results.summaryMany', {
+              n: total,
+              people: counts.personnel,
+              pro: counts.pro,
+            });
     }
   }
 
   function resetResults() {
-    for (const v of verdicts) list(v)?.replaceChildren();
+    entries.length = 0;
+    list?.replaceChildren();
     totalCount = 0;
-    selectTab('important');
+    filter = 'all';
     refreshResults();
+  }
+
+  for (const btn of $$('[data-mail-filter]')) {
+    btn.addEventListener('click', () => {
+      filter = btn.dataset.mailFilter || 'all';
+      refreshResults();
+    });
+  }
+
+  /** @param {HTMLElement} root @param {boolean} on */
+  function setButtonsDisabled(root, on) {
+    for (const b of $$('button', root)) /** @type {HTMLButtonElement} */ (b).disabled = on;
+  }
+
+  /**
+   * Envoie la note à l'IA ; en cas de mauvaise note, reclasse la ligne.
+   * @param {Entry} entry @param {1|-1} rating @param {MailCategory|null} userCategory
+   * @param {{ up: HTMLButtonElement|null, down: HTMLButtonElement, picker: HTMLElement, note: HTMLElement }} ui
+   */
+  async function rate(entry, rating, userCategory, ui) {
+    if (entry.rated) return;
+    entry.rated = true;
+    say(ui.note, '');
+    setButtonsDisabled(entry.el, true);
+    try {
+      await api('/api/mail/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: senderAddress(entry.mail.from),
+          subject: entry.mail.subject || '',
+          aiCategory: entry.aiCategory,
+          rating,
+          userCategory,
+        }),
+      });
+    } catch {
+      entry.rated = false;
+      setButtonsDisabled(entry.el, false);
+      say(ui.note, t('mail.rate.error'), true);
+      return;
+    }
+    (rating === 1 ? ui.up : ui.down)?.setAttribute('aria-pressed', 'true');
+    ui.picker.hidden = true;
+    ui.down.setAttribute('aria-expanded', 'false');
+    if (rating === -1 && userCategory) {
+      entry.category = userCategory;
+      const chip = buildChip(userCategory);
+      entry.chip.replaceWith(chip);
+      entry.chip = chip;
+    }
+    say(ui.note, t('mail.rate.saved'));
+    refreshResults();
+    // La ligne peut sortir du filtre actif : on annonce aussi la note ailleurs.
+    if (entry.el.hidden) say(statusEl, t('mail.rate.saved'));
+  }
+
+  /** @param {Entry} entry @param {boolean} multi */
+  function buildRow(entry, multi) {
+    const { mail } = entry;
+    const li = document.createElement('li');
+    li.className = 'px-3 py-2.5 opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none sm:px-4';
+    const name = senderName(mail.from) || t('mail.results.unknownSender');
+    const subjectText = mail.subject || t('mail.results.noSubject');
+    const reasonText = entry.reason || t('mail.results.noReason');
+
+    const line = document.createElement('div');
+    line.className = 'flex items-start gap-3';
+    const badge = document.createElement('span');
+    badge.className = 'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-fg/10 text-xs font-medium';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = initialOf(name);
+
+    const body = document.createElement('div');
+    body.className = 'min-w-0 flex-1';
+    const top = document.createElement('div');
+    top.className = 'flex items-baseline justify-between gap-3';
+    const subject = document.createElement('p');
+    subject.className = 'min-w-0 truncate text-sm font-medium';
+    subject.title = subjectText;
+    subject.textContent = subjectText;
+    const date = document.createElement('p');
+    date.className = 'shrink-0 text-xs tabular-nums text-muted';
+    date.textContent = formatDate(mail.date);
+    top.append(subject, date);
+
+    const meta = document.createElement('div');
+    meta.className = 'mt-1 flex items-center gap-2';
+    const sender = document.createElement('span');
+    sender.className = 'max-w-[35%] shrink-0 truncate text-xs font-medium text-muted sm:max-w-56';
+    sender.title = senderAddress(mail.from) || name;
+    sender.textContent = name;
+    const reason = document.createElement('span');
+    reason.className = 'min-w-0 flex-1 truncate text-xs text-muted';
+    reason.title = reasonText;
+    reason.textContent = reasonText;
+    meta.append(entry.chip, sender);
+    if (multi && entry.accountUser) {
+      const acc = document.createElement('span');
+      acc.className = 'hidden max-w-40 shrink-0 truncate text-xs text-muted sm:inline';
+      acc.textContent = entry.accountUser;
+      meta.append(acc);
+    }
+    meta.append(reason);
+
+    const actions = document.createElement('div');
+    actions.className = 'flex shrink-0 items-center';
+    /** @type {HTMLButtonElement|null} */
+    let up = null;
+    if (entry.aiCategory !== 'incertain') {
+      up = document.createElement('button');
+      up.type = 'button';
+      up.className = RATE_BTN;
+      up.setAttribute('aria-pressed', 'false');
+      up.setAttribute('aria-label', t('mail.rate.up', { subject: subjectText }));
+      up.append(svgIcon(THUMB_UP, 'size-4'));
+      actions.append(up);
+    }
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.className = RATE_BTN;
+    down.setAttribute('aria-pressed', 'false');
+    down.setAttribute('aria-expanded', 'false');
+    down.setAttribute('aria-label', t('mail.rate.down', { subject: subjectText }));
+    down.append(svgIcon(THUMB_DOWN, 'size-4'));
+    actions.append(down);
+    meta.append(actions);
+
+    const picker = document.createElement('div');
+    picker.hidden = true;
+    const pickerRow = document.createElement('div');
+    pickerRow.className = 'mt-1 flex flex-wrap items-center gap-2';
+    picker.append(pickerRow);
+    const note = document.createElement('p');
+    note.className = 'text-xs text-muted empty:hidden data-[error=true]:text-danger';
+    note.setAttribute('role', 'status');
+    note.setAttribute('aria-live', 'polite');
+
+    const ui = { up, down, picker, note };
+    up?.addEventListener('click', () => rate(entry, 1, null, ui));
+    down.addEventListener('click', () => {
+      if (entry.rated) return;
+      const open = picker.hidden;
+      picker.hidden = !open;
+      down.setAttribute('aria-expanded', String(open));
+      if (!open) return;
+      const label = document.createElement('span');
+      label.className = 'text-xs text-muted';
+      label.textContent = t('mail.rate.pick');
+      const chips = MAIL_CATEGORIES.filter((c) => c !== entry.category).map((c) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = PICK_BTN;
+        b.setAttribute('aria-label', t('mail.rate.pickChoice', { category: t(`mail.category.${c}`) }));
+        const dot = document.createElement('span');
+        dot.className = `size-1.5 shrink-0 rounded-full ${DOTS[c]}`;
+        dot.setAttribute('aria-hidden', 'true');
+        const txt = document.createElement('span');
+        txt.textContent = t(`mail.category.${c}`);
+        b.append(dot, txt);
+        b.addEventListener('click', () => rate(entry, -1, c, ui));
+        return b;
+      });
+      pickerRow.replaceChildren(label, ...chips);
+    });
+
+    body.append(top, meta, picker, note);
+    line.append(badge, body);
+    li.append(line);
+    return li;
+  }
+
+  /** @param {MailItem} mail @param {{ category: string, reason: string }} res @param {string} accountUser '' = masqué */
+  function addResult(mail, res, accountUser) {
+    const category = /** @type {MailVerdict} */ (ORDER.includes(res.category) ? res.category : 'incertain');
+    const ts = Date.parse(mail.date);
+    /** @type {Entry} */
+    const entry = {
+      mail,
+      accountUser,
+      aiCategory: category,
+      category,
+      reason: res.reason,
+      rated: false,
+      ts: Number.isNaN(ts) ? 0 : ts,
+      chip: buildChip(category),
+      el: document.createElement('li'),
+    };
+    entry.el = buildRow(entry, Boolean(accountUser));
+    entries.push(entry);
+    list?.append(entry.el);
+    refreshResults();
+    requestAnimationFrame(() => requestAnimationFrame(() => entry.el.classList.remove('opacity-0')));
   }
 
   /** @param {{ user: string, message: string }[]} errors */
@@ -666,26 +823,6 @@ export function initEmailsPage() {
         return li;
       }),
     );
-  }
-
-  /** @param {KeyboardEvent} ev */
-  function onTabKey(ev) {
-    const visible = $$('[data-mail-tab]').filter((b) => !b.hidden);
-    const i = visible.findIndex((b) => b.dataset.mailTab === activeTab);
-    let next = -1;
-    if (ev.key === 'ArrowRight') next = (i + 1) % visible.length;
-    else if (ev.key === 'ArrowLeft') next = (i - 1 + visible.length) % visible.length;
-    else if (ev.key === 'Home') next = 0;
-    else if (ev.key === 'End') next = visible.length - 1;
-    if (next < 0) return;
-    ev.preventDefault();
-    const target = visible[next];
-    selectTab(/** @type {Verdict} */ (target.dataset.mailTab));
-    target.focus();
-  }
-  for (const tab of $$('[data-mail-tab]')) {
-    tab.addEventListener('click', () => selectTab(/** @type {Verdict} */ (tab.dataset.mailTab)));
-    tab.addEventListener('keydown', onTabKey);
   }
 
   // ---- Analyse ----
@@ -769,6 +906,20 @@ export function initEmailsPage() {
     let done = 0;
     let total = 0;
     try {
+      // Contexte d'apprentissage : réglages, mémoire, derniers avis. Sans eux, le tri continue.
+      const [settings, memory, feedback] = await Promise.all([
+        api('/api/mail/settings').catch(() => null),
+        api('/api/mail/memory').catch(() => null),
+        api(`/api/mail/feedback?limit=${FEEDBACK_LIMIT}`).catch(() => null),
+      ]);
+      checkAbort();
+      const systemPrompt =
+        typeof settings?.systemPrompt === 'string' && settings.systemPrompt.trim() ? settings.systemPrompt : undefined;
+      /** @type {string[]} */
+      const memoryList = Array.isArray(memory?.entries)
+        ? memory.entries.map((/** @type {any} */ e) => String(e?.content ?? '').trim()).filter(Boolean)
+        : [];
+      const examples = Array.isArray(feedback?.items) ? feedback.items : [];
       for (let idx = 0; idx < n; idx += 1) {
         const acc = queue[idx];
         checkAbort();
@@ -822,18 +973,21 @@ export function initEmailsPage() {
         let k = 0;
         for (const mail of emails) {
           checkAbort();
-          /** @type {{ verdict: Verdict, reason: string }} */
+          /** @type {{ category: string, reason: string }} */
           let res;
           try {
-            const text = await generateText({ model, messages: buildMessages(mail), maxTokens: MAX_TOKENS });
+            const text = await generateText({
+              model,
+              messages: buildMailMessages(mail, { systemPrompt, memory: memoryList, examples }),
+              maxTokens: MAIL_MAX_TOKENS,
+            });
             checkAbort();
-            res = parseVerdict(text);
+            res = parseMailVerdict(text);
           } catch (e) {
             if (ctl.signal.aborted) throw e;
-            res = { verdict: 'uncertain', reason: t('mail.results.uncertainReason') };
+            res = { category: 'incertain', reason: t('mail.results.uncertainReason') };
           }
-          list(res.verdict)?.append(buildCard(mail, res.reason, res.verdict, n > 1 ? acc.user : ''));
-          refreshResults();
+          addResult(mail, res, n > 1 ? acc.user : '');
           done += 1;
           k += 1;
           progress(k);

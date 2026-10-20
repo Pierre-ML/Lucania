@@ -2,7 +2,7 @@
   "docTitle": "E-mails — Lucania",
   "title": "E-mails",
   "back": "Retour",
-  "intro": "Repérez en un clic les e-mails qui comptent vraiment, sans rien lire.",
+  "intro": "Vos e-mails non lus, triés en tableau de bord : personnes, pro, notifications, promos et indésirables. Notez les réponses de l’IA, elle apprend vos préférences.",
   "account": {
     "title": "Vos adresses",
     "add": "Ajouter une adresse",
@@ -49,7 +49,7 @@
   },
   "run": {
     "title": "Trier mes e-mails",
-    "intro": "Une IA lit vos e-mails non lus et vous montre ceux qui sont importants. Tout reste sur votre ordinateur, et rien n’est marqué comme lu.",
+    "intro": "Une IA lit l’expéditeur, l’objet et la date de vos e-mails non lus et les range par catégorie. Tout reste sur votre ordinateur, et rien n’est marqué comme lu.",
     "start": "Trier mes e-mails",
     "stop": "Arrêter",
     "stopping": "Arrêt en cours…",
@@ -71,25 +71,37 @@
     "done": "Tri terminé.",
     "error": "Une erreur est survenue pendant le tri."
   },
+  "category": {
+    "all": "Tous",
+    "personnel": "Personnes",
+    "pro": "Pro & services",
+    "notification": "Notifications",
+    "pub": "Pub & promos",
+    "indesirable": "Indésirables",
+    "incertain": "À vérifier"
+  },
   "results": {
-    "important": "Importants",
-    "normal": "Autres",
-    "uncertain": "À vérifier",
-    "tabsLabel": "Résultats du tri",
-    "empty": {
-      "important": "Rien d’urgent pour le moment. Vous pouvez souffler.",
-      "normal": "Aucun autre e-mail ici.",
-      "uncertain": "Rien à vérifier."
-    },
+    "filtersLabel": "Filtrer par catégorie",
+    "listLabel": "E-mails triés",
+    "emptyFilter": "Aucun e-mail dans cette catégorie.",
     "noUnreadTitle": "Tout est lu !",
     "noUnread": "Aucun nouvel e-mail à trier pour le moment.",
-    "summaryNone": "Aucun e-mail important sur {total}",
-    "summaryOne": "1 e-mail important sur {total}",
-    "summaryMany": "{n} e-mails importants sur {total}",
+    "summaryWait": "Tri en cours : {total} e-mails à lire",
+    "summaryOne": "1 e-mail trié · {people} de personnes · {pro} pro",
+    "summaryMany": "{n} e-mails triés · {people} de personnes · {pro} pro",
     "noReason": "Pas d’explication fournie.",
     "noSubject": "(sans objet)",
     "unknownSender": "Expéditeur inconnu",
-    "uncertainReason": "La réponse de l’IA n’a pas pu être comprise."
+    "uncertainReason": "La réponse de l’IA n’a pas pu être comprise.",
+    "help": "Vos notes apprennent à l’IA vos préférences : elle s’en sert pour mieux trier les prochains e-mails."
+  },
+  "rate": {
+    "up": "Bon classement : {subject}",
+    "down": "Mauvais classement, corriger : {subject}",
+    "pick": "Bonne catégorie :",
+    "pickChoice": "Classer dans {category}",
+    "saved": "Noté : l’IA s’en souviendra",
+    "error": "Impossible d’enregistrer la note."
   },
   "errors": {
     "title": "Certains comptes n’ont pas pu être lus :"

@@ -1,0 +1,65 @@
+{
+  "title": "Sorting AI settings",
+  "subtitle": "Recommended models, instructions and memory for the AI that sorts your emails.",
+  "models": {
+    "title": "Recommended models for this PC",
+    "loading": "Checking your computer…",
+    "hw": "RAM {ram} GB · graphics card {vram} GB",
+    "hwNoGpu": "RAM {ram} GB · no dedicated graphics card detected",
+    "hwError": "Could not read this PC's configuration. Here are the generic tiers.",
+    "tierLabel": "Tier",
+    "tier": {
+      "light": "light",
+      "medium": "medium",
+      "strong": "strong"
+    },
+    "tierText": {
+      "light": "Your PC has modest resources: pick small models, fast but less refined.",
+      "medium": "Your PC handles mid-sized models comfortably: a good balance of speed and quality.",
+      "strong": "Your PC can run large models: better sorting quality, a bit slower to start."
+    },
+    "genericNote": "In the browser, Lucania cannot read your PC's configuration. Here are the models for each tier. In the desktop app, the list is tailored to your machine.",
+    "genericTier": "{tier} tier",
+    "best": "Recommended",
+    "installed": "Installed",
+    "size": "{size} GB",
+    "repo": "View on Hugging Face",
+    "repoLabel": "View {name} on Hugging Face (new tab)",
+    "none": "No model to suggest."
+  },
+  "prompt": {
+    "title": "AI instructions (system prompt)",
+    "help": "This text tells the AI how to sort your emails. Keep the default text if you are not sure.",
+    "label": "Instructions sent to the AI",
+    "save": "Save",
+    "reset": "Restore default text",
+    "saving": "Saving…",
+    "saved": "Instructions saved.",
+    "resetDone": "Default text restored.",
+    "loadError": "Could not load the instructions."
+  },
+  "memory": {
+    "title": "Sorting memory",
+    "help": "Write down what the AI should know about you (for example your important contacts). This memory is only used by the AIs that sort emails, not by your conversations. Your 👎 ratings on results enrich it automatically.",
+    "listLabel": "Memory notes",
+    "empty": "The memory is empty. Add a first note below.",
+    "fromFeedback": "Learned from your ratings",
+    "edit": "Edit",
+    "editLabel": "Edit note: {content}",
+    "editInput": "Note text",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleteLabel": "Delete note: {content}",
+    "deleteAsk": "Delete this note?",
+    "deleteConfirm": "Delete",
+    "addLabel": "Add a note",
+    "addPlaceholder": "Emails from my bank are work-related",
+    "add": "Add",
+    "needText": "Write a note before adding it.",
+    "added": "Note added.",
+    "updated": "Note updated.",
+    "deleted": "Note deleted.",
+    "loadError": "Could not load the memory."
+  }
+}
