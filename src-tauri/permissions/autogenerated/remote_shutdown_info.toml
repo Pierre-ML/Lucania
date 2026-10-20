@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-shutdown-info"
+description = "Enables the remote_shutdown_info command without any pre-configured scope."
+commands.allow = ["remote_shutdown_info"]
+
+[[permission]]
+identifier = "deny-remote-shutdown-info"
+description = "Denies the remote_shutdown_info command without any pre-configured scope."
+commands.deny = ["remote_shutdown_info"]

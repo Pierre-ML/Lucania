@@ -1,0 +1,62 @@
+---
+import { getLang, t } from '../../i18n/index';
+
+interface Props {
+	class?: string;
+	/** Affiche un bouton Enregistrer (vue de gestion) ; sans lui, l'assistant enregistre au clic sur Suivant. */
+	save?: boolean;
+}
+const { class: className = '', save = false } = Astro.props;
+const lang = getLang(Astro);
+const seg = 'h-8 cursor-pointer rounded-md px-4 text-sm text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-checked:bg-fg aria-checked:text-bg aria-checked:hover:text-bg motion-reduce:transition-none';
+const segMono = 'h-8 cursor-pointer rounded-md px-3 font-mono text-xs text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-checked:bg-fg aria-checked:text-bg aria-checked:hover:text-bg motion-reduce:transition-none';
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger/60';
+const label = 'mb-1.5 block text-sm font-medium';
+const primaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const question = t(lang, 'settings.server.shutdown.question');
+---
+<!-- Extinction à distance de CETTE tour. Piloté par src/lib/client/tower-shutdown.js (aucun id : le formulaire peut apparaître deux fois dans la page). -->
+<div data-tshut class={`space-y-5 ${className}`}>
+	<div>
+		<p class={label}>{question}</p>
+		<div role="radiogroup" aria-label={question} class="inline-flex gap-1 rounded-lg border border-border p-0.5">
+			<button type="button" role="radio" data-tshut-choice="no" aria-checked="true" class={seg}>{t(lang, 'settings.server.shutdown.no')}</button>
+			<button type="button" role="radio" data-tshut-choice="yes" aria-checked="false" class={seg}>{t(lang, 'settings.server.shutdown.yes')}</button>
+		</div>
+	</div>
+
+	<div data-tshut-fields hidden class="space-y-5">
+		<div>
+			<label class="block">
+				<span class={label}>{t(lang, 'settings.server.shutdown.url.label')}</span>
+				<input data-tshut-url type="url" inputmode="url" autocomplete="off" spellcheck="false" autocapitalize="off" aria-invalid="false" placeholder={t(lang, 'settings.server.shutdown.url.placeholder')} class={`${input} font-mono`} />
+			</label>
+			<p class="mt-1.5 text-xs text-muted">{t(lang, 'settings.server.shutdown.url.help')}</p>
+		</div>
+
+		<div>
+			<p class={label}>{t(lang, 'settings.server.shutdown.method.label')}</p>
+			<div data-tshut-method role="radiogroup" aria-label={t(lang, 'settings.server.shutdown.method.label')} class="inline-flex gap-1 rounded-lg border border-border p-0.5">
+				<button type="button" role="radio" data-method="GET" aria-checked="false" class={segMono}>GET</button>
+				<button type="button" role="radio" data-method="POST" aria-checked="true" class={segMono}>POST</button>
+			</div>
+		</div>
+
+		<div>
+			<label class="flex cursor-pointer items-center gap-2.5 text-sm">
+				<input data-tshut-token type="checkbox" class="size-4 shrink-0 accent-fg" />
+				<span>{t(lang, 'settings.server.shutdown.token.label')}</span>
+			</label>
+			<p class="mt-1.5 text-xs text-muted">{t(lang, 'settings.server.shutdown.token.help')}</p>
+		</div>
+	</div>
+
+	<p data-tshut-error role="alert" hidden class="rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+
+	{save && (
+		<div class="flex flex-wrap items-center gap-3">
+			<button type="button" data-tshut-save class={primaryBtn}>{t(lang, 'settings.server.shutdown.save')}</button>
+			<p data-tshut-saved role="status" aria-live="polite" hidden class="text-sm text-muted">{t(lang, 'settings.server.shutdown.saved')}</p>
+		</div>
+	)}
+</div>

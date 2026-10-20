@@ -140,7 +140,7 @@ mod tests {
     assert!(is_relayed("engine_load"));
     assert!(is_relayed("system_hardware"));
     assert!(is_relayed("hf_set_token"));
-    for local_only in ["engine_generate", "hf_avatars", "app_crash_logs", "uninstall_app", "app_check_update", "app_install_update", "server_start", "server_interfaces", "server_delete", "server_generate_key", "remote_discover", "remote_set_config", ""] {
+    for local_only in ["engine_generate", "hf_avatars", "app_crash_logs", "uninstall_app", "app_check_update", "app_install_update", "server_start", "server_interfaces", "server_delete", "server_get_shutdown", "server_set_shutdown", "remote_shutdown_info", "server_generate_key", "remote_discover", "remote_set_config", ""] {
       assert!(!is_relayed(local_only), "{local_only}");
     }
     // Pas de doublon.

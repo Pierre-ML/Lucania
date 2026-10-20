@@ -6,6 +6,8 @@ import { engineAvailable } from './engine.js';
 import { t } from './i18n.js';
 import { clearWizardState, errorText, EVENT_ROLE, EVENT_SERVER_KEY } from './connect-state.js';
 import { initNewKeyView } from './new-key.js';
+import { initReceiverShutdown } from './receiver-shutdown.js';
+import { initTowerShutdown } from './tower-shutdown.js';
 import {
   deleteServer,
   discoverRemote,
@@ -35,6 +37,8 @@ const LOOPBACK = '127.0.0.1';
 const DEFAULT_PORT = 4750;
 const MIN_PORT = 1024;
 const MAX_PORT = 65535;
+const CONNECTING_POLLS = 8;
+const CONNECTING_POLL_MS = 1000;
 
 /** @param {string} id */
 const byId = (id) => document.getElementById(id);
@@ -112,6 +116,11 @@ export function initRemoteSettings() {
   const allowAllInput = /** @type {HTMLInputElement|null} */ (byId('server-allow-all'));
   const portInput = /** @type {HTMLInputElement|null} */ (byId('server-port'));
   const newKey = initNewKeyView(serverCard ?? document);
+  // Extinction à distance : carte serveur (formulaire de la tour) et carte récepteur (récupération auprès de la tour)
+  const towerShutdownRoot = serverCard?.querySelector('[data-tshut]');
+  const towerShutdown = towerShutdownRoot ? initTowerShutdown(towerShutdownRoot) : null;
+  const receiverShutdownRoot = activeEl?.querySelector('[data-rshut]');
+  if (receiverShutdownRoot) initReceiverShutdown(receiverShutdownRoot);
 
   /** @type {RemoteConfig|null} */
   let remoteConfig = null;
@@ -157,6 +166,7 @@ export function initRemoteSettings() {
       keyPrefixEl.textContent = prefix ? t('settings.server.key.prefix', { prefix }) : '';
       keyPrefixEl.hidden = !prefix || !!createdKey;
     }
+    if (role === 'tower') towerShutdown?.load();
     if (lastRole !== undefined && lastRole !== role) document.dispatchEvent(new CustomEvent(EVENT_ROLE, { detail: role }));
     lastRole = role;
   }
@@ -177,11 +187,12 @@ export function initRemoteSettings() {
     }
     if (remoteState.connected) {
       stateEl.textContent = t('settings.remote.client.state.connected');
+    } else if (!remoteState.error) {
+      // Liaison tout juste (re)lancée, sans échec : ce n'est pas encore une erreur.
+      stateEl.textContent = t('settings.remote.client.state.connecting');
     } else {
       stateEl.dataset.bad = 'true';
-      stateEl.textContent = remoteState.error
-        ? t('settings.remote.client.state.unreachable', { error: remoteState.error })
-        : t('settings.remote.client.state.unreachableNoError');
+      stateEl.textContent = t('settings.remote.client.state.unreachable', { error: remoteState.error });
     }
     syncEditWithState();
   }
@@ -214,12 +225,11 @@ export function initRemoteSettings() {
       if (editAuto && !editTouched && !editKeyInput?.value) closeEdit();
       return;
     }
+    // Connexion en cours (aucune erreur encore) : on n'ouvre pas le formulaire de modification du code.
+    if (!remoteState.error) return;
     if (editForm.hidden && !editDismissed) openEdit(true);
     if (!editForm.hidden && !editTouched) {
-      setText(
-        editErrorEl,
-        remoteState.error ? t('settings.remote.client.state.unreachable', { error: remoteState.error }) : t('settings.remote.client.state.unreachableNoError'),
-      );
+      setText(editErrorEl, t('settings.remote.client.state.unreachable', { error: remoteState.error }));
     }
   }
 
@@ -266,9 +276,24 @@ export function initRemoteSettings() {
    * @param {string} url @param {string|null} key @param {HTMLElement|null} [status]
    */
   async function saveAndReload(url, key, status = statusEl) {
-    await setRemoteConfig({ mode: 'remote', url, key });
+    const saved = await setRemoteConfig({ mode: 'remote', url, key });
+    // Relit la configuration côté moteur : on ne recharge que si le récepteur est vraiment enregistré.
+    const stored = await getRemoteConfig();
+    if (saved.mode !== 'remote' || stored.mode !== 'remote' || !stored.url || !stored.hasKey) {
+      throw new Error(t('settings.remote.client.saveFailed'));
+    }
     setText(status, t('settings.remote.client.current.reloading'));
     location.reload();
+  }
+
+  /**
+   * Réseau proposé par défaut : un vrai réseau local avant WireGuard et les cartes virtuelles (WSL, Hyper-V…),
+   * sur lesquelles la recherche de la tour échoue.
+   * @param {ServerInterface[]} list interfaces hors boucle locale
+   */
+  function preferredLan(list) {
+    const virtual = /vethernet|wsl|hyper-v|virtualbox|vmware|docker|bluetooth/i;
+    return list.find((i) => !i.wireguard && !virtual.test(i.name)) ?? list.find((i) => !i.wireguard) ?? list[0];
   }
 
   /** @param {ServerInterface[]} ifaces */
@@ -294,13 +319,12 @@ export function initRemoteSettings() {
       return;
     }
     networkSelect.disabled = false;
-    networkSelect.value = (list.find((i) => !i.wireguard) ?? list[0]).ip;
+    networkSelect.value = preferredLan(list)?.ip ?? list[0].ip;
   }
 
   /** @param {ServerInterface[]} ifaces */
   function pickLanIp(ifaces) {
-    const list = ifaces.filter((i) => !i.loopback);
-    lanIp = (list.find((i) => !i.wireguard) ?? list[0])?.ip ?? null;
+    lanIp = preferredLan(ifaces.filter((i) => !i.loopback))?.ip ?? null;
   }
 
   form?.addEventListener('submit', async (e) => {
@@ -472,12 +496,18 @@ export function initRemoteSettings() {
     renderBusy();
   });
 
-  async function refreshRemoteState() {
+  /** @param {number} [attempt] */
+  async function refreshRemoteState(attempt = 0) {
     try {
       remoteState = await getRemoteState();
       renderState();
     } catch {
       // État indisponible : on garde l'affichage actuel.
+      return;
+    }
+    // Juste après un enregistrement, la liaison met un instant à s'établir : on relit quelques fois (l'événement de la tour peut aussi arriver avant l'écoute).
+    if (remoteState.mode === 'remote' && !remoteState.connected && !remoteState.error && attempt < CONNECTING_POLLS) {
+      setTimeout(() => refreshRemoteState(attempt + 1), CONNECTING_POLL_MS);
     }
   }
 
@@ -659,7 +689,8 @@ export function initRemoteSettings() {
 
   async function load() {
     try {
-      const [rc, sc, ifaces] = await Promise.all([getRemoteConfig(), getServerConfig(), getServerInterfaces()]);
+      // La liste des réseaux n'est pas indispensable : sans elle, l'adresse manuelle reste utilisable.
+      const [rc, sc, ifaces] = await Promise.all([getRemoteConfig(), getServerConfig(), getServerInterfaces().catch(() => [])]);
       // Les deux configurations sont connues avant le premier rendu : le rôle se déduit des deux.
       remoteConfig = rc;
       serverConfig = sc;

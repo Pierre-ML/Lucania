@@ -9,30 +9,34 @@ import ConfirmDialog from '../components/ConfirmDialog.astro';
 import ConnectionsSection from '../components/settings/ConnectionsSection.astro';
 import ConnectionForm from '../components/settings/ConnectionForm.astro';
 import NewKeyNotice from '../components/settings/NewKeyNotice.astro';
+import ReceiverShutdownSync from '../components/settings/ReceiverShutdownSync.astro';
 import RemoteSection from '../components/settings/RemoteSection.astro';
 import ShutdownSection from '../components/settings/ShutdownSection.astro';
+import TowerShutdownForm from '../components/settings/TowerShutdownForm.astro';
 
 const lang = getLang(Astro);
-const total = 4;
 const tabs = [
 	{ id: 'acces-distant', label: t(lang, 'connect.nav.remote') },
 	{ id: 'connexions', label: t(lang, 'connect.nav.connections') },
 	{ id: 'extinction', label: t(lang, 'connect.nav.shutdown') },
 ];
+// Étapes affichées avant le choix du rôle (version neutre) ; connexion-page.js remplace les libellés et le nombre d'étapes selon le rôle choisi (tour : 3, récepteur : 4).
 const stepLabels = [
 	t(lang, 'connect.steps.role'),
-	t(lang, 'connect.steps.link'),
-	t(lang, 'connect.steps.shutdown'),
+	t(lang, 'connect.steps.setup'),
 	t(lang, 'connect.steps.recap'),
+	'',
 ];
+const total = 3;
 const panel = 'animate-pop-in motion-reduce:animate-none';
 const seg = 'h-8 cursor-pointer rounded-md px-3 text-xs font-medium text-muted transition-colors duration-150 hover:text-fg focus-visible:outline-fg/40 aria-checked:bg-fg aria-checked:text-bg motion-reduce:transition-none';
 const primaryBtn = 'inline-flex h-12 min-w-36 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-fg px-8 text-base font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const smallBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const secondaryBtn = 'inline-flex h-12 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border px-6 text-base font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const roleCard = 'group flex cursor-pointer flex-col items-start gap-3 rounded-xl border border-border p-5 text-left transition-[border-color,background-color,transform] duration-150 enabled:hover:bg-fg/[0.03] focus-visible:outline-fg/40 enabled:active:scale-[0.99] aria-checked:border-fg aria-checked:bg-fg/5 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
-const stepItem = 'group flex items-center text-muted last:flex-none flex-1 aria-[current=step]:text-fg data-[done=true]:text-fg';
+const stepItem = 'group flex flex-1 items-center text-muted data-[last=true]:flex-none aria-[current=step]:text-fg data-[done=true]:text-fg';
 const stepDot = 'grid size-10 shrink-0 place-items-center rounded-full border border-border text-sm font-medium tabular-nums transition-[background-color,box-shadow,border-color] duration-150 group-aria-[current=step]:border-fg group-aria-[current=step]:bg-fg group-aria-[current=step]:text-bg group-aria-[current=step]:ring-4 group-aria-[current=step]:ring-fg/10 group-data-[done=true]:border-fg motion-reduce:transition-none';
-const stepLine = 'mx-3 h-0.5 flex-1 rounded-full bg-border transition-colors duration-150 group-data-[done=true]:bg-fg motion-reduce:transition-none';
+const stepLine = 'mx-3 h-0.5 flex-1 rounded-full bg-border transition-colors duration-150 group-data-[done=true]:bg-fg group-data-[last=true]:hidden motion-reduce:transition-none';
 const heading = 'font-serif text-xl focus:outline-none';
 const recapRow = 'flex items-center justify-between gap-4 px-4 py-3';
 const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=true]:text-danger';
@@ -66,13 +70,13 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 				<div class="rounded-2xl border border-border p-5">
 					<ol aria-label={t(lang, 'connect.steps.label')} class="flex items-center">
 						{stepLabels.map((label, i) => (
-							<li data-step-item={i + 1} data-done="false" class={stepItem}>
+							<li data-step-item={i + 1} data-done="false" data-last={String(i === total - 1)} hidden={!label} class={stepItem}>
 								<span class="flex shrink-0 items-center gap-3">
 									<span class={stepDot}>
 										<span class="group-data-[done=true]:hidden">{i + 1}</span>
 										<CheckSmallIcon class="hidden size-5 group-data-[done=true]:block" aria-hidden="true" />
 									</span>
-									<span class="hidden text-sm group-aria-[current=step]:inline group-aria-[current=step]:font-medium sm:inline">{label}</span>
+									<span data-step-label class="hidden text-sm group-aria-[current=step]:inline group-aria-[current=step]:font-medium sm:inline">{label}</span>
 								</span>
 								{i < stepLabels.length - 1 && <span data-step-line aria-hidden="true" class={stepLine}></span>}
 							</li>
@@ -81,7 +85,7 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 					<p data-step-counter role="status" aria-live="polite" class="mt-4 text-sm text-muted">{t(lang, 'connect.steps.counter', { current: 1, total })}</p>
 				</div>
 
-				<div data-step="1" class={`mt-8 ${panel}`}>
+				<div data-step="role" class={`mt-8 ${panel}`}>
 					<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.role.title')}</h2>
 					<p class="mt-1 text-sm text-muted">{t(lang, 'connect.role.description')}</p>
 					<div role="radiogroup" aria-label={t(lang, 'connect.role.label')} class="mt-6 grid gap-4 sm:grid-cols-2">
@@ -104,25 +108,30 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 					</div>
 				</div>
 
-				<div data-step="2" hidden class={`mt-6 ${panel}`}>
+				<div data-step="link" hidden class={`mt-6 ${panel}`}>
+					<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.link.title')}</h2>
+					<p class="mt-1 text-sm text-muted">{t(lang, 'connect.link.description')}</p>
+					<div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-border px-4 py-3">
+						<p data-link-status role="status" aria-live="polite" data-bad="false" class="min-w-0 flex-1 text-sm text-muted [overflow-wrap:anywhere] data-[bad=true]:text-danger"></p>
+						<button type="button" data-link-retry hidden class={smallBtn}>{t(lang, 'connect.link.retry')}</button>
+					</div>
+				</div>
+
+				<div data-step="shutdown" hidden class={`mt-6 ${panel}`}>
 					<div data-role-show="tower" hidden>
-						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.tower.title')}</h2>
-						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.tower.description')}</p>
-						<p class="mt-1 text-xs text-muted">{t(lang, 'connect.tower.note')}</p>
+						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.tower.title')}</h2>
+						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.shutdown.tower.description')}</p>
+						<p class="mt-1 text-xs text-muted">{t(lang, 'connect.shutdown.tower.note')}</p>
+						<TowerShutdownForm class="mt-6" />
 					</div>
 					<div data-role-show="laptop" hidden>
-						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.laptop.title')}</h2>
-						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.laptop.description')}</p>
-						<p data-laptop-connected hidden class="mt-1 text-sm text-fg">{t(lang, 'connect.laptop.connected')}</p>
+						<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.laptop.title')}</h2>
+						<p class="mt-1 text-sm text-muted">{t(lang, 'connect.shutdown.laptop.description')}</p>
+						<ReceiverShutdownSync class="mt-6" />
 					</div>
 				</div>
 
-				<div data-step="3" hidden class={`mt-6 ${panel}`}>
-					<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.shutdown.title')}</h2>
-					<p class="mt-1 text-sm text-muted">{t(lang, 'connect.shutdown.description')}</p>
-				</div>
-
-				<div data-step="4" hidden class={`mt-6 ${panel}`}>
+				<div data-step="recap" hidden class={`mt-6 ${panel}`}>
 					<h2 tabindex="-1" data-step-heading class={heading}>{t(lang, 'connect.recap.title')}</h2>
 					<p class="mt-1 text-sm text-muted">{t(lang, 'connect.recap.description')}</p>
 					<p data-recap="unavailable" role="status" hidden class="mt-6 rounded-xl border border-dashed border-border px-6 py-6 text-center text-sm text-muted"></p>
@@ -152,7 +161,7 @@ const recapValue = 'text-right font-medium [overflow-wrap:anywhere] data-[bad=tr
 				</div>
 			</div>
 
-			<!-- Sections affichées une seule fois : le mode guidé et le mode avancé les montrent ou les masquent -->
+			<!-- Sections affichées une seule fois : le mode avancé les montre toutes ; l'assistant ne montre que l'Accès distant (étape Liaison du récepteur) -->
 			<div class="mt-8 flex max-w-2xl flex-col gap-12">
 				<div data-sec="remote" hidden class={panel}><RemoteSection /></div>
 				<div data-sec="connections" hidden class={panel}><ConnectionsSection /></div>

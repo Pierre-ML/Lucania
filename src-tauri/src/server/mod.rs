@@ -63,12 +63,62 @@ struct Saved {
   key_hash: Option<String>,
   /// Clé en clair, pour la ré-afficher ; absente des anciens fichiers.
   key: Option<String>,
+  /// Extinction à distance de la tour ; absente des anciens fichiers.
+  shutdown: ShutdownInfo,
 }
 
 impl Default for Saved {
   fn default() -> Self {
-    Saved { bind_ip: None, port: net::DEFAULT_PORT, allow_all: false, active: false, key_hash: None, key: None }
+    Saved { bind_ip: None, port: net::DEFAULT_PORT, allow_all: false, active: false, key_hash: None, key: None, shutdown: ShutdownInfo::default() }
   }
+}
+
+/// Façon d'éteindre la tour à distance (le jeton secret n'est ni stocké ni transmis).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ShutdownInfo {
+  pub enabled: bool,
+  pub url: String,
+  /// « GET » ou « POST ».
+  pub method: String,
+  pub token_required: bool,
+}
+
+impl Default for ShutdownInfo {
+  fn default() -> Self {
+    ShutdownInfo { enabled: false, url: String::new(), method: "GET".into(), token_required: false }
+  }
+}
+
+impl ShutdownInfo {
+  /// Valeur exposée par l'API : l'objet par défaut tant que l'extinction n'est pas activée.
+  pub fn exposed(&self) -> ShutdownInfo {
+    if self.enabled { self.clone() } else { ShutdownInfo::default() }
+  }
+}
+
+/// Valide la configuration d'extinction saisie (activée : adresse http(s) et méthode GET/POST).
+fn validate_shutdown(enabled: bool, url: &str, method: &str, token_required: bool) -> Result<ShutdownInfo, String> {
+  let url = url.trim();
+  let method_up = method.trim().to_ascii_uppercase();
+  let method_ok = method_up == "GET" || method_up == "POST";
+  if enabled {
+    if url.is_empty() {
+      return Err("Indiquez l'adresse d'extinction.".into());
+    }
+    let parsed = reqwest::Url::parse(url).map_err(|_| format!("Adresse d'extinction invalide : « {url} »."))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+      return Err("Adresse d'extinction invalide : elle doit commencer par http:// ou https://.".into());
+    }
+    if parsed.host_str().is_none_or(str::is_empty) {
+      return Err(format!("Adresse d'extinction invalide : « {url} »."));
+    }
+    if !method_ok {
+      return Err("Méthode d'extinction invalide : « GET » ou « POST » attendu.".into());
+    }
+  }
+  let method = if method_ok { method_up } else { "GET".into() };
+  Ok(ShutdownInfo { enabled, url: url.to_string(), method, token_required })
 }
 
 /// Réponse de `server_get_config`, `server_start`, `server_stop` et charge de `server://state`.
@@ -114,6 +164,8 @@ pub struct Server {
   saved: Mutex<Saved>,
   /// Empreinte de la clé, partagée avec le serveur en marche (remplacement immédiat).
   keys: Arc<RwLock<Option<KeyHash>>>,
+  /// Extinction à distance, partagée avec le serveur en marche.
+  shutdown_info: Arc<RwLock<ShutdownInfo>>,
   limiter: Arc<Mutex<Limiter>>,
   running: Mutex<Option<Running>>,
   error: Mutex<Option<String>>,
@@ -125,10 +177,12 @@ impl Server {
   fn open(file: PathBuf) -> Server {
     let saved: Saved = crate::localfile::read_json(&file).unwrap_or_default();
     let key = saved.key_hash.as_deref().and_then(auth::from_hex);
+    let shutdown_info = Arc::new(RwLock::new(saved.shutdown.clone()));
     Server {
       file,
       saved: Mutex::new(saved),
       keys: Arc::new(RwLock::new(key)),
+      shutdown_info,
       limiter: Arc::new(Mutex::new(Limiter::default())),
       running: Mutex::new(None),
       error: Mutex::new(None),
@@ -136,13 +190,15 @@ impl Server {
     }
   }
 
-  /// Efface la clé (empreinte et clair) et désactive le serveur.
+  /// Efface la clé (empreinte et clair), remet l'extinction à zéro et désactive le serveur.
   fn delete_key(&self) -> Result<(), String> {
     self.update(|s| {
       s.key_hash = None;
       s.key = None;
       s.active = false;
+      s.shutdown = ShutdownInfo::default();
     })?;
+    *self.shutdown_info.write().unwrap_or_else(|e| e.into_inner()) = ShutdownInfo::default();
     *self.keys.write().unwrap_or_else(|e| e.into_inner()) = None;
     *lock(&self.limiter) = Limiter::default();
     log("serveur supprimé");
@@ -184,6 +240,14 @@ impl Server {
       *saved = next;
     }
     Ok(())
+  }
+
+  /// Enregistre la configuration d'extinction (effet immédiat sur la route HTTP).
+  fn set_shutdown(&self, enabled: bool, url: &str, method: &str, token_required: bool) -> Result<ShutdownInfo, String> {
+    let info = validate_shutdown(enabled, url, method, token_required)?;
+    self.update(|s| s.shutdown = info.clone())?;
+    *self.shutdown_info.write().unwrap_or_else(|e| e.into_inner()) = info.clone();
+    Ok(info)
   }
 
   fn emit(&self, app: &AppHandle) {
@@ -241,6 +305,7 @@ impl Server {
     let state = Arc::new(HttpState {
       backend: Arc::new(AppBackend { app: app.clone() }),
       keys: self.keys.clone(),
+      shutdown_info: self.shutdown_info.clone(),
       limiter: self.limiter.clone(),
       shutdown: rx.clone(),
     });
@@ -491,6 +556,24 @@ pub async fn server_stop(app: AppHandle, server: State<'_, Server>) -> Result<Se
   Ok(server.config())
 }
 
+/// Configuration d'extinction à distance enregistrée.
+#[tauri::command]
+pub async fn server_get_shutdown(server: State<'_, Server>) -> Result<ShutdownInfo, String> {
+  Ok(lock(&server.saved).shutdown.clone())
+}
+
+/// Enregistre l'extinction à distance (serveur en marche ou non).
+#[tauri::command]
+pub async fn server_set_shutdown(
+  server: State<'_, Server>,
+  enabled: bool,
+  url: String,
+  method: String,
+  token_required: bool,
+) -> Result<ShutdownInfo, String> {
+  server.set_shutdown(enabled, &url, &method, token_required)
+}
+
 /// Supprime le rôle serveur : arrêt, clé effacée (la configuration d'écoute est gardée).
 #[tauri::command]
 pub async fn server_delete(app: AppHandle, server: State<'_, Server>) -> Result<ServerConfig, String> {
@@ -558,6 +641,64 @@ mod tests {
     assert_eq!(c.bind_ip.as_deref(), Some("10.0.0.2"));
     let c2 = Server::open(file).config();
     assert!(!c2.has_key && !c2.active && c2.key_prefix.is_none());
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[test]
+  fn shutdown_info_serialisee() {
+    assert_eq!(
+      serde_json::to_value(ShutdownInfo::default()).unwrap(),
+      serde_json::json!({ "enabled": false, "url": "", "method": "GET", "tokenRequired": false })
+    );
+    let i: ShutdownInfo = serde_json::from_str(r#"{"enabled":true,"url":"http://a:1/x","method":"POST","tokenRequired":true}"#).unwrap();
+    assert_eq!(i, ShutdownInfo { enabled: true, url: "http://a:1/x".into(), method: "POST".into(), token_required: true });
+  }
+
+  #[test]
+  fn validation_extinction() {
+    for (url, method) in [("", "GET"), ("pas une url", "GET"), ("ftp://h/x", "GET"), ("http://", "GET"), ("http://h/x", "PUT"), ("http://h/x", "")] {
+      assert!(validate_shutdown(true, url, method, false).is_err(), "{url} {method}");
+    }
+    let ok = validate_shutdown(true, " https://h:8080/off?x=1 ", "post", true).unwrap();
+    assert_eq!(ok, ShutdownInfo { enabled: true, url: "https://h:8080/off?x=1".into(), method: "POST".into(), token_required: true });
+    // Désactivée : jamais d'erreur, les valeurs sont gardées.
+    let off = validate_shutdown(false, "http://h/x", "POST", true).unwrap();
+    assert_eq!((off.enabled, off.url.as_str(), off.method.as_str(), off.token_required), (false, "http://h/x", "POST", true));
+    assert_eq!(validate_shutdown(false, "", "zzz", false).unwrap(), ShutdownInfo::default());
+  }
+
+  #[test]
+  fn extinction_enregistree_et_supprimee() {
+    let dir = std::env::temp_dir().join(format!("lucania-server-off-{}", std::process::id()));
+    let file = dir.join("server.json");
+    let _ = std::fs::remove_dir_all(&dir);
+    let s = Server::open(file.clone());
+    assert!(s.set_shutdown(true, "nope", "GET", false).is_err());
+    assert_eq!(*s.shutdown_info.read().unwrap(), ShutdownInfo::default());
+    s.generate_key().unwrap();
+    let info = s.set_shutdown(true, "http://10.0.0.2:9000/off", "POST", true).unwrap();
+    assert_eq!(*s.shutdown_info.read().unwrap(), info);
+    let s2 = Server::open(file.clone());
+    assert_eq!(lock(&s2.saved).shutdown, info);
+    assert_eq!(*s2.shutdown_info.read().unwrap(), info);
+    s2.delete_key().unwrap();
+    assert_eq!(lock(&s2.saved).shutdown, ShutdownInfo::default());
+    assert_eq!(*s2.shutdown_info.read().unwrap(), ShutdownInfo::default());
+    assert_eq!(lock(&Server::open(file).saved).shutdown, ShutdownInfo::default());
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[test]
+  fn ancien_fichier_sans_champ_shutdown() {
+    let dir = std::env::temp_dir().join(format!("lucania-server-noshut-{}", std::process::id()));
+    let file = dir.join("server.json");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let hash = auth::to_hex(&auth::hash_key("luc_x"));
+    std::fs::write(&file, format!(r#"{{"bindIp":"10.0.0.2","port":4750,"active":true,"keyHash":"{hash}","key":"luc_x"}}"#)).unwrap();
+    let s = Server::open(file);
+    assert!(s.config().has_key);
+    assert_eq!(lock(&s.saved).shutdown, ShutdownInfo::default());
     let _ = std::fs::remove_dir_all(dir);
   }
 

@@ -348,7 +348,7 @@
       "state": {
         "connected": "Connecté à la tour",
         "unreachable": "Tour injoignable : {error}",
-        "unreachableNoError": "Tour injoignable"
+        "connecting": "Connexion à la tour…"
       },
       "managed": {
         "title": "Cette machine est un récepteur"
@@ -363,6 +363,22 @@
         "button": "Supprimer le récepteur",
         "title": "Supprimer le récepteur ?",
         "message": "Cette machine cessera d'utiliser la tour et reprendra son propre moteur. Vous pourrez ensuite choisir un nouveau rôle."
+      },
+      "saveFailed": "Le récepteur n'a pas été enregistré : la configuration n'a pas été conservée.",
+      "shutdownSync": {
+        "title": "Extinction à distance de la tour",
+        "description": "Récupère auprès de la tour comment l'éteindre à distance et l'enregistre comme connexion d'extinction.",
+        "fetch": "Récupérer la configuration d'extinction de la tour",
+        "loading": "Récupération de la configuration d'extinction…",
+        "auto": "Extinction configurée automatiquement.",
+        "saved": "Extinction configurée.",
+        "none": "La tour ne propose pas l'extinction à distance.",
+        "tokenPrompt": "La tour demande un jeton secret pour l'extinction. Saisissez-le ci-dessous.",
+        "tokenLabel": "Jeton d'extinction",
+        "tokenRequired": "Saisissez le jeton d'extinction.",
+        "tokenSave": "Enregistrer le jeton",
+        "retry": "Réessayer",
+        "defaultName": "Tour"
       }
     },
     "guide": {
@@ -435,6 +451,30 @@
       "button": "Supprimer le serveur",
       "title": "Supprimer le serveur ?",
       "message": "Le code de la tour cessera de fonctionner : les machines qui l'utilisent devront recevoir un nouveau code. Il faudra tout reconfigurer pour recréer un serveur."
+    },
+    "shutdown": {
+      "title": "Extinction à distance",
+      "description": "Autorisez l'autre machine à éteindre cette tour depuis Lucania.",
+      "question": "Autoriser l'extinction de cette tour à distance ?",
+      "no": "Non",
+      "yes": "Oui",
+      "url": {
+        "label": "URL d'extinction",
+        "placeholder": "http://IP-de-la-tour:port/shutdown",
+        "help": "Adresse joignable depuis l'autre machine, par exemple http://IP-de-la-tour:port/…"
+      },
+      "method": {
+        "label": "Méthode"
+      },
+      "token": {
+        "label": "Un jeton secret est requis",
+        "help": "Le jeton n'est jamais envoyé par la tour : le récepteur le saisira lui-même."
+      },
+      "save": "Enregistrer",
+      "saved": "Extinction enregistrée.",
+      "errors": {
+        "url": "Indiquez une URL http:// ou https:// valide."
+      }
     }
   }
 }

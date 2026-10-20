@@ -1,0 +1,39 @@
+---
+import { getLang, t } from '../../i18n/index';
+
+interface Props {
+	class?: string;
+	/** Vue de gestion : affiche le bouton qui lance la récupération (l'assistant la lance tout seul). */
+	manual?: boolean;
+}
+const { class: className = '', manual = false } = Astro.props;
+const lang = getLang(Astro);
+const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const primaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
+const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0';
+---
+<!-- Récupère l'extinction à distance proposée par la tour et l'enregistre comme connexion. Piloté par src/lib/client/receiver-shutdown.js (aucun id : le bloc peut apparaître deux fois dans la page). -->
+<div data-rshut class={`space-y-3 ${className}`}>
+	{manual && (
+		<div>
+			<button type="button" data-rshut-run class={secondaryBtn}>{t(lang, 'settings.remote.client.shutdownSync.fetch')}</button>
+		</div>
+	)}
+
+	<p data-rshut-status role="status" aria-live="polite" data-bad="false" hidden class="text-sm text-muted [overflow-wrap:anywhere] data-[bad=true]:text-danger"></p>
+
+	<form data-rshut-token-form novalidate hidden class="space-y-3 rounded-xl border border-border px-4 py-4">
+		<label class="block">
+			<span class="mb-1.5 block text-sm font-medium">{t(lang, 'settings.remote.client.shutdownSync.tokenLabel')}</span>
+			<input data-rshut-token type="password" autocomplete="new-password" spellcheck="false" class={input} />
+		</label>
+		<div>
+			<button type="submit" data-rshut-token-save class={primaryBtn}>{t(lang, 'settings.remote.client.shutdownSync.tokenSave')}</button>
+		</div>
+		<p data-rshut-error role="alert" hidden class="rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
+	</form>
+
+	<div>
+		<button type="button" data-rshut-retry hidden class={secondaryBtn}>{t(lang, 'settings.remote.client.shutdownSync.retry')}</button>
+	</div>
+</div>

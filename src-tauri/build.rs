@@ -37,6 +37,8 @@ fn main() {
         "server_interfaces",
         "server_generate_key",
         "server_delete",
+        "server_get_shutdown",
+        "server_set_shutdown",
         "server_start",
         "server_stop",
         "remote_get_config",
@@ -44,6 +46,7 @@ fn main() {
         "remote_test",
         "remote_discover",
         "remote_state",
+        "remote_shutdown_info",
       ])),
   )
   .unwrap()

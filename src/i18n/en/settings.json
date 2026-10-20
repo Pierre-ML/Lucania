@@ -348,7 +348,7 @@
       "state": {
         "connected": "Connected to the tower",
         "unreachable": "Tower unreachable: {error}",
-        "unreachableNoError": "Tower unreachable"
+        "connecting": "Connecting to the tower…"
       },
       "managed": {
         "title": "This machine is a receiver"
@@ -363,6 +363,22 @@
         "button": "Delete the receiver",
         "title": "Delete the receiver?",
         "message": "This machine will stop using the tower and go back to its own engine. You can then pick a new role."
+      },
+      "saveFailed": "The receiver was not saved: the configuration was not kept.",
+      "shutdownSync": {
+        "title": "Remote shutdown of the tower",
+        "description": "Gets from the tower how to shut it down remotely and saves it as a shutdown connection.",
+        "fetch": "Get the tower shutdown configuration",
+        "loading": "Getting the shutdown configuration…",
+        "auto": "Shutdown configured automatically.",
+        "saved": "Shutdown configured.",
+        "none": "The tower does not offer remote shutdown.",
+        "tokenPrompt": "The tower requires a secret token for shutdown. Enter it below.",
+        "tokenLabel": "Shutdown token",
+        "tokenRequired": "Enter the shutdown token.",
+        "tokenSave": "Save token",
+        "retry": "Try again",
+        "defaultName": "Tower"
       }
     },
     "guide": {
@@ -435,6 +451,30 @@
       "button": "Delete the server",
       "title": "Delete the server?",
       "message": "The tower code will stop working: machines using it will need a new code. You will have to set everything up again to create a server."
+    },
+    "shutdown": {
+      "title": "Remote shutdown",
+      "description": "Let the other machine shut this tower down from Lucania.",
+      "question": "Allow this tower to be shut down remotely?",
+      "no": "No",
+      "yes": "Yes",
+      "url": {
+        "label": "Shutdown URL",
+        "placeholder": "http://TOWER-IP:port/shutdown",
+        "help": "Address reachable from the other machine, for example http://TOWER-IP:port/…"
+      },
+      "method": {
+        "label": "Method"
+      },
+      "token": {
+        "label": "A secret token is required",
+        "help": "The tower never sends the token: the receiver will enter it itself."
+      },
+      "save": "Save",
+      "saved": "Shutdown saved.",
+      "errors": {
+        "url": "Enter a valid http:// or https:// URL."
+      }
     }
   }
 }

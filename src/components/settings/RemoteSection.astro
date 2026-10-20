@@ -1,12 +1,16 @@
 ---
 import { getLang, t } from '../../i18n/index';
 import NewKeyNotice from './NewKeyNotice.astro';
+import ReceiverShutdownSync from './ReceiverShutdownSync.astro';
+import TowerShutdownForm from './TowerShutdownForm.astro';
 
 const secondaryBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-fg transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const primaryBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg transition-[background-color,transform] duration-150 hover:bg-fg/90 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const dangerBtn = 'inline-flex h-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-danger/40 px-4 text-sm font-medium text-danger transition-[background-color,transform] duration-150 hover:bg-fg/5 focus-visible:outline-fg/40 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
 const input = 'h-10 w-full rounded-lg border border-border bg-transparent px-3 text-sm text-fg transition-colors duration-150 placeholder:text-muted/60 hover:border-fg/20 focus:border-fg/40 focus-visible:outline-2 focus-visible:outline-fg/20 focus-visible:outline-offset-0 aria-invalid:border-danger/60';
 const label = 'mb-1.5 block text-sm font-medium';
+// Menus déroulants : même hauteur que les champs, texte centré verticalement (sans marge verticale, interligne serré, centrage flex).
+const select = `${input} flex items-center justify-between py-0 leading-none [&>option]:bg-surface`;
 const lang = getLang(Astro);
 ---
 <section aria-labelledby="remote-title">
@@ -36,12 +40,19 @@ const lang = getLang(Astro);
 			<div id="server-manage-block" hidden>
 				<p id="server-key-prefix" hidden class="mt-4 font-mono text-sm"></p>
 
+				<!-- Extinction à distance de cette tour -->
+				<div class="mt-4 rounded-xl border border-border px-4 py-4">
+					<h4 class="text-sm font-medium">{t(lang, 'settings.server.shutdown.title')}</h4>
+					<p class="mt-1 text-xs text-muted">{t(lang, 'settings.server.shutdown.description')}</p>
+					<TowerShutdownForm save class="mt-4" />
+				</div>
+
 				<details class="mt-4 rounded-xl border border-border">
 					<summary class="cursor-pointer rounded-xl px-4 py-2.5 text-sm font-medium focus-visible:outline-fg/40">{t(lang, 'settings.server.advanced.title')}</summary>
 					<div class="space-y-4 border-t border-border px-4 py-4">
 						<div>
 							<label for="server-interface" class={label}>{t(lang, 'settings.server.interface.label')}</label>
-							<select id="server-interface" class={`${input} [&>option]:bg-surface`}></select>
+							<select id="server-interface" class={select}></select>
 						</div>
 
 						<div id="server-all-block" hidden class="space-y-3 rounded-xl border border-danger/40 px-4 py-3">
@@ -98,6 +109,13 @@ const lang = getLang(Astro);
 					<p id="remote-edit-error" role="alert" hidden class="rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger"></p>
 				</form>
 
+				<!-- Vue de gestion seulement : l'assistant récupère l'extinction tout seul -->
+				<div data-managed-only class="border-t border-border pt-3">
+					<h4 class="text-sm font-medium">{t(lang, 'settings.remote.client.shutdownSync.title')}</h4>
+					<p class="mb-3 mt-1 text-xs text-muted">{t(lang, 'settings.remote.client.shutdownSync.description')}</p>
+					<ReceiverShutdownSync manual />
+				</div>
+
 				<div class="border-t border-border pt-3">
 					<button type="button" id="remote-delete" class={dangerBtn}>{t(lang, 'settings.remote.client.delete.button')}</button>
 				</div>
@@ -111,7 +129,7 @@ const lang = getLang(Astro);
 				</div>
 				<div>
 					<label for="remote-network" class={label}>{t(lang, 'settings.remote.client.network.label')}</label>
-					<select id="remote-network" class={`${input} [&>option]:bg-surface`}></select>
+					<select id="remote-network" class={select}></select>
 				</div>
 				<div class="flex flex-wrap items-center gap-3">
 					<button type="submit" id="remote-connect" class={primaryBtn}>{t(lang, 'settings.remote.client.connect')}</button>

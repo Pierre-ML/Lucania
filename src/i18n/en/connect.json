@@ -15,8 +15,9 @@
   },
   "steps": {
     "label": "Wizard steps",
-    "counter": "Step {current}/{total}",
+    "counter": "Step {current} of {total}",
     "role": "Role",
+    "setup": "Setup",
     "link": "Link",
     "shutdown": "Shutdown",
     "recap": "Summary"
@@ -40,19 +41,25 @@
       "text": "The chat stays here, the models run on the server machine."
     }
   },
-  "tower": {
-    "title": "Set up the server",
-    "description": "This machine will run the models for the other machine. At the end of the wizard you will be given a code: the other machine needs it to connect.",
-    "note": "You will then start the server from this page. Once server mode is on, the screen is reserved for the server until it is stopped."
-  },
-  "laptop": {
+  "link": {
     "title": "Connect to the server",
-    "description": "Paste the code shown on the server machine, pick the network, then connect.",
-    "connected": "This machine is connected to a server. Go on to the next step."
+    "description": "Paste the code shown on the server machine, pick the network, then connect. The Next button turns on once the link has been tested successfully.",
+    "pending": "No link yet: connect this machine to the server.",
+    "checking": "Testing the link…",
+    "ok": "Link established with {url}.",
+    "failed": "Link failed: {error}",
+    "retry": "Try again"
   },
   "shutdown": {
-    "title": "Remote shutdown (optional)",
-    "description": "Add the machines you want to be able to shut down from Lucania. You can also do this later."
+    "tower": {
+      "title": "Remote shutdown of this server",
+      "description": "You can let the other machine shut this server down from Lucania. This is optional: answer No to enable nothing.",
+      "note": "At the end of the wizard you will be given a code: the other machine needs it to connect."
+    },
+    "laptop": {
+      "title": "Remote shutdown of the server",
+      "description": "Lucania asks the server how to shut it down remotely, then saves it for you."
+    }
   },
   "recap": {
     "title": "Summary",
@@ -79,10 +86,14 @@
     },
     "shutdown": {
       "label": "Remote shutdown",
-      "count": {
-        "zero": "No machine to shut down",
-        "one": "{count} machine to shut down",
-        "other": "{count} machines to shut down"
+      "tower": {
+        "enabled": "Enabled ({method}, {url})",
+        "disabled": "Disabled"
+      },
+      "laptop": {
+        "configured": "Configured",
+        "none": "Not offered by the server",
+        "notConfigured": "Not configured"
       },
       "error": "Machine list unavailable"
     },

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-set-shutdown"
+description = "Enables the server_set_shutdown command without any pre-configured scope."
+commands.allow = ["server_set_shutdown"]
+
+[[permission]]
+identifier = "deny-server-set-shutdown"
+description = "Denies the server_set_shutdown command without any pre-configured scope."
+commands.deny = ["server_set_shutdown"]

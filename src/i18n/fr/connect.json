@@ -15,8 +15,9 @@
   },
   "steps": {
     "label": "Étapes de l'assistant",
-    "counter": "Étape {current}/{total}",
+    "counter": "Étape {current} sur {total}",
     "role": "Rôle",
+    "setup": "Configuration",
     "link": "Liaison",
     "shutdown": "Extinction",
     "recap": "Récapitulatif"
@@ -40,19 +41,25 @@
       "text": "Le chat reste ici, les modèles tournent sur la machine serveur."
     }
   },
-  "tower": {
-    "title": "Configurer le serveur",
-    "description": "Cette machine fera tourner les modèles pour l'autre machine. À la fin de l'assistant, un code vous sera donné : l'autre machine en aura besoin pour s'y connecter.",
-    "note": "Vous mettrez ensuite le serveur en marche depuis cette page. Une fois le mode serveur activé, l'écran est réservé au serveur jusqu'à son arrêt."
-  },
-  "laptop": {
+  "link": {
     "title": "Se connecter au serveur",
-    "description": "Collez le code affiché sur la machine serveur, choisissez le réseau, puis connectez.",
-    "connected": "Cette machine est connectée à un serveur. Passez à l'étape suivante."
+    "description": "Collez le code affiché sur la machine serveur, choisissez le réseau, puis connectez. Le bouton Suivant s'active quand la liaison a été testée avec succès.",
+    "pending": "Aucune liaison pour l'instant : connectez cette machine au serveur.",
+    "checking": "Test de la liaison…",
+    "ok": "Liaison établie avec {url}.",
+    "failed": "Liaison impossible : {error}",
+    "retry": "Réessayer"
   },
   "shutdown": {
-    "title": "Extinction à distance (facultatif)",
-    "description": "Ajoutez les machines que vous voulez pouvoir éteindre depuis Lucania. Vous pourrez le faire plus tard."
+    "tower": {
+      "title": "Extinction à distance de ce serveur",
+      "description": "Vous pouvez autoriser l'autre machine à éteindre ce serveur depuis Lucania. C'est facultatif : répondez Non pour ne rien activer.",
+      "note": "À la fin de l'assistant, un code vous sera donné : l'autre machine en aura besoin pour s'y connecter."
+    },
+    "laptop": {
+      "title": "Extinction à distance du serveur",
+      "description": "Lucania demande au serveur comment l'éteindre à distance, puis l'enregistre pour vous."
+    }
   },
   "recap": {
     "title": "Récapitulatif",
@@ -79,10 +86,14 @@
     },
     "shutdown": {
       "label": "Extinction à distance",
-      "count": {
-        "zero": "Aucune machine éteignable",
-        "one": "{count} machine éteignable",
-        "other": "{count} machines éteignables"
+      "tower": {
+        "enabled": "Activée ({method}, {url})",
+        "disabled": "Désactivée"
+      },
+      "laptop": {
+        "configured": "Configurée",
+        "none": "Non proposée par le serveur",
+        "notConfigured": "Non configurée"
       },
       "error": "Liste des machines indisponible"
     },

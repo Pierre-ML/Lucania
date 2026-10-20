@@ -16,6 +16,8 @@ import { t } from './i18n.js';
  * @typedef {{ mode: RemoteMode, connected: boolean, error: string|null }} RemoteState
  * @typedef {{ key: string, interfaceIp: string }} RemoteDiscoverInput
  * @typedef {{ url: string, name: string, ip: string, port: number }} RemoteDiscoverResult
+ * @typedef {{ enabled: boolean, url: string, method: 'GET'|'POST', tokenRequired: boolean }} ShutdownInfo Extinction à distance proposée par une tour (le jeton n'y figure jamais)
+ * @typedef {{ enabled: boolean, url: string, method: 'GET'|'POST', tokenRequired: boolean }} ShutdownInput
  */
 
 /** Lève une erreur claire si la commande n'est pas joignable (navigateur simple). */
@@ -139,4 +141,38 @@ export async function getRemoteState() {
 export async function onRemoteState(cb) {
   requireEngine();
   return listen('remote://state', (event) => cb(/** @type {RemoteState} */ (event.payload)));
+}
+
+/**
+ * Extinction à distance de CETTE tour (rôle serveur).
+ * @returns {Promise<ShutdownInfo>}
+ */
+export async function getServerShutdown() {
+  requireEngine();
+  return invoke('server_get_shutdown');
+}
+
+/**
+ * Enregistre l'extinction à distance de cette tour. Rejette avec un message si l'adresse ou la méthode sont invalides alors qu'elle est activée.
+ * @param {ShutdownInput} input
+ * @returns {Promise<ShutdownInfo>}
+ */
+export async function setServerShutdown(input) {
+  requireEngine();
+  return invoke('server_set_shutdown', {
+    enabled: input.enabled,
+    url: input.url,
+    method: input.method,
+    tokenRequired: input.tokenRequired,
+  });
+}
+
+/**
+ * Extinction à distance proposée par la tour configurée (enabled false si elle n'en propose pas).
+ * Rejette avec un message si la tour est injoignable.
+ * @returns {Promise<ShutdownInfo>}
+ */
+export async function getRemoteShutdownInfo() {
+  requireEngine();
+  return invoke('remote_shutdown_info');
 }

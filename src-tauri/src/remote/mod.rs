@@ -24,6 +24,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::engine::commands::{EVENT_STATUS, EVENT_TOKEN};
 use crate::engine::{Engine, TokenEvent};
 use crate::hf::commands::{EVENT_DOWNLOAD, EVENT_REMOVED};
+use crate::server::ShutdownInfo;
 use crate::server::http::{KEY_REFUSED, TOO_MANY};
 use sse::SseParser;
 
@@ -553,6 +554,29 @@ pub async fn remote_set_config(
   }
   remote.apply(&app);
   Ok(remote.config())
+}
+
+/// Configuration d'extinction à distance de la tour configurée (`GET /api/v1/shutdown`).
+/// Tour ancienne (404) : extinction non configurée.
+#[tauri::command]
+pub async fn remote_shutdown_info(remote: State<'_, Remote>) -> Result<ShutdownInfo, String> {
+  let tower = remote.tower().ok_or("Aucune tour configurée.")?;
+  let resp = tower
+    .clients()?
+    .call
+    .get(format!("{}/api/v1/shutdown", tower.url))
+    .bearer_auth(&tower.key)
+    .timeout(TEST_TIMEOUT)
+    .send()
+    .await
+    .map_err(|e| unreachable(&e))?;
+  if resp.status().as_u16() == 404 {
+    return Ok(ShutdownInfo::default());
+  }
+  if !resp.status().is_success() {
+    return Err(http_error(resp).await);
+  }
+  resp.json::<ShutdownInfo>().await.map_err(|e| if e.is_timeout() { unreachable(&e) } else { INVALID.into() })
 }
 
 /// Teste une tour (`GET /api/v1/info`, 5 s au plus). `key` absente : clé enregistrée.

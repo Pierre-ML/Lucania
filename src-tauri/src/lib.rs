@@ -237,6 +237,8 @@ pub fn run() {
       server::server_interfaces,
       server::server_generate_key,
       server::server_delete,
+      server::server_get_shutdown,
+      server::server_set_shutdown,
       server::server_start,
       server::server_stop,
       remote::remote_get_config,
@@ -244,6 +246,7 @@ pub fn run() {
       remote::remote_test,
       server::discovery::remote_discover,
       remote::remote_state,
+      remote::remote_shutdown_info,
     ])
     .setup(|app| {
       crashlog::start_session();

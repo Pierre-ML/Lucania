@@ -26,6 +26,7 @@ use serde_json::{Value, json};
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 use tokio::sync::{mpsc, watch};
 
+use super::ShutdownInfo;
 use super::auth::{self, KeyHash, Limiter};
 use crate::bus::{self, BusEvent};
 use crate::calls::{self, CallError};
@@ -52,6 +53,8 @@ pub trait Backend: Send + Sync + 'static {
 pub struct HttpState {
   pub backend: Arc<dyn Backend>,
   pub keys: Arc<RwLock<Option<KeyHash>>>,
+  /// Extinction à distance (modifiable à chaud depuis les réglages de la tour).
+  pub shutdown_info: Arc<RwLock<ShutdownInfo>>,
   pub limiter: Arc<Mutex<Limiter>>,
   /// Passe à `true` à l'arrêt du serveur : les flux SSE se terminent.
   pub shutdown: watch::Receiver<bool>,
@@ -69,6 +72,7 @@ pub fn router(state: Shared) -> Router {
     .route("/api/v1/call/{command}", post(call))
     .route("/api/v1/generate", post(generate))
     .route("/api/v1/events", get(events))
+    .route("/api/v1/shutdown", get(shutdown_route))
     .fallback(not_found)
     .layer(middleware::from_fn_with_state(state.clone(), authenticate))
     .layer(DefaultBodyLimit::max(BODY_LIMIT))
@@ -150,6 +154,12 @@ async fn info(State(st): State<Shared>) -> Response {
     Ok(v) => Json(v).into_response(),
     Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, e),
   }
+}
+
+/// Configuration d'extinction à distance (objet par défaut si elle n'est pas activée).
+async fn shutdown_route(State(st): State<Shared>) -> Response {
+  let info = st.shutdown_info.read().unwrap_or_else(|e| e.into_inner()).exposed();
+  Json(info).into_response()
 }
 
 async fn call(State(st): State<Shared>, Path(command): Path<String>, body: Bytes) -> Response {
@@ -314,14 +324,21 @@ mod tests {
   const KEY: &str = "luc_test";
 
   fn app() -> (Router, watch::Sender<bool>) {
+    let (router, tx, _) = app_with_info();
+    (router, tx)
+  }
+
+  fn app_with_info() -> (Router, watch::Sender<bool>, Arc<RwLock<ShutdownInfo>>) {
     let (tx, rx) = watch::channel(false);
+    let info = Arc::new(RwLock::new(ShutdownInfo::default()));
     let state = Arc::new(HttpState {
       backend: Arc::new(Fake),
       keys: Arc::new(RwLock::new(Some(auth::hash_key(KEY)))),
+      shutdown_info: info.clone(),
       limiter: Arc::new(Mutex::new(Limiter::default())),
       shutdown: rx,
     });
-    (router(state), tx)
+    (router(state), tx, info)
   }
 
   fn req(method: &str, uri: &str, key: Option<&str>, ip: [u8; 4], body: &str) -> HttpRequest<Body> {
@@ -382,6 +399,25 @@ mod tests {
     let big = format!(r#"{{"x":"{}"}}"#, "a".repeat(BODY_LIMIT + 10));
     let (s, _) = send(&app, req("POST", "/api/v1/call/engine_status", Some(KEY), ip, &big)).await;
     assert_eq!(s, StatusCode::PAYLOAD_TOO_LARGE);
+  }
+
+  #[tokio::test]
+  async fn route_extinction() {
+    let (app, _sd, info) = app_with_info();
+    let ip = [10, 0, 0, 20];
+    let (s, _) = send(&app, req("GET", "/api/v1/shutdown", None, ip, "")).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    let (s, b) = send(&app, req("GET", "/api/v1/shutdown", Some(KEY), ip, "")).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(serde_json::from_str::<Value>(&b).unwrap(), json!({ "enabled": false, "url": "", "method": "GET", "tokenRequired": false }));
+    // Valeur modifiée à chaud, visible tout de suite ; désactivée : objet par défaut.
+    *info.write().unwrap() = ShutdownInfo { enabled: true, url: "http://h:1/off".into(), method: "POST".into(), token_required: true };
+    let (_, b) = send(&app, req("GET", "/api/v1/shutdown", Some(KEY), ip, "")).await;
+    assert_eq!(serde_json::from_str::<Value>(&b).unwrap(), json!({ "enabled": true, "url": "http://h:1/off", "method": "POST", "tokenRequired": true }));
+    info.write().unwrap().enabled = false;
+    let (_, b) = send(&app, req("GET", "/api/v1/shutdown", Some(KEY), ip, "")).await;
+    assert_eq!(serde_json::from_str::<Value>(&b).unwrap()["enabled"], false);
+    assert_eq!(serde_json::from_str::<Value>(&b).unwrap()["url"], "");
   }
 
   #[tokio::test]
