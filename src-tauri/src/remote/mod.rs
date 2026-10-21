@@ -1,7 +1,11 @@
-//! Mode client (le portable) : en mode « distant », les commandes de la liste blanche
-//! (`calls::RELAYED`) et `engine_generate` sont relayées vers la tour ; les pages ne changent
-//! pas. Les événements de la tour (statut du moteur, téléchargements) sont suivis par un flux
-//! SSE et réémis localement sous les mêmes noms.
+//! Mode client (le portable) : le mode « distant » est un bonus. Le poste garde son moteur et ses
+//! modèles locaux (comportement identique au mode normal) et peut en plus utiliser ceux de la
+//! tour : une page cible la tour en ajoutant `"target": "server"` aux arguments de `invoke`
+//! (commandes de `calls::RELAYED` et `engine_generate`) ; sans ce champ, la commande est locale.
+//!
+//! Les événements de la tour sont suivis par un flux SSE : son statut de moteur est réémis
+//! localement sous `remote://engine-status` ; ses téléchargements sont ignorés ; les jetons d'une
+//! génération sur la tour sont réémis sur `engine://token` avec le `requestId` de la page.
 //!
 //! Configuration : `<app_local_data_dir>/remote.json` (`mode`, `url`, `key` ; clé en clair, comme
 //! le jeton Hugging Face). Restent toujours locales : `hf_avatars`, journaux, désinstallation,
@@ -23,12 +27,13 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::engine::commands::{EVENT_STATUS, EVENT_TOKEN};
 use crate::engine::{Engine, TokenEvent};
-use crate::hf::commands::{EVENT_DOWNLOAD, EVENT_REMOVED};
 use crate::server::ShutdownInfo;
 use crate::server::http::{KEY_REFUSED, TOO_MANY};
 use sse::SseParser;
 
 pub const EVENT_STATE: &str = "remote://state";
+/// Statut du moteur de la tour (même charge utile que `engine://status`).
+pub const EVENT_REMOTE_ENGINE_STATUS: &str = "remote://engine-status";
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// Flux SSE : la tour envoie un maintien de connexion toutes les 15 s.
@@ -40,7 +45,7 @@ const RETRY_MAX: Duration = Duration::from_secs(30);
 const INVALID: &str = "Réponse invalide : ce n'est pas un serveur Lucania.";
 const LOST: &str = "Connexion à la tour interrompue pendant la génération.";
 
-/// Mode distant actif (lu par les émetteurs du moteur et de Hugging Face).
+/// Mode distant actif (tour configurée) ; lu par `active`.
 static REMOTE: AtomicBool = AtomicBool::new(false);
 
 pub fn is_remote() -> bool {
@@ -202,13 +207,13 @@ impl Remote {
     *lock(&self.link) = Link::default();
     match tower {
       Some(t) => {
-        log("mode distant : relais vers la tour");
+        log("mode distant : tour disponible (moteur local conservé)");
         let handle = app.clone();
         *lock(&self.events) = Some(tauri::async_runtime::spawn(async move { events_loop(handle, t, epoch).await }));
       }
       None if was_remote => {
         log("mode local");
-        // Les pages reprennent le statut du moteur local.
+        // Les pages rafraîchissent le statut du moteur local.
         if let Some(e) = app.try_state::<Engine>() {
           let _ = app.emit(EVENT_STATUS, e.status());
         }
@@ -356,12 +361,11 @@ impl Tower {
   }
 }
 
-/// Réémet localement un événement de la tour.
+/// Réémet localement le statut du moteur de la tour (les autres événements sont ignorés, dont
+/// les téléchargements : les Paramètres gèrent ceux du poste local).
 fn relay_event(app: &AppHandle, ev: &sse::SseEvent) {
   let name = match ev.event.as_str() {
-    "status" => EVENT_STATUS,
-    "download" => EVENT_DOWNLOAD,
-    "download-removed" => EVENT_REMOVED,
+    "status" => EVENT_REMOTE_ENGINE_STATUS,
     _ => return,
   };
   if let Ok(v) = serde_json::from_str::<Value>(&ev.data) {

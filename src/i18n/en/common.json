@@ -26,9 +26,6 @@
     "generating": "Tower: generating",
     "checking": "Tower: checking…",
     "unreachable": "Tower unreachable",
-    "unreachableWithError": "Tower unreachable: {error}",
-    "hardwareTitle": "Tower hardware (remote mode)",
-    "hardwareDescription": "This is the tower's hardware, detected remotely.",
-    "hardwareNote": "Estimates use the tower's hardware."
+    "unreachableWithError": "Tower unreachable: {error}"
   }
 }

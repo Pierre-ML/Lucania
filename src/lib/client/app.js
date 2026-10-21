@@ -1,5 +1,5 @@
 // Orchestration de l'interface de chat.
-import { streamChat, listModels, getEngineStatus, onEngineStatus, engineAvailable } from './engine.js';
+import { streamChat, listModels, listServerModels, getEngineStatus, onEngineStatus, engineAvailable, splitModel, SERVER_MODEL_PREFIX } from './engine.js';
 import {
   listConversations,
   getConversation,
@@ -187,8 +187,12 @@ let ignoreHash = false;
 let loadToken = 0;
 /** Groupe unique des modèles du moteur embarqué (préfixe des références `local::<id>`). */
 const LOCAL_GROUP = 'local';
+/** Groupe des modèles de la tour en mode récepteur connecté (préfixe des références `server::<id>`). */
+const SERVER_GROUP = 'server';
 /** @type {import('./engine.js').EngineModel[]} */
 let modelList = [];
+/** Modèles de la tour : vide hors mode récepteur connecté. @type {import('./engine.js').EngineModel[]} */
+let serverModelList = [];
 let modelsLoaded = false;
 
 /**
@@ -324,13 +328,14 @@ function scrollToBottom() {
 
 function formatMeta(message, withModel) {
   const d = new Date(message.createdAt);
-  if (isNaN(d.getTime())) return withModel ? message.model : '';
+  const modelName = splitModel(message.model).id;
+  if (isNaN(d.getTime())) return withModel ? modelName : '';
   const time = d.toLocaleTimeString(getLang(), { hour: '2-digit', minute: '2-digit' });
   let when = time;
   if (d.toDateString() !== new Date().toDateString()) {
     when = `${d.toLocaleDateString(getLang(), { day: '2-digit', month: '2-digit' })} ${time}`;
   }
-  return withModel ? `${message.model} · ${when}` : when;
+  return withModel ? `${modelName} · ${when}` : when;
 }
 
 function autoTitle(text) {
@@ -372,50 +377,52 @@ let engineStatus = null;
 /** Vrai si la lecture de l'état du moteur a échoué. */
 let engineStatusError = false;
 
-/** Mode distant : la tour est-elle jointe ? (inutilisé en mode local) */
+/** Mode récepteur : la tour est-elle jointe ? (hors mode récepteur : remoteMode faux). */
 let remoteMode = false;
 let remoteConnected = true;
-/** @type {string|null} */
-let remoteError = null;
+/** Numéro de la dernière demande de modèles de la tour (ignore les réponses périmées). */
+let serverModelsToken = 0;
 
-/** Pousse l'état du moteur vers le bouton marche/arrêt de l'en-tête. */
+/** Vrai si les modèles de la tour sont disponibles (mode récepteur ET tour jointe). */
+const serverReachable = () => remoteMode && remoteConnected;
+
+/**
+ * Pousse l'état du moteur LOCAL vers le bouton marche/arrêt de l'en-tête.
+ * Le moteur local tourne toujours, même en mode récepteur : une tour injoignable n'y change rien.
+ */
 function renderStatus() {
-  if (remoteMode && !remoteConnected) {
-    setPowerStatus({ engineAvailable: true, status: null, error: true, remote: true, remoteError });
-    return;
-  }
-  setPowerStatus({ engineAvailable: engineAvailable(), status: engineStatus, error: engineStatusError, remote: remoteMode, remoteError });
+  setPowerStatus({ engineAvailable: engineAvailable(), status: engineStatus, error: engineStatusError, remote: false, remoteError: null });
 }
 
-/** Relit l'état du moteur (mode distant : au retour de la tour). */
-async function reloadEngineStatus() {
-  try {
-    engineStatus = await getEngineStatus();
-    engineStatusError = false;
-  } catch (err) {
-    console.warn(err);
-    engineStatus = null;
-    engineStatusError = true;
+/** Relit les modèles de la tour (mode récepteur connecté) ; hors de ce cas, vide la liste. Une erreur garde la liste précédente. */
+async function refreshServerModels() {
+  const token = ++serverModelsToken;
+  if (!engineAvailable() || !serverReachable()) {
+    if (serverModelList.length > 0) {
+      serverModelList = [];
+      updateModelSelect();
+    }
+    return;
   }
-  renderStatus();
+  try {
+    const list = await listServerModels();
+    if (token !== serverModelsToken || !serverReachable()) return;
+    serverModelList = list;
+    updateModelSelect();
+  } catch (err) {
+    console.warn(err); // la liste locale reste intacte
+  }
 }
 
 /** Applique un état distant { mode, connected, error } reçu de Rust. @param {{ mode?: string, connected?: boolean, error?: string|null }} s */
 function applyRemoteState(s) {
-  const wasRemote = remoteMode;
-  const wasConnected = remoteConnected;
+  const wasReachable = serverReachable();
   remoteMode = s.mode === 'remote';
   remoteConnected = remoteMode ? Boolean(s.connected) : true;
-  remoteError = remoteMode && !remoteConnected ? s.error || null : null;
-  if (remoteMode && remoteConnected && (!wasRemote || !wasConnected)) {
-    reloadEngineStatus();
-    return;
-  }
-  if (wasRemote && !remoteMode) engineStatusError = false;
-  renderStatus();
+  if (serverReachable() !== wasReachable) refreshServerModels(); // (re)connexion ou arrêt du mode récepteur
 }
 
-/** Lit l'état du moteur puis s'abonne à ses changements. */
+/** Lit l'état du moteur local puis s'abonne à ses changements. */
 async function initEngineStatus() {
   if (engineAvailable()) {
     try {
@@ -428,7 +435,8 @@ async function initEngineStatus() {
   renderStatus();
   if (!engineAvailable()) return;
   try {
-    if (!(remoteMode && !remoteConnected)) engineStatus = await getEngineStatus();
+    engineStatus = await getEngineStatus();
+    engineStatusError = false;
     renderStatus();
     await onEngineStatus((s) => {
       engineStatus = s;
@@ -453,6 +461,7 @@ async function refreshModels() {
   }
   modelsLoaded = true;
   updateModelSelect(); // reconstruit les options
+  if (serverReachable()) refreshServerModels(); // la tour peut avoir installé ou supprimé des modèles
 }
 
 /* ---------- Modèle ---------- */
@@ -463,7 +472,19 @@ let modelMeta = new Map();
 /** Référence (valeur composite) du modèle de la conversation courante, ou null. */
 function currentRef() {
   if (!current || !current.model) return null;
+  if (current.model.startsWith(SERVER_MODEL_PREFIX)) return current.model; // `server::<id>` est déjà une référence
   return makeModelRef(LOCAL_GROUP, current.model);
+}
+
+/**
+ * Modèle de conversation correspondant à une référence du sélecteur :
+ * id brut pour un modèle local, `server::<id>` pour un modèle de la tour ('' si aucun).
+ * @param {string} value
+ */
+function modelFromRef(value) {
+  const ref = parseModelRef(value);
+  if (!ref.model) return '';
+  return ref.group === SERVER_GROUP ? SERVER_MODEL_PREFIX + ref.model : ref.model;
 }
 
 function selectDefaultModel() {
@@ -478,7 +499,7 @@ function selectDefaultModel() {
   else if (values.length) select.value = values.find((v) => modelMeta.get(v)?.available !== false) || values[0];
 }
 
-/** Reconstruit les options du <select> à partir des modèles installés (un seul groupe : cet ordinateur). */
+/** Reconstruit les options du <select> : modèles de cet ordinateur, puis ceux de la tour (mode récepteur connecté). */
 function rebuildModelOptions() {
   const prev = select.value;
   const meta = new Map();
@@ -495,10 +516,19 @@ function rebuildModelOptions() {
   for (const m of modelList) {
     add(makeModelRef(LOCAL_GROUP, m.id), m.name, { groupName, name: m.name, available: true });
   }
+  const serverGroupName = t('chat.picker.serverGroup');
+  for (const m of serverModelList) {
+    add(makeModelRef(SERVER_GROUP, m.id), m.name, { groupName: serverGroupName, name: m.name, available: true, server: true });
+  }
   const ref = currentRef();
   if (ref && !meta.has(ref)) {
     // Modèle d'une ancienne conversation, absent de la liste actuelle.
-    add(ref, t('chat.picker.unavailableOption', { model: current.model }), { groupName, available: false });
+    const { id, server } = splitModel(current.model);
+    add(ref, t('chat.picker.unavailableOption', { model: id }), {
+      groupName: server ? serverGroupName : groupName,
+      available: false,
+      ...(server ? { server: true } : {}),
+    });
   }
   modelMeta = meta;
   select.replaceChildren(...options);
@@ -846,7 +876,8 @@ if (memoryCard) {
 /** Extraction en arrière-plan : ne bloque rien, aucune popup d'erreur. */
 async function learnFromExchange(model, userText, answer) {
   try {
-    const avail = await getMemoryAvailability(model);
+    const memoryModel = splitModel(model).id; // mémoire par id de modèle ; la génération garde le préfixe éventuel
+    const avail = await getMemoryAvailability(memoryModel);
     if (!avail.enabled || !avail.autoExtract) return;
     const facts = await extractFacts({
       model,
@@ -855,7 +886,7 @@ async function learnFromExchange(model, userText, answer) {
         { role: 'assistant', content: answer },
       ],
     });
-    if (Array.isArray(facts) && facts.length > 0) showMemoryProposal(model, facts);
+    if (Array.isArray(facts) && facts.length > 0) showMemoryProposal(memoryModel, facts);
   } catch (err) {
     console.warn(err);
   }
@@ -1854,9 +1885,9 @@ async function send() {
     showError(t('chat.engine.unavailable'));
     return;
   }
-  const { model } = parseModelRef(select.value);
+  const model = modelFromRef(select.value); // id brut (local) ou `server::<id>` (tour)
   if (!model) {
-    showSettingsError(modelsLoaded && modelList.length === 0 ? t('chat.engine.noModels') : t('chat.messages.noModelSelected'));
+    showSettingsError(modelsLoaded && modelList.length === 0 && serverModelList.length === 0 ?t('chat.engine.noModels') : t('chat.messages.noModelSelected'));
     return;
   }
   streaming = true; // verrou immédiat pendant la création
@@ -1983,7 +2014,7 @@ async function send() {
     /** @type {import('./engine.js').ChatMessage[]} */
     const outgoing = conv.messages.map((m) => ({ role: m.role, content: m.content }));
     if (memoryForMessage) {
-      const memory = await getSystemMemory(model);
+      const memory = await getSystemMemory(splitModel(model).id); // la mémoire est rangée par id de modèle
       if (memory) outgoing.unshift({ role: 'system', content: memory });
     }
     finalResult = await streamChat({

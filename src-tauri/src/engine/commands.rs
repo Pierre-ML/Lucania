@@ -16,8 +16,8 @@ use crate::calls::{self, CallError, parse, to_value};
 pub const EVENT_TOKEN: &str = "engine://token";
 pub const EVENT_STATUS: &str = "engine://status";
 
-/// Relaie les événements du moteur au bus interne et à toutes les fenêtres (sauf en mode
-/// distant : les pages suivent alors le moteur de la tour).
+/// Relaie les événements du moteur local au bus interne et à toutes les fenêtres, y compris en
+/// mode distant (le moteur de la tour a ses propres événements : `remote://engine-status`).
 pub fn emitter(app: AppHandle) -> EventSink {
   Box::new(move |ev| {
     if bus::has_subscribers() {
@@ -25,9 +25,6 @@ pub fn emitter(app: AppHandle) -> EventSink {
         Event::Token(t) => BusEvent::Token(t.clone()),
         Event::Status(s) => BusEvent::Status(s.clone()),
       });
-    }
-    if crate::remote::is_remote() {
-      return;
     }
     let r = match ev {
       Event::Token(t) => app.emit(EVENT_TOKEN, t),

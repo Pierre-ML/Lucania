@@ -1,7 +1,9 @@
 //! Point d'entrée unique des commandes partagées entre les pages, l'API de la tour et le relais.
 //!
 //! Chaque commande de la liste blanche reçoit les arguments JSON de `invoke` (camelCase) :
-//! - appelée par une page : relayée vers la tour en mode distant, sinon exécutée localement ;
+//! - appelée par une page : exécutée localement par défaut, même en mode distant ; relayée vers la
+//!   tour seulement si les arguments portent `"target": "server"` (champ retiré avant exécution ;
+//!   erreur « Aucune tour configurée. » si le mode distant n'est pas actif) ;
 //! - appelée par la route `/api/v1/call/{commande}` : toujours exécutée localement (pas de
 //!   relais en cascade).
 
@@ -122,10 +124,22 @@ pub async fn local(app: &AppHandle, name: &str, args: Value) -> Result<Value, Ca
   }
 }
 
-/// Commande appelée par une page : relayée vers la tour en mode distant, sinon locale.
+/// Retire le champ `target` des arguments (objet JSON) ; vrai s'il valait `"server"`.
+/// Arguments absents, non objet, ou `target` d'une autre valeur : faux (exécution locale).
+pub fn take_target(args: &mut Value) -> bool {
+  args.as_object_mut().and_then(|o| o.remove("target")).is_some_and(|t| t.as_str() == Some("server"))
+}
+
+/// Commande appelée par une page : locale par défaut (même en mode distant) ; relayée vers la
+/// tour seulement si les arguments portent `"target": "server"`.
 pub async fn invoke(app: &AppHandle, name: &str, request: &Request<'_>) -> Result<Value, String> {
-  let args = args(request)?;
-  if let Some(remote) = crate::remote::active(app) {
+  let mut args = args(request)?;
+  if take_target(&mut args) {
+    let relayable = name == "engine_generate" || is_relayed(name);
+    if !relayable {
+      return Err(CallError::not_found(name).message);
+    }
+    let remote = crate::remote::active(app).ok_or_else(|| "Aucune tour configurée.".to_string())?;
     return if name == "engine_generate" { remote.generate(app, args).await } else { remote.call(name, args).await };
   }
   local(app, name, args).await.map_err(|e| e.message)
@@ -148,6 +162,24 @@ mod tests {
     sorted.sort_unstable();
     sorted.dedup();
     assert_eq!(sorted.len(), RELAYED.len());
+  }
+
+  #[test]
+  fn cible_du_relais() {
+    let mut a = serde_json::json!({ "modelId": "m", "target": "server" });
+    assert!(take_target(&mut a));
+    assert_eq!(a, serde_json::json!({ "modelId": "m" }));
+    for (mut a, rest) in [
+      (serde_json::json!({ "target": "local", "x": 1 }), serde_json::json!({ "x": 1 })),
+      (serde_json::json!({ "target": 1 }), serde_json::json!({})),
+      (serde_json::json!({ "target": null }), serde_json::json!({})),
+      (serde_json::json!({ "x": 1 }), serde_json::json!({ "x": 1 })),
+      (Value::Null, Value::Null),
+      (serde_json::json!("server"), serde_json::json!("server")),
+    ] {
+      assert!(!take_target(&mut a));
+      assert_eq!(a, rest);
+    }
   }
 
   #[test]

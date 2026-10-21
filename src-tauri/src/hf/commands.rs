@@ -20,8 +20,8 @@ use crate::calls::{self, CallError, parse, to_value};
 pub const EVENT_DOWNLOAD: &str = "hf://download";
 pub const EVENT_REMOVED: &str = "hf://download-removed";
 
-/// Relaie les événements des téléchargements au bus interne et à toutes les fenêtres (sauf en
-/// mode distant : les pages suivent alors les téléchargements de la tour).
+/// Relaie les événements des téléchargements locaux au bus interne et à toutes les fenêtres, y
+/// compris en mode distant (les téléchargements de la tour ne sont pas réémis).
 pub fn emitter(app: AppHandle) -> EventSink {
   Box::new(move |ev| {
     if bus::has_subscribers() {
@@ -29,9 +29,6 @@ pub fn emitter(app: AppHandle) -> EventSink {
         Event::Download(info) => BusEvent::Download(info.clone()),
         Event::Removed(id) => BusEvent::Removed(id.clone()),
       });
-    }
-    if crate::remote::is_remote() {
-      return;
     }
     let r = match ev {
       Event::Download(info) => app.emit(EVENT_DOWNLOAD, info),

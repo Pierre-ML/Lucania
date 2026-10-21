@@ -289,10 +289,10 @@
   },
   "remote": {
     "title": "Accès distant",
-    "description": "Relie deux machines Lucania : la tour fait tourner le moteur, l'autre machine l'utilise.",
+    "description": "Relie deux machines Lucania : la tour met ses modèles à disposition, l'autre machine peut s'en servir dans le chat.",
     "client": {
       "title": "Utiliser une tour depuis cette machine",
-      "description": "Le chat reste identique : seul le moteur tourne sur la tour au lieu de cet ordinateur.",
+      "description": "Ce PC garde ses modèles locaux. Les modèles de la tour s'ajoutent dans le choix du modèle du chat, marqués d'une icône serveur.",
       "key": {
         "label": "Code de la tour",
         "placeholder": "Collez le code de la tour"
@@ -359,7 +359,7 @@
       "delete": {
         "button": "Supprimer le récepteur",
         "title": "Supprimer le récepteur ?",
-        "message": "Cette machine cessera d'utiliser la tour et reprendra son propre moteur. Vous pourrez ensuite choisir un nouveau rôle."
+        "message": "Les modèles de la tour ne seront plus proposés dans le chat. Vous pourrez ensuite choisir un nouveau rôle."
       },
       "saveFailed": "Le récepteur n'a pas été enregistré : la configuration n'a pas été conservée.",
       "shutdownSync": {
@@ -387,7 +387,7 @@
       "step3": "Sur la tour : Lucania › Connexion entre machines › Accès distant, dans Options avancées, choisis l'interface WireGuard, active le mode serveur, puis copie le code affiché.",
       "step3Firewall": "Windows demande d'autoriser Lucania dans le pare-feu : accepte pour les réseaux privés, ou crée des règles entrantes TCP 4750 et UDP 4751 (recherche automatique) limitées au réseau voulu.",
       "step4": "Sur le portable : colle le code de la tour. La recherche automatique passe rarement par WireGuard : dans Options avancées, saisis l'adresse http://10.0.0.1:4750, puis « Connecter avec cette adresse ».",
-      "step5": "La pastille de l'en-tête suit la tour : grise si elle est injoignable, orange sans modèle chargé, verte quand elle est prête. L'extinction de la tour se règle dans Connexion entre machines › Extinction.",
+      "step5": "Ce PC garde son moteur et ses modèles : la pastille de l'en-tête suit le moteur local. Les modèles de la tour apparaissent en plus dans le choix du modèle du chat, avec une icône serveur. L'extinction de la tour se règle dans Connexion entre machines › Extinction.",
       "security": "Sécurité : la connexion est en HTTP, sans chiffrement propre. À utiliser UNIQUEMENT dans le tunnel WireGuard ; la clé ne circule que dans ce tunnel.",
       "docs": "Guide complet : docs/wireguard.md du dépôt."
     },

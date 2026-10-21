@@ -1,6 +1,7 @@
 import { t } from './i18n.js';
 import { svgIcon } from './icons.js';
 import checkRaw from '../../assets/icons/check.svg?raw';
+import serverRaw from '../../assets/icons/server.svg?raw';
 // Sélecteur de modèle personnalisé, synchronisé avec le <select id="model-select"> (source de vérité).
 // Valeur d'une option : `${groupe}::${modèle}` (groupe `local` = « Cet ordinateur »). Le menu groupe les modèles.
 
@@ -10,19 +11,23 @@ const CLS = {
   empty: 'px-3 py-2 text-sm text-composer-muted',
   item: 'group flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-white/6 data-[active=true]:bg-white/6 data-[available=false]:opacity-50',
   text: 'min-w-0',
+  nameRow: 'flex min-w-0 items-center gap-1.5',
   name: 'truncate text-sm text-composer-fg',
+  serverBadge: 'shrink-0 text-composer-muted',
   full: 'truncate text-xs text-composer-muted',
   check: 'hidden shrink-0 text-composer-accent group-aria-selected:block',
 };
 
 /**
- * @typedef {{ groupName: string, name?: string, available: boolean }} ModelMeta
+ * @typedef {{ groupName: string, name?: string, available: boolean, server?: boolean }} ModelMeta `server` : modèle de la tour (mode récepteur), marqué d'une icône serveur
  */
 
 /** @type {HTMLSelectElement|null} */ let select = null;
 /** @type {HTMLButtonElement|null} */ let btn = null;
 /** @type {HTMLElement|null} */ let label = null;
 /** @type {HTMLElement|null} */ let menu = null;
+/** Icône serveur placée devant le nom dans le bouton déclencheur (visible pour un modèle de la tour). @type {SVGElement|null} */
+let triggerBadge = null;
 let renderedKey = '';
 let activeIndex = -1;
 /** @type {Map<string, ModelMeta>} */
@@ -62,6 +67,18 @@ const displayName = (id, m) => (m && m.name) || prettyModelName(id);
 
 const isOpen = () => !!menu && !menu.classList.contains('hidden');
 const items = () => (menu ? Array.from(menu.querySelectorAll('li[role="option"]')) : []);
+
+/** Icône serveur statique avec son libellé accessible. */
+function serverBadgeIcon() {
+  const icon = svgIcon(serverRaw, CLS.serverBadge, 14);
+  icon.setAttribute('role', 'img');
+  icon.setAttribute('aria-label', t('chat.picker.serverBadge'));
+  icon.removeAttribute('aria-hidden');
+  const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+  title.textContent = t('chat.picker.serverBadge');
+  icon.prepend(title);
+  return icon;
+}
 
 /** @param {ModelMeta} m */
 function groupHeader(m) {
@@ -106,13 +123,17 @@ function buildMenu() {
     li.className = CLS.item;
     const text = document.createElement('div');
     text.className = CLS.text;
+    const nameRow = document.createElement('div');
+    nameRow.className = CLS.nameRow;
     const name = document.createElement('div');
     name.className = CLS.name;
     name.textContent = displayName(ref.model, m);
+    if (m && m.server) nameRow.append(name, serverBadgeIcon());
+    else nameRow.append(name);
     const full = document.createElement('div');
     full.className = CLS.full;
     full.textContent = m && !m.available ? t('chat.picker.unavailable', { model: ref.model }) : ref.model;
-    text.append(name, full);
+    text.append(nameRow, full);
     const check = document.createElement('span');
     check.className = CLS.check;
     const checkIcon = svgIcon(checkRaw, '', 16);
@@ -182,6 +203,7 @@ export function syncModelPicker() {
       ? t('chat.picker.locked', { model: ref.model, where })
       : `${ref.model}${where}`;
   }
+  if (triggerBadge) triggerBadge.classList.toggle('hidden', !(hasModels && meta && meta.server));
   btn.dataset.locked = String(!!select.disabled);
   btn.setAttribute('aria-disabled', String(!!select.disabled));
   for (const li of items()) li.setAttribute('aria-selected', String(li.dataset.value === select.value));
@@ -195,6 +217,10 @@ export function initModelPicker() {
   label = document.getElementById('model-picker-label');
   menu = document.getElementById('model-picker-menu');
   if (!select || !btn || !label || !menu) return;
+
+  triggerBadge = serverBadgeIcon();
+  triggerBadge.classList.add('hidden');
+  label.before(triggerBadge);
 
   btn.addEventListener('click', () => {
     if (!select.options.length) {

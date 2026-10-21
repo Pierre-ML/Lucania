@@ -26,9 +26,6 @@
     "generating": "Tour : génération en cours",
     "checking": "Tour : vérification…",
     "unreachable": "Tour injoignable",
-    "unreachableWithError": "Tour injoignable : {error}",
-    "hardwareTitle": "Matériel de la tour (mode distant)",
-    "hardwareDescription": "Ce matériel est celui de la tour, détecté à distance.",
-    "hardwareNote": "Les estimations utilisent le matériel de la tour."
+    "unreachableWithError": "Tour injoignable : {error}"
   }
 }

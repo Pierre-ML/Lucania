@@ -34,17 +34,40 @@ export function engineAvailable() {
   }
 }
 
-/** Le moteur ne fait qu'une génération à la fois : chat et extraction de mémoire passent l'un après l'autre. */
-let queue = Promise.resolve();
+/** Préfixe d'un modèle de la tour (mode récepteur) dans le champ `model` d'une conversation : `server::<id>`. */
+export const SERVER_MODEL_PREFIX = 'server::';
+
+/**
+ * Sépare un modèle de conversation : id brut (local) ou `server::<id>` (tour).
+ * @param {string} model
+ * @returns {{ id: string, server: boolean }}
+ */
+export function splitModel(model) {
+  const s = String(model || '');
+  return s.startsWith(SERVER_MODEL_PREFIX)
+    ? { id: s.slice(SERVER_MODEL_PREFIX.length), server: true }
+    : { id: s, server: false };
+}
+
+/**
+ * Chaque moteur (local, tour) ne fait qu'une génération à la fois : chat et extraction de mémoire
+ * passent l'un après l'autre, mais le moteur local et celui de la tour sont indépendants.
+ */
+let localQueue = Promise.resolve();
+let serverQueue = Promise.resolve();
 
 /**
  * @template T
+ * @param {boolean} server file de la tour (sinon file locale)
  * @param {() => Promise<T>} task
  * @returns {Promise<T>}
  */
-function enqueue(task) {
-  const run = queue.then(task, task);
-  queue = run.catch(() => {});
+function enqueue(server, task) {
+  const prev = server ? serverQueue : localQueue;
+  const run = prev.then(task, task);
+  const next = run.catch(() => {});
+  if (server) serverQueue = next;
+  else localQueue = next;
   return run;
 }
 
@@ -83,20 +106,46 @@ export async function listModels() {
   return Array.isArray(list) ? list : [];
 }
 
-/** @returns {Promise<EngineStatus>} */
+/**
+ * Modèles installés sur la tour (mode récepteur connecté). Erreur si aucune tour n'est jointe.
+ * @returns {Promise<EngineModel[]>}
+ */
+export async function listServerModels() {
+  requireEngine();
+  const list = await invoke('engine_list_models', { target: 'server' });
+  return Array.isArray(list) ? list : [];
+}
+
+/** État du moteur LOCAL (toujours local, même en mode distant). @returns {Promise<EngineStatus>} */
 export async function getEngineStatus() {
   requireEngine();
   return invoke('engine_status');
 }
 
+/** État du moteur de la tour (mode récepteur connecté). @returns {Promise<EngineStatus>} */
+export async function getServerEngineStatus() {
+  requireEngine();
+  return invoke('engine_status', { target: 'server' });
+}
+
 /**
- * Écoute les changements d'état du moteur.
+ * Écoute les changements d'état du moteur local.
  * @param {(status: EngineStatus) => void} cb
  * @returns {Promise<() => void>} fonction de désabonnement
  */
 export async function onEngineStatus(cb) {
   requireEngine();
   return listen('engine://status', (event) => cb(/** @type {EngineStatus} */ (event.payload)));
+}
+
+/**
+ * Écoute les changements d'état du moteur de la tour (événement `remote://engine-status`).
+ * @param {(status: EngineStatus) => void} cb
+ * @returns {Promise<() => void>} fonction de désabonnement
+ */
+export async function onServerEngineStatus(cb) {
+  requireEngine();
+  return listen('remote://engine-status', (event) => cb(/** @type {EngineStatus} */ (event.payload)));
 }
 
 /**
@@ -214,12 +263,15 @@ export async function openCrashLogs() {
  * Génère une réponse en flux. Sur `signal.abort()`, la génération est arrêtée côté moteur
  * puis la promesse est rejetée avec une DOMException `AbortError` (le texte partiel
  * déjà transmis via `onUpdate` reste utilisable par l'appelant).
+ * `model` peut commencer par `server::` : la génération est alors relayée vers la tour.
  * @param {{ model: string, messages: ChatMessage[], signal?: AbortSignal, onUpdate?: (r: ChatResult) => void }} opts
  * @returns {Promise<ChatResult>}
  */
 export async function streamChat({ model, messages, signal, onUpdate }) {
   requireEngine();
   if (signal && signal.aborted) throw new DOMException('Génération interrompue', 'AbortError');
+  const { id: modelId, server } = splitModel(model);
+  const target = server ? { target: 'server' } : {};
   const requestId = crypto.randomUUID();
   let raw = '';
   /** @type {ChatResult} */
@@ -237,12 +289,12 @@ export async function streamChat({ model, messages, signal, onUpdate }) {
     publish();
   });
   const onAbort = () => {
-    invoke('engine_stop', { requestId }).catch(() => {});
+    invoke('engine_stop', { requestId, ...target }).catch(() => {});
   };
   if (signal) signal.addEventListener('abort', onAbort, { once: true });
   try {
-    const res = await enqueue(() =>
-      signal && signal.aborted ? Promise.resolve(null) : invoke('engine_generate', { requestId, modelId: model, messages }),
+    const res = await enqueue(server, () =>
+      signal && signal.aborted ? Promise.resolve(null) : invoke('engine_generate', { requestId, modelId, messages, ...target }),
     );
     if (res && typeof res.content === 'string' && res.content !== raw) {
       raw = res.content; // le texte final fait foi si un événement s'est perdu
@@ -258,6 +310,7 @@ export async function streamChat({ model, messages, signal, onUpdate }) {
 
 /**
  * Génère un texte complet, sans flux (tâches internes comme l'extraction de mémoire).
+ * `model` peut commencer par `server::` (génération sur la tour).
  * @param {{ model: string, messages: ChatMessage[], maxTokens?: number }} opts
  * @returns {Promise<string>}
  */
@@ -265,8 +318,10 @@ export async function generateText({ model, messages, maxTokens }) {
   requireEngine();
   // Tâche interne : on ignore les réglages de génération et le prompt système du modèle.
   const params = { useProfile: false, ...(typeof maxTokens === 'number' ? { maxTokens } : {}) };
-  const res = await enqueue(() =>
-    invoke('engine_generate', { requestId: crypto.randomUUID(), modelId: model, messages, params }),
+  const { id: modelId, server } = splitModel(model);
+  const target = server ? { target: 'server' } : {};
+  const res = await enqueue(server, () =>
+    invoke('engine_generate', { requestId: crypto.randomUUID(), modelId, messages, params, ...target }),
   );
   const text = res && typeof res.content === 'string' ? res.content : '';
   return splitThinking(text).content;

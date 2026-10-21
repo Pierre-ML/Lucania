@@ -166,7 +166,7 @@ Chaque commande doit être déclarée dans trois endroits : `lib.rs` (`generate_
 ### Serveur distant (la tour) et récepteur
 
 - Mode serveur : la tour démarre une API HTTP axum (`/api/v1/info`, `/call/{commande}`, `/generate` en flux SSE, `/events` en flux SSE, `/shutdown`). Toutes les routes exigent `Authorization: Bearer <clé>`. Seule l'empreinte SHA-256 de la clé sert à authentifier ; la clé en clair est gardée pour pouvoir être ré-affichée (`server.json`). Les échecs d'authentification sont limités en débit.
-- Mode distant (récepteur) : les commandes de la liste blanche (`calls::RELAYED`) et `engine_generate` partent vers la tour ; les événements de la tour sont réémis localement sous les mêmes noms. Les pages ne changent pas.
+- Mode distant (récepteur) : bonus, le PC garde son moteur et ses modèles locaux. Une commande n'est relayée vers la tour que si la page ajoute `target: 'server'` aux arguments de `invoke` (liste blanche `calls::RELAYED` et `engine_generate`) ; sans ce champ, elle s'exécute en local. `target` est retiré avant l'exécution ; sans tour configurée : erreur « Aucune tour configurée. ». Le statut du moteur de la tour est réémis sur `remote://engine-status`, les jetons d'une génération sur la tour sur `engine://token` (avec le `requestId`) ; les téléchargements de la tour ne sont pas réémis.
 - Découverte : le récepteur envoie une sonde UDP sur le réseau local ; seule la tour qui reconnaît la clé répond (le récepteur n'a que la clé à saisir).
 - Tant que le serveur tourne, `server-guard.js` garde la fenêtre sur `/serveur`.
 - Le tunnel WireGuard chiffre les échanges (voir [wireguard.md](wireguard.md)).

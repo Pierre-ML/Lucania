@@ -38,7 +38,7 @@
     },
     "laptop": {
       "title": "Cette machine est utilisée comme récepteur",
-      "text": "Le chat reste ici, les modèles tournent sur la machine serveur."
+      "text": "Cette machine garde ses modèles locaux. Ceux du serveur s'ajoutent dans le choix du modèle du chat, avec une icône serveur."
     }
   },
   "link": {

@@ -38,7 +38,7 @@
     },
     "laptop": {
       "title": "This machine is used as a receiver",
-      "text": "The chat stays here, the models run on the server machine."
+      "text": "This machine keeps its local models. The server's models are added to the chat's model picker, with a server icon."
     }
   },
   "link": {

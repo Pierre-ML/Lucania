@@ -52,6 +52,8 @@
     "unavailable": "{model} · indisponible",
     "unavailableOption": "{model} (indisponible)",
     "localGroup": "Cet ordinateur",
+    "serverGroup": "Serveur",
+    "serverBadge": "Modèle du serveur",
     "settings": "Réglages du modèle"
   },
   "messages": {

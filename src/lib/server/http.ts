@@ -21,11 +21,16 @@ export function sameOrigin(request: Request): boolean {
   }
 }
 
-/** Identifiant de modèle GGUF : chemin relatif (lettres, chiffres, . _ - + / espace ( )), 1 à 300 caractères. */
+/**
+ * Identifiant de modèle GGUF : chemin relatif (lettres, chiffres, . _ - + / espace ( )), 1 à 300 caractères.
+ * Préfixe facultatif `server::` : modèle de la tour (mode récepteur).
+ */
 const MODEL_RE = /^[A-Za-z0-9._+\-/ ()]+$/;
+const SERVER_PREFIX = 'server::';
 export function validModel(m: unknown): m is string {
   if (typeof m !== 'string') return false;
-  const t = m.trim();
+  let t = m.trim();
+  if (t.startsWith(SERVER_PREFIX)) t = t.slice(SERVER_PREFIX.length);
   if (t.length < 1 || t.length > 300) return false;
   if (!MODEL_RE.test(t)) return false;
   if (t.includes('..') || t.startsWith('/')) return false;

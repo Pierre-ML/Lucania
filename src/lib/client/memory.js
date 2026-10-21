@@ -1,5 +1,5 @@
 // Client API partagé pour la mémoire par modèle (utilisé par la page Paramètres et le chat).
-import { generateText } from './engine.js';
+import { generateText, splitModel } from './engine.js';
 
 /**
  * @typedef {Object} Fact
@@ -125,9 +125,11 @@ export async function getSystemMemory(model) {
  * @returns {Promise<string[]>}
  */
 export async function extractFacts({ model, messages }) {
-  const prompt = await request('/api/memory/extract-prompt', jsonInit('POST', { model, messages }));
+  // La mémoire est rangée par id de modèle (sans le préfixe `server::`) ; la génération garde le préfixe.
+  const memoryModel = splitModel(model).id;
+  const prompt = await request('/api/memory/extract-prompt', jsonInit('POST', { model: memoryModel, messages }));
   if (!prompt || prompt.skip) return [];
   const text = await generateText({ model, messages: prompt.messages, maxTokens: prompt.maxTokens });
-  const data = await request('/api/memory/extract-parse', jsonInit('POST', { model, text }));
+  const data = await request('/api/memory/extract-parse', jsonInit('POST', { model: memoryModel, text }));
   return Array.isArray(data?.facts) ? data.facts : [];
 }

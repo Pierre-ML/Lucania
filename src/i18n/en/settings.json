@@ -289,10 +289,10 @@
   },
   "remote": {
     "title": "Remote access",
-    "description": "Link two Lucania machines: the tower runs the engine, the other machine uses it.",
+    "description": "Link two Lucania machines: the tower shares its models, the other machine can use them in the chat.",
     "client": {
       "title": "Use a tower from this machine",
-      "description": "The chat stays the same: only the engine runs on the tower instead of this computer.",
+      "description": "This PC keeps its local models. The tower's models are added to the chat's model picker, marked with a server icon.",
       "key": {
         "label": "Tower code",
         "placeholder": "Paste the tower code"
@@ -359,7 +359,7 @@
       "delete": {
         "button": "Delete the receiver",
         "title": "Delete the receiver?",
-        "message": "This machine will stop using the tower and go back to its own engine. You can then pick a new role."
+        "message": "The tower's models will no longer be offered in the chat. You can then pick a new role."
       },
       "saveFailed": "The receiver was not saved: the configuration was not kept.",
       "shutdownSync": {
@@ -387,7 +387,7 @@
       "step3": "On the tower: Lucania › Connect machines › Remote access, in Advanced options pick the WireGuard interface, turn on server mode, then copy the code shown.",
       "step3Firewall": "Windows asks to allow Lucania through the firewall: accept for private networks, or create inbound TCP 4750 and UDP 4751 (automatic search) rules limited to the chosen network.",
       "step4": "On the laptop: paste the tower code. Automatic search rarely crosses WireGuard: in Advanced options, enter the address http://10.0.0.1:4750, then “Connect with this address”.",
-      "step5": "The header dot follows the tower: gray when unreachable, orange with no model loaded, green when ready. Shutting the tower down is set up in Connect machines › Shutdown.",
+      "step5": "This PC keeps its own engine and models: the header dot follows the local engine. The tower's models are added to the chat model picker, marked with a server icon. Shutting the tower down is set up in Connect machines › Shutdown.",
       "security": "Security: the connection uses plain HTTP, with no encryption of its own. Use it ONLY inside the WireGuard tunnel; the key only travels through that tunnel.",
       "docs": "Full guide: docs/wireguard.md in the repository."
     },

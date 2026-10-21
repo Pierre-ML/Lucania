@@ -21,7 +21,6 @@ import {
   estimateFitAsync,
   formatBytes,
   getDetectedHardware,
-  isRemoteMode,
   getManualHardware,
   onHardwareChange,
   clearManualHardware,
@@ -415,8 +414,6 @@ engineRefreshBtn?.addEventListener('click', loadEngine);
 
 // ---------- Moteur : mon matériel (détecté ou saisi à la main) ----------
 
-const hwTitleEl = byId('hw-title');
-const hwDescEl = byId('hw-description');
 const hwRamEl = byId('hw-ram');
 const hwGpuEl = byId('hw-gpu');
 const hwUsedEl = byId('hw-used');
@@ -487,17 +484,9 @@ async function fillHardwareForm() {
 
 async function loadHardware() {
   if (!hwRamEl || !hwGpuEl || !hwUsedEl) return;
-  const remote = await isRemoteMode();
   const detected = await getDetectedHardware();
-  const manual = remote ? null : getManualHardware();
+  const manual = getManualHardware();
   hwProfile = manual || detected;
-  if (hwTitleEl) hwTitleEl.textContent = remote ? t('common.remote.hardwareTitle') : t('settings.engine.hardware.title');
-  if (hwDescEl) hwDescEl.textContent = remote ? t('common.remote.hardwareDescription') : t('settings.engine.hardware.description');
-  if (hwToggleBtn) hwToggleBtn.hidden = remote;
-  if (remote && hwFormEl) {
-    hwFormEl.hidden = true;
-    hwToggleBtn?.setAttribute('aria-expanded', 'false');
-  }
   const unknown = t('settings.engine.hardware.notDetected');
   hwRamEl.textContent = detected.known ? formatBytes(detected.ramBytes) : unknown;
   if (!detected.known) hwGpuEl.textContent = unknown;
@@ -507,9 +496,7 @@ async function loadHardware() {
       vram: formatBytes(detected.vramBytes),
     });
   } else hwGpuEl.textContent = t('settings.engine.hardware.noGpuDetected');
-  hwUsedEl.textContent = remote
-    ? t('common.remote.hardwareNote')
-    : manual
+  hwUsedEl.textContent = manual
     ? t('settings.engine.hardware.usedManual', { profile: describeProfile(manual) })
     : t('settings.engine.hardware.usedAuto');
   if (hwResetBtn) hwResetBtn.hidden = !manual;

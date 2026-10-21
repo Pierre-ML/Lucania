@@ -3,11 +3,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { engineAvailable, getSystemHardware } from './engine.js';
 import { getLang, t } from './i18n.js';
-import { getRemoteConfig, onRemoteState } from './remote.js';
 
 /**
  * @typedef {{ ramBytes: number, vramBytes: number, gpuName: string, source: 'auto'|'manual' }} HardwareProfileBase
- * @typedef {HardwareProfileBase & { known: boolean, remote: boolean }} HardwareProfile known : false si rien n'a pu être détecté ; remote : true si le profil est celui de la tour (mode distant)
+ * @typedef {HardwareProfileBase & { known: boolean }} HardwareProfile known : false si rien n'a pu être détecté
  * @typedef {'gpu'|'mixed'|'cpu'|'too-big'} Fit
  * @typedef {{ blockCount: number|null, headCount: number|null, headCountKv: number|null, keyLength: number|null, valueLength: number|null, embeddingLength: number|null, contextLength: number|null }} ArchMeta
  */
@@ -57,56 +56,10 @@ function readManual() {
     const ramBytes = nonNegative(o.ramBytes);
     const vramBytes = nonNegative(o.vramBytes);
     if (ramBytes <= 0 && vramBytes <= 0) return null;
-    return { ramBytes, vramBytes, gpuName: typeof o.gpuName === 'string' ? o.gpuName : '', source: 'manual', known: true, remote: false };
+    return { ramBytes, vramBytes, gpuName: typeof o.gpuName === 'string' ? o.gpuName : '', source: 'manual', known: true };
   } catch {
     return null;
   }
-}
-
-/** Mode distant mémorisé (null = pas encore lu). @type {Promise<boolean>|null} */
-let remoteModePromise = null;
-/** Dernier mode connu, pour repérer un changement. @type {boolean|null} */
-let lastRemote = null;
-let remoteWatched = false;
-
-/** Abonnement unique à l'état distant : changement de mode ou reconnexion = nouvelle détection et nouvelles estimations. */
-async function watchRemote() {
-  if (remoteWatched) return;
-  remoteWatched = true;
-  try {
-    await onRemoteState((s) => {
-      const remote = Boolean(s && s.mode === 'remote');
-      const changed = lastRemote !== null && remote !== lastRemote;
-      const reconnected = remote && Boolean(s.connected);
-      remoteModePromise = Promise.resolve(remote);
-      lastRemote = remote;
-      if (changed || reconnected) {
-        autoPromise = null;
-        clearFitCache();
-        notify();
-      }
-    });
-  } catch {
-    /* hors Tauri : pas de mode distant */
-  }
-}
-
-/** Vrai si le moteur est relayé vers une tour (mode distant). Mémorisé, invalidé par les changements d'état distant. @returns {Promise<boolean>} */
-export function isRemoteMode() {
-  if (!remoteModePromise) {
-    remoteModePromise = (async () => {
-      let remote = false;
-      try {
-        remote = (await getRemoteConfig()).mode === 'remote';
-      } catch {
-        remote = false;
-      }
-      lastRemote = remote;
-      return remote;
-    })();
-    watchRemote();
-  }
-  return remoteModePromise;
 }
 
 /** Détection automatique (une seule fois par session). @returns {Promise<HardwareProfile>} */
@@ -114,10 +67,8 @@ function detectAuto() {
   if (autoPromise) return autoPromise;
   autoPromise = (async () => {
     /** @type {HardwareProfile} */
-    const none = { ramBytes: 0, vramBytes: 0, gpuName: '', source: 'auto', known: false, remote: false };
+    const none = { ramBytes: 0, vramBytes: 0, gpuName: '', source: 'auto', known: false };
     if (!engineAvailable()) return none;
-    const remote = await isRemoteMode();
-    none.remote = remote;
     try {
       const hw = await getSystemHardware();
       const gpus = Array.isArray(hw.gpus) ? hw.gpus : [];
@@ -132,7 +83,6 @@ function detectAuto() {
         gpuName: best && typeof best.name === 'string' ? best.name : '',
         source: 'auto',
         known: ramBytes > 0,
-        remote,
       };
     } catch {
       autoPromise = null; // on réessaiera à la prochaine demande
@@ -142,9 +92,8 @@ function detectAuto() {
   return autoPromise;
 }
 
-/** Profil à utiliser : celui saisi à la main s'il existe (sauf en mode distant : détection de la tour), sinon la détection. @returns {Promise<HardwareProfile>} */
+/** Profil à utiliser (ce PC) : celui saisi à la main s'il existe, sinon la détection. @returns {Promise<HardwareProfile>} */
 export async function getHardwareProfile() {
-  if (await isRemoteMode()) return detectAuto();
   return readManual() || (await detectAuto());
 }
 
